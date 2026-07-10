@@ -8,10 +8,10 @@ COPY docker/ros_entrypoint.sh /ros_entrypoint.sh
 RUN chmod +x /ros_entrypoint.sh
 
 # Package source and same-repo build dependency.
-COPY src/frcobot_ros2/fairino_hardware_v3_9_4 /opt/grip/src/frcobot_ros2/fairino_hardware_v3_9_4
-COPY src/frcobot_ros2/fairino_msgs /opt/grip/src/frcobot_ros2/fairino_msgs
+COPY src/frcobot_ros2/fairino_hardware_v3_9_4 /workspace/src/frcobot_ros2/fairino_hardware_v3_9_4
+COPY src/frcobot_ros2/fairino_msgs /workspace/src/frcobot_ros2/fairino_msgs
 
-WORKDIR /opt/grip
+WORKDIR /workspace
 
 RUN . /opt/ros/${ROS_DISTRO}/setup.bash && \
     PATHS="$(colcon list --packages-up-to ${PACKAGE_NAME} --paths-only | tr '\n' ' ')" && \
