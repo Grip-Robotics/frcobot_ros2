@@ -515,13 +515,14 @@
 
     The 140 mm TCP offset is measured to the middle of the fingers. The whole
     gripper is rotated 45 degrees around flange Z. The fixed fingers represent
-    their open state; their dimensions and 8 degree inward angles remain
-    approximations pending measurements of the real gripper.
+    their open state, flaring from a 60 mm gap at their bases to a 140 mm gap
+    at their ends. Their dimensions remain approximations pending measurements
+    of the real gripper.
   -->
   <link name="robotdigg_gripper_base">
     <visual>
       <geometry>
-        <box size="0.080 0.120 0.068" />
+        <box size="0.070 0.090 0.060" />
       </geometry>
       <material name="robotdigg_gripper_base_material">
         <color rgba="0.65 0.65 0.65 1" />
@@ -529,13 +530,13 @@
     </visual>
     <collision>
       <geometry>
-        <box size="0.080 0.120 0.068" />
+        <box size="0.070 0.090 0.060" />
       </geometry>
     </collision>
   </link>
   <joint name="robotdigg_gripper_base_joint" type="fixed">
     <!-- Place the palm against the flange and apply the physical 45 degree twist. -->
-    <origin xyz="0 0 0.034" rpy="0 0 0.785398" />
+    <origin xyz="0 0 0.030" rpy="0 0 0.785398" />
     <parent link="flange_Link" />
     <child link="robotdigg_gripper_base" />
   </joint>
@@ -556,7 +557,7 @@
     </collision>
   </link>
   <joint name="robotdigg_left_finger_joint" type="fixed">
-    <origin xyz="0 0.045 0.106" rpy="0.139626 0 0" />
+    <origin xyz="0 0.0556509 0.110" rpy="-0.342810 0 0" />
     <parent link="robotdigg_gripper_base" />
     <child link="robotdigg_left_finger" />
   </joint>
@@ -577,7 +578,7 @@
     </collision>
   </link>
   <joint name="robotdigg_right_finger_joint" type="fixed">
-    <origin xyz="0 -0.045 0.106" rpy="-0.139626 0 0" />
+    <origin xyz="0 -0.0556509 0.110" rpy="0.342810 0 0" />
     <parent link="robotdigg_gripper_base" />
     <child link="robotdigg_right_finger" />
   </joint>
@@ -585,7 +586,7 @@
   <!-- TCP at the center of the open gap and gripping-pad length. -->
   <link name="robotdigg_tcp" />
   <joint name="robotdigg_tcp_joint" type="fixed">
-    <origin xyz="0 0 0.106" rpy="0 0 0" />
+    <origin xyz="0 0 0.110" rpy="0 0 0" />
     <parent link="robotdigg_gripper_base" />
     <child link="robotdigg_tcp" />
   </joint>
