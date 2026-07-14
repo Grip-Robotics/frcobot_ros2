@@ -513,27 +513,49 @@
       +Y points across the gap (finger closing axis).
       +X completes the right-handed frame.
 
-    The dimensions and offsets below are initial estimates. Measure the real
-    gripper and update the finger joint origins, box sizes, and TCP offset
-    before relying on them for collision checking or grasp alignment.
+    The 140 mm TCP offset is measured to the middle of the fingers. The palm,
+    finger dimensions, and 8 degree finger angles are approximations; measure
+    the real gripper before relying on them for collision checking.
   -->
+  <link name="robotdigg_gripper_base">
+    <visual>
+      <geometry>
+        <box size="0.080 0.110 0.068" />
+      </geometry>
+      <material name="robotdigg_gripper_base_material">
+        <color rgba="0.65 0.65 0.65 1" />
+      </material>
+    </visual>
+    <collision>
+      <geometry>
+        <box size="0.080 0.110 0.068" />
+      </geometry>
+    </collision>
+  </link>
+  <joint name="robotdigg_gripper_base_joint" type="fixed">
+    <!-- Place the palm directly against the flange. -->
+    <origin xyz="0 0 0.034" rpy="0 0 0" />
+    <parent link="flange_Link" />
+    <child link="robotdigg_gripper_base" />
+  </joint>
+
   <link name="robotdigg_left_finger">
     <visual>
       <geometry>
-        <box size="0.025 0.012 0.100" />
+        <box size="0.025 0.012 0.140" />
       </geometry>
-      <material name="robotdigg_finger">
+      <material name="robotdigg_left_finger_material">
         <color rgba="0.25 0.25 0.25 1" />
       </material>
     </visual>
     <collision>
       <geometry>
-        <box size="0.025 0.012 0.100" />
+        <box size="0.025 0.012 0.140" />
       </geometry>
     </collision>
   </link>
   <joint name="robotdigg_left_finger_joint" type="fixed">
-    <origin xyz="0 0.036 0.130" rpy="0 0 0" />
+    <origin xyz="0 0.035 0.140" rpy="0.139626 0 0" />
     <parent link="flange_Link" />
     <child link="robotdigg_left_finger" />
   </joint>
@@ -541,18 +563,20 @@
   <link name="robotdigg_right_finger">
     <visual>
       <geometry>
-        <box size="0.025 0.012 0.100" />
+        <box size="0.025 0.012 0.140" />
       </geometry>
-      <material name="robotdigg_finger" />
+      <material name="robotdigg_right_finger_material">
+        <color rgba="0.25 0.25 0.25 1" />
+      </material>
     </visual>
     <collision>
       <geometry>
-        <box size="0.025 0.012 0.100" />
+        <box size="0.025 0.012 0.140" />
       </geometry>
     </collision>
   </link>
   <joint name="robotdigg_right_finger_joint" type="fixed">
-    <origin xyz="0 -0.036 0.130" rpy="0 0 0" />
+    <origin xyz="0 -0.035 0.140" rpy="-0.139626 0 0" />
     <parent link="flange_Link" />
     <child link="robotdigg_right_finger" />
   </joint>
@@ -560,7 +584,7 @@
   <!-- TCP at the center of the open gap and gripping-pad length. -->
   <link name="robotdigg_tcp" />
   <joint name="robotdigg_tcp_joint" type="fixed">
-    <origin xyz="0 0 0.130" rpy="0 0 0" />
+    <origin xyz="0 0 0.140" rpy="0 0 0" />
     <parent link="flange_Link" />
     <child link="robotdigg_tcp" />
   </joint>
