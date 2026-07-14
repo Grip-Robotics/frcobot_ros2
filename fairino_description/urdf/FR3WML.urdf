@@ -516,13 +516,13 @@
     The 140 mm TCP offset is measured to the middle of the fingers. The whole
     gripper is rotated 45 degrees around flange Z. The fixed fingers represent
     their open state, flaring from a 60 mm gap at their bases to a 140 mm gap
-    at their ends. Their dimensions remain approximations pending measurements
-    of the real gripper.
+    at their ends. The palm ends approximately 3 mm before the finger boxes.
+    Their dimensions remain approximations pending measurements of the gripper.
   -->
   <link name="robotdigg_gripper_base">
     <visual>
       <geometry>
-        <box size="0.070 0.090 0.060" />
+        <box size="0.070 0.090 0.084" />
       </geometry>
       <material name="robotdigg_gripper_base_material">
         <color rgba="0.65 0.65 0.65 1" />
@@ -530,13 +530,13 @@
     </visual>
     <collision>
       <geometry>
-        <box size="0.070 0.090 0.060" />
+        <box size="0.070 0.090 0.084" />
       </geometry>
     </collision>
   </link>
   <joint name="robotdigg_gripper_base_joint" type="fixed">
     <!-- Place the palm against the flange and apply the physical 45 degree twist. -->
-    <origin xyz="0 0 0.030" rpy="0 0 0.785398" />
+    <origin xyz="0 0 0.042" rpy="0 0 0.785398" />
     <parent link="flange_Link" />
     <child link="robotdigg_gripper_base" />
   </joint>
@@ -544,7 +544,7 @@
   <link name="robotdigg_left_finger">
     <visual>
       <geometry>
-        <box size="0.025 0.012 0.119" />
+        <box size="0.025 0.012 0.109" />
       </geometry>
       <material name="robotdigg_left_finger_material">
         <color rgba="0.25 0.25 0.25 1" />
@@ -552,12 +552,12 @@
     </visual>
     <collision>
       <geometry>
-        <box size="0.025 0.012 0.119" />
+        <box size="0.025 0.012 0.109" />
       </geometry>
     </collision>
   </link>
   <joint name="robotdigg_left_finger_joint" type="fixed">
-    <origin xyz="0 0.0556509 0.110" rpy="-0.342810 0 0" />
+    <origin xyz="0 0.0555814 0.098" rpy="-0.375752 0 0" />
     <parent link="robotdigg_gripper_base" />
     <child link="robotdigg_left_finger" />
   </joint>
@@ -565,7 +565,7 @@
   <link name="robotdigg_right_finger">
     <visual>
       <geometry>
-        <box size="0.025 0.012 0.119" />
+        <box size="0.025 0.012 0.109" />
       </geometry>
       <material name="robotdigg_right_finger_material">
         <color rgba="0.25 0.25 0.25 1" />
@@ -573,12 +573,12 @@
     </visual>
     <collision>
       <geometry>
-        <box size="0.025 0.012 0.119" />
+        <box size="0.025 0.012 0.109" />
       </geometry>
     </collision>
   </link>
   <joint name="robotdigg_right_finger_joint" type="fixed">
-    <origin xyz="0 -0.0556509 0.110" rpy="0.342810 0 0" />
+    <origin xyz="0 -0.0555814 0.098" rpy="0.375752 0 0" />
     <parent link="robotdigg_gripper_base" />
     <child link="robotdigg_right_finger" />
   </joint>
@@ -586,7 +586,7 @@
   <!-- TCP at the center of the open gap and gripping-pad length. -->
   <link name="robotdigg_tcp" />
   <joint name="robotdigg_tcp_joint" type="fixed">
-    <origin xyz="0 0 0.110" rpy="0 0 0" />
+    <origin xyz="0 0 0.098" rpy="0 0 0" />
     <parent link="robotdigg_gripper_base" />
     <child link="robotdigg_tcp" />
   </joint>
