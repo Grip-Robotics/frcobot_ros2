@@ -504,4 +504,64 @@
       k_position="0"
       k_velocity="0" />
   </joint>
+
+  <!--
+    Approximate RobotDigg gripper in its open configuration.
+
+    Frame convention:
+      +Z points from the flange into the gripper (approach axis).
+      +Y points across the gap (finger closing axis).
+      +X completes the right-handed frame.
+
+    The dimensions and offsets below are initial estimates. Measure the real
+    gripper and update the finger joint origins, box sizes, and TCP offset
+    before relying on them for collision checking or grasp alignment.
+  -->
+  <link name="robotdigg_left_finger">
+    <visual>
+      <geometry>
+        <box size="0.025 0.012 0.100" />
+      </geometry>
+      <material name="robotdigg_finger">
+        <color rgba="0.25 0.25 0.25 1" />
+      </material>
+    </visual>
+    <collision>
+      <geometry>
+        <box size="0.025 0.012 0.100" />
+      </geometry>
+    </collision>
+  </link>
+  <joint name="robotdigg_left_finger_joint" type="fixed">
+    <origin xyz="0 0.036 0.130" rpy="0 0 0" />
+    <parent link="flange_Link" />
+    <child link="robotdigg_left_finger" />
+  </joint>
+
+  <link name="robotdigg_right_finger">
+    <visual>
+      <geometry>
+        <box size="0.025 0.012 0.100" />
+      </geometry>
+      <material name="robotdigg_finger" />
+    </visual>
+    <collision>
+      <geometry>
+        <box size="0.025 0.012 0.100" />
+      </geometry>
+    </collision>
+  </link>
+  <joint name="robotdigg_right_finger_joint" type="fixed">
+    <origin xyz="0 -0.036 0.130" rpy="0 0 0" />
+    <parent link="flange_Link" />
+    <child link="robotdigg_right_finger" />
+  </joint>
+
+  <!-- TCP at the center of the open gap and gripping-pad length. -->
+  <link name="robotdigg_tcp" />
+  <joint name="robotdigg_tcp_joint" type="fixed">
+    <origin xyz="0 0 0.130" rpy="0 0 0" />
+    <parent link="flange_Link" />
+    <child link="robotdigg_tcp" />
+  </joint>
 </robot>
