@@ -150,6 +150,12 @@ ServoJStreamMetrics ServoJStreamer::run_reserved(
     ~ScopeExit() {function();}
   } scope_exit{release};
 
+  if (cancel_requested_.load()) {
+    metrics.cancelled = true;
+    metrics.message = "ServoJ stream cancelled";
+    return metrics;
+  }
+
   int error = robot_.servo_move_start(communication_type);
   if (error != 0) {
     metrics.controller_error = error;
