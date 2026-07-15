@@ -392,7 +392,10 @@ rclcpp_action::CancelResponse robot_command_thread::_handle_stream_cancel(
 {
     {
         std::lock_guard<std::mutex> goal_lock(_stream_goal_mutex);
-        if (_active_stream_goal.lock() != goal_handle) {
+        const auto active_goal = _active_stream_goal.lock();
+        if (active_goal != goal_handle &&
+            !(active_goal == nullptr && _servo_j_streamer->active()))
+        {
             return rclcpp_action::CancelResponse::REJECT;
         }
     }
