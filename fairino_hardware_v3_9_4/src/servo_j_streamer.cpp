@@ -5,7 +5,18 @@
 #include <cmath>
 #include <climits>
 #include <ctime>
+#include <iomanip>
 #include <sstream>
+
+namespace
+{
+
+double nanoseconds_to_milliseconds(int64_t nanoseconds)
+{
+  return static_cast<double>(nanoseconds) / 1.0e6;
+}
+
+}  // namespace
 
 namespace fairino_hardware
 {
@@ -174,6 +185,7 @@ ServoJStreamMetrics ServoJStreamer::run_reserved(
 
   int64_t previous_send_ns = -1;
   int64_t last_feedback_ns = start_ns - feedback_period_ns;
+  ServoJCallTiming last_call_timing{};
   for (uint64_t sample = 0; sample < metrics.samples_requested; ++sample) {
     if (cancel_requested_.load()) {
       metrics.cancelled = true;
@@ -201,7 +213,9 @@ ServoJStreamMetrics ServoJStreamer::run_reserved(
       ++metrics.missed_deadlines;
     }
     if (wake_lateness_ns > fatal_lateness_ns) {
-      metrics.message = "ServoJ timing failure: command deadline exceeded maximum lateness";
+      metrics.message = format_timing_failure(
+        "ServoJ timing failure: command deadline exceeded maximum lateness",
+        metrics, sample, request.period_sec, wake_lateness_ns, true, last_call_timing);
       finish_with_stop_and_end(metrics, communication_type);
       return metrics;
     }
@@ -233,6 +247,7 @@ ServoJStreamMetrics ServoJStreamer::run_reserved(
     }
     ++metrics.samples_sent;
     metrics.last_command_id = static_cast<uint64_t>(command_id);
+    last_call_timing = robot_.last_servo_j_timing();
 
     // Measure after the SDK call so mutex contention and SDK/UDP call time are reflected.
     const int64_t sent_ns = clock_.now_nanoseconds();
@@ -252,7 +267,9 @@ ServoJStreamMetrics ServoJStreamer::run_reserved(
     }
     previous_send_ns = sent_ns;
     if (sent_lateness_ns > fatal_lateness_ns) {
-      metrics.message = "ServoJ timing failure: SDK command completed after maximum lateness";
+      metrics.message = format_timing_failure(
+        "ServoJ timing failure: SDK command completed after maximum lateness",
+        metrics, sample, request.period_sec, wake_lateness_ns, false, last_call_timing);
       finish_with_stop_and_end(metrics, communication_type);
       return metrics;
     }
@@ -310,6 +327,40 @@ int ServoJStreamer::allocate_command_id()
 int64_t ServoJStreamer::seconds_to_nanoseconds(double seconds)
 {
   return static_cast<int64_t>(std::llround(seconds * 1.0e9));
+}
+
+std::string ServoJStreamer::format_timing_failure(
+  const char * prefix, const ServoJStreamMetrics & metrics, uint64_t sample_index,
+  double period_sec, int64_t wake_lateness_ns, bool before_sdk_call,
+  const ServoJCallTiming & call_timing)
+{
+  // Keep the prefix unmodified so consumers can keep matching on the existing
+  // failure strings; the measured breakdown is appended in a bracketed suffix.
+  std::ostringstream message;
+  message << prefix << std::fixed <<
+    " [sample_index=" << sample_index <<
+    " samples_sent=" << metrics.samples_sent <<
+    std::setprecision(6) << " period_sec=" << period_sec <<
+    std::setprecision(3) <<
+    " wake_lateness_ms=" << nanoseconds_to_milliseconds(wake_lateness_ns);
+  if (before_sdk_call) {
+    // Aborted before issuing this sample's ServoJ; the previous sample's SDK
+    // call and mutex wait are what pushed the wake past the deadline.
+    message <<
+      " sdk_call_ms=0.000 lock_wait_ms=0.000" <<
+      " prev_sdk_call_ms=" <<
+      nanoseconds_to_milliseconds(call_timing.sdk_call_nanoseconds) <<
+      " prev_lock_wait_ms=" <<
+      nanoseconds_to_milliseconds(call_timing.lock_wait_nanoseconds);
+  } else {
+    message <<
+      " sdk_call_ms=" << nanoseconds_to_milliseconds(call_timing.sdk_call_nanoseconds) <<
+      " lock_wait_ms=" << nanoseconds_to_milliseconds(call_timing.lock_wait_nanoseconds);
+  }
+  message <<
+    " max_interval_ms=" << metrics.maximum_interval_sec * 1.0e3 <<
+    " missed_deadlines=" << metrics.missed_deadlines << "]";
+  return message.str();
 }
 
 }  // namespace fairino_hardware

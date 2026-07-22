@@ -5,6 +5,7 @@
 #include "fairino_hardware/global_val_def.hpp"
 #include "sys/mman.h"
 #include <array>
+#include <chrono>
 #include <unordered_set>
 
 std::atomic_bool _reconnect_flag;
@@ -35,10 +36,28 @@ public:
         for (double & position : external_axes.ePos) {
             position = 0.0;
         }
+        // Split mutex wait from SDK/UDP call time so a fatal deadline abort can
+        // report which of the two stalled the 250 Hz loop.
+        const auto lock_requested = std::chrono::steady_clock::now();
         std::lock_guard<std::mutex> lock(sdk_mutex_);
-        return robot_.ServoJ(
+        const auto lock_acquired = std::chrono::steady_clock::now();
+        const int result = robot_.ServoJ(
           &joints, &external_axes, 0.0F, 0.0F, period_sec, 0.0F, 0.0F, command_id,
           communication_type);
+        const auto call_finished = std::chrono::steady_clock::now();
+        last_timing_.lock_wait_nanoseconds =
+          std::chrono::duration_cast<std::chrono::nanoseconds>(
+            lock_acquired - lock_requested).count();
+        last_timing_.sdk_call_nanoseconds =
+          std::chrono::duration_cast<std::chrono::nanoseconds>(
+            call_finished - lock_acquired).count();
+        return result;
+    }
+
+    // Written and read only from the stream worker thread issuing servo_j().
+    fairino_hardware::ServoJCallTiming last_servo_j_timing() const override
+    {
+        return last_timing_;
     }
 
     int stop_motion() override
@@ -56,6 +75,7 @@ public:
 private:
     FRRobot & robot_;
     std::mutex & sdk_mutex_;
+    fairino_hardware::ServoJCallTiming last_timing_{};
 };
 
 #define LOGGER_NAME "fairino_ros2_command_server"
@@ -247,7 +267,9 @@ robot_command_thread::robot_command_thread(const std::string node_name):rclcpp::
     this->declare_parameter<double>("servo_j.maximum_period_sec", 0.016);
     this->declare_parameter<double>("servo_j.maximum_joint_step_deg", 1.0);
     this->declare_parameter<double>("servo_j.deadline_tolerance_sec", 0.00025);
-    this->declare_parameter<double>("servo_j.maximum_lateness_sec", 0.0);
+    // Two 4 ms periods: measured non-RT hosts (Docker/CFS) overshoot 4 ms
+    // deadlines by several milliseconds under load. 0.0 = one requested period.
+    this->declare_parameter<double>("servo_j.maximum_lateness_sec", 0.008);
     this->declare_parameter<double>("servo_j.feedback_period_sec", 0.05);
     /*********************************************************************************************/
 
@@ -442,6 +464,15 @@ void robot_command_thread::_execute_stream(
     result->maximum_interval_sec = metrics.maximum_interval_sec;
     result->missed_deadlines = metrics.missed_deadlines;
     result->cancelled = metrics.cancelled;
+
+    if (!metrics.success && !metrics.cancelled) {
+        RCLCPP_ERROR(
+            get_logger(),
+            "Buffered ServoJ stream aborted: %s (controller_error=%d samples_sent=%lu/%lu)",
+            metrics.message.c_str(), metrics.controller_error,
+            static_cast<unsigned long>(metrics.samples_sent),
+            static_cast<unsigned long>(metrics.samples_requested));
+    }
 
     if (goal_handle->is_canceling()) {
         result->cancelled = true;
