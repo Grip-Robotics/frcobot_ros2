@@ -66,12 +66,21 @@ public:
     return end_error;
   }
 
+  fairino_hardware::ServoJCallTiming last_servo_j_timing() const override
+  {
+    fairino_hardware::ServoJCallTiming timing;
+    timing.lock_wait_nanoseconds = lock_wait_nanoseconds;
+    timing.sdk_call_nanoseconds = servo_duration_nanoseconds;
+    return timing;
+  }
+
   int start_error{0};
   int servo_error{0};
   int stop_error{0};
   int end_error{0};
   FakeClock * clock{nullptr};
   int64_t servo_duration_nanoseconds{0};
+  int64_t lock_wait_nanoseconds{0};
   std::vector<std::string> calls;
   std::vector<std::array<double, 6>> targets;
   std::vector<float> periods;
@@ -214,7 +223,8 @@ TEST(ServoJStreamerExecution, TimingFailureStopsBeforeSendingLateCommand)
 {
   MockRobot robot;
   FakeClock clock;
-  clock.lateness = 5000000LL;
+  // Above the default 8 ms fatal budget (two 4 ms periods).
+  clock.lateness = 9000000LL;
   fairino_hardware::ServoJStreamer streamer(robot, clock);
   const auto request = valid_request();
   std::string reason;
@@ -226,6 +236,50 @@ TEST(ServoJStreamerExecution, TimingFailureStopsBeforeSendingLateCommand)
   EXPECT_EQ(result.missed_deadlines, 1U);
   EXPECT_EQ(result.samples_sent, 0U);
   EXPECT_EQ(robot.calls, (std::vector<std::string>{"start:1", "stop", "end:1"}));
+  EXPECT_NE(
+    result.message.find("command deadline exceeded maximum lateness"), std::string::npos);
+  EXPECT_NE(result.message.find("sample_index=0"), std::string::npos);
+  EXPECT_NE(result.message.find("wake_lateness_ms=9.000"), std::string::npos);
+  EXPECT_NE(result.message.find("sdk_call_ms=0.000"), std::string::npos);
+  EXPECT_NE(result.message.find("missed_deadlines=1"), std::string::npos);
+}
+
+TEST(ServoJStreamerExecution, LatenessWithinFatalBudgetOnlyCountsMisses)
+{
+  MockRobot robot;
+  FakeClock clock;
+  // Above the miss tolerance but below the default 8 ms fatal budget.
+  clock.lateness = 5000000LL;
+  fairino_hardware::ServoJStreamer streamer(robot, clock);
+  const auto request = valid_request();
+  std::string reason;
+  ASSERT_TRUE(streamer.reserve(request, reason));
+
+  const auto result = streamer.run_reserved(request);
+
+  EXPECT_TRUE(result.success);
+  EXPECT_EQ(result.samples_sent, 2U);
+  EXPECT_EQ(result.missed_deadlines, 2U);
+}
+
+TEST(ServoJStreamerExecution, NonPositiveMaximumLatenessFallsBackToOnePeriod)
+{
+  MockRobot robot;
+  FakeClock clock;
+  // Below the 8 ms default but above one 4 ms period.
+  clock.lateness = 5000000LL;
+  fairino_hardware::ServoJStreamerConfig config;
+  config.maximum_lateness_sec = 0.0;
+  fairino_hardware::ServoJStreamer streamer(robot, clock, config);
+  const auto request = valid_request();
+  std::string reason;
+  ASSERT_TRUE(streamer.reserve(request, reason));
+
+  const auto result = streamer.run_reserved(request);
+
+  EXPECT_FALSE(result.success);
+  EXPECT_EQ(result.samples_sent, 0U);
+  EXPECT_EQ(robot.calls, (std::vector<std::string>{"start:1", "stop", "end:1"}));
 }
 
 TEST(ServoJStreamerExecution, TimingMetricsIncludeSdkAndMutexDelay)
@@ -233,7 +287,8 @@ TEST(ServoJStreamerExecution, TimingMetricsIncludeSdkAndMutexDelay)
   MockRobot robot;
   FakeClock clock;
   robot.clock = &clock;
-  robot.servo_duration_nanoseconds = 5000000LL;
+  robot.servo_duration_nanoseconds = 9000000LL;
+  robot.lock_wait_nanoseconds = 1500000LL;
   fairino_hardware::ServoJStreamer streamer(robot, clock);
   const auto request = valid_request();
   std::string reason;
@@ -245,6 +300,10 @@ TEST(ServoJStreamerExecution, TimingMetricsIncludeSdkAndMutexDelay)
   EXPECT_EQ(result.samples_sent, 1U);
   EXPECT_EQ(result.missed_deadlines, 1U);
   EXPECT_EQ(robot.calls, (std::vector<std::string>{"start:1", "servo:1", "stop", "end:1"}));
+  EXPECT_NE(
+    result.message.find("SDK command completed after maximum lateness"), std::string::npos);
+  EXPECT_NE(result.message.find("sdk_call_ms=9.000"), std::string::npos);
+  EXPECT_NE(result.message.find("lock_wait_ms=1.500"), std::string::npos);
 }
 
 TEST(ServoJStreamerExecution, StartFailureStillStopsThenEnds)
