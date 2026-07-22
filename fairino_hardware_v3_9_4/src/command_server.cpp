@@ -667,7 +667,13 @@ void robot_command_thread::_state_recv_callback(){
     ROBOT_STATE_PKG ctrl_state{};
     int res;
     {
-        std::lock_guard<std::mutex> sdk_lock(_sdk_mutex);
+        // try_lock instead of a blocking lock: a stream may have become active
+        // after the check above, and a state poll must never queue behind (and
+        // then stall) a 250 Hz ServoJ command. Dropping one 20 Hz sample is fine.
+        std::unique_lock<std::mutex> sdk_lock(_sdk_mutex, std::try_to_lock);
+        if (!sdk_lock.owns_lock()) {
+            return;
+        }
         res = _ptr_robot->GetRobotRealTimeState(&ctrl_state);
     }
     if (res == 0) {
