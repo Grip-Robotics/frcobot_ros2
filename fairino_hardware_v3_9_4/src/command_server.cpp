@@ -4,7 +4,11 @@
 #include "fairino_hardware/version_control.h"
 #include "fairino_hardware/global_val_def.hpp"
 #include "sys/mman.h"
+#include <pthread.h>
+#include <sched.h>
+#include <algorithm>
 #include <array>
+#include <cstring>
 #include <chrono>
 #include <unordered_set>
 
@@ -271,6 +275,9 @@ robot_command_thread::robot_command_thread(const std::string node_name):rclcpp::
     // deadlines by several milliseconds under load. 0.0 = one requested period.
     this->declare_parameter<double>("servo_j.maximum_lateness_sec", 0.008);
     this->declare_parameter<double>("servo_j.feedback_period_sec", 0.05);
+    // 0 keeps the stream worker on the default best-effort policy. A positive
+    // value requests that SCHED_FIFO priority for the worker instead.
+    this->declare_parameter<int>("servo_j.realtime_priority", 0);
     /*********************************************************************************************/
 
     /***********************************创建字符串指令服务器*****************************************/
@@ -334,6 +341,17 @@ robot_command_thread::robot_command_thread(const std::string node_name):rclcpp::
         this->get_parameter("servo_j.maximum_lateness_sec").as_double();
     stream_config.feedback_period_sec =
         this->get_parameter("servo_j.feedback_period_sec").as_double();
+    const int64_t requested_priority =
+        this->get_parameter("servo_j.realtime_priority").as_int();
+    const int64_t maximum_priority = sched_get_priority_max(SCHED_FIFO);
+    _servo_j_realtime_priority = static_cast<int>(
+        std::min(std::max<int64_t>(0, requested_priority), maximum_priority));
+    if (requested_priority != _servo_j_realtime_priority) {
+        RCLCPP_WARN(
+            get_logger(),
+            "servo_j.realtime_priority %ld is outside [0, %ld]; using %d",
+            requested_priority, maximum_priority, _servo_j_realtime_priority);
+    }
     _servo_j_robot = std::make_unique<FairinoServoJRobot>(*_ptr_robot, _sdk_mutex);
     _servo_j_streamer = std::make_unique<fairino_hardware::ServoJStreamer>(
         *_servo_j_robot, _monotonic_clock, stream_config);
@@ -441,9 +459,36 @@ void robot_command_thread::_handle_stream_accepted(
     _stream_worker = std::thread(&robot_command_thread::_execute_stream, this, goal_handle);
 }
 
+void robot_command_thread::_apply_stream_thread_scheduling()
+{
+    if (_servo_j_realtime_priority <= 0) {
+        return;
+    }
+    // The stream loop wakes once per command period (250 Hz at 4 ms) and a
+    // single wake that misses its deadline by more than the configured budget
+    // aborts the trajectory. Under the default policy the worker competes with
+    // every other best-effort thread on the host, so wake latency is bounded
+    // only by scheduler contention.
+    sched_param schedule{};
+    schedule.sched_priority = _servo_j_realtime_priority;
+    const int error = pthread_setschedparam(pthread_self(), SCHED_FIFO, &schedule);
+    if (error != 0) {
+        RCLCPP_WARN(
+            get_logger(),
+            "ServoJ stream worker stays best-effort: SCHED_FIFO priority %d was refused (%s). "
+            "Real-time scheduling needs CAP_SYS_NICE and an RLIMIT_RTPRIO that covers it.",
+            _servo_j_realtime_priority, std::strerror(error));
+        return;
+    }
+    RCLCPP_INFO(
+        get_logger(), "ServoJ stream worker running SCHED_FIFO priority %d",
+        _servo_j_realtime_priority);
+}
+
 void robot_command_thread::_execute_stream(
         const std::shared_ptr<stream_servo_j_goal_handle> goal_handle)
 {
+    _apply_stream_thread_scheduling();
     const auto request = _make_stream_request(*goal_handle->get_goal());
     const auto metrics = _servo_j_streamer->run_reserved(
         request,
@@ -655,21 +700,15 @@ void robot_command_thread::_fillJointPose(std::list<std::string>& data,JointPos&
  * @brief 通过SDK获取机器人状态并发布到nonrt_state_data topic
  */
 void robot_command_thread::_state_recv_callback(){
-    // GetRobotRealTimeState() and ServoJ share one SDK object and therefore the
-    // same mutex. Polling state at 20 Hz while a buffered stream is active can
-    // hold that mutex across a ServoJ deadline. Skip the SDK poll for the short
-    // duration of the stream; the timer resumes normally after the action has
-    // released its reservation.
-    if (_servo_j_streamer && _servo_j_streamer->active()) {
-        return;
-    }
     auto msg = robot_feedback_msg();
     ROBOT_STATE_PKG ctrl_state{};
     int res;
     {
-        // try_lock instead of a blocking lock: a stream may have become active
-        // after the check above, and a state poll must never queue behind (and
-        // then stall) a 250 Hz ServoJ command. Dropping one 20 Hz sample is fine.
+        // GetRobotRealTimeState() and ServoJ share one SDK object and therefore
+        // the same mutex. Blocking here can hold it across a ServoJ deadline and
+        // abort the stream, so yield rather than wait. ServoJ holds the mutex
+        // only for one command, so losing the race costs a single state sample
+        // instead of silencing state for the whole trajectory.
         std::unique_lock<std::mutex> sdk_lock(_sdk_mutex, std::try_to_lock);
         if (!sdk_lock.owns_lock()) {
             return;
@@ -808,9 +847,20 @@ void robot_command_thread::_state_recv_callback(){
             global_exaxis_pos()[i] = ctrl_state.extAxisStatus[i].pos;
         }
 
+        for (int i = 0; i < 6; i++) {
+            msg.jt_servo_target_pos[i] = ctrl_state.lastServoTarget[i];
+            msg.jt_cur_vel[i] = ctrl_state.actual_qd[i];
+            msg.jt_cur_acc[i] = ctrl_state.actual_qdd[i];
+        }
+        msg.servo_j_cmd_num = ctrl_state.servoJCmdNum;
+        msg.mc_queue_len = ctrl_state.mc_queue_len;
+        msg.frame_cnt = ctrl_state.frame_cnt;
+
         msg.version = "V" + std::to_string(VERSION_MSG_MARJOR) + "." +
             std::to_string(VERSION_MSG_MINOR) + std::to_string(VERSION_MSG_MINOR2);
-        msg.timestamp = RCL_NS_TO_S(rclcpp::Clock().now().nanoseconds());
+        const int64_t state_now_ns = rclcpp::Clock().now().nanoseconds();
+        msg.timestamp = RCL_NS_TO_S(state_now_ns);
+        msg.state_stamp_ns = static_cast<uint64_t>(state_now_ns);
         msg.reconnect_flag = 0;
     } else {
         RCLCPP_WARN(rclcpp::get_logger(LOGGER_NAME),
