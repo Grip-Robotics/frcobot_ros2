@@ -10,7 +10,7 @@
  */
 CNDE_recv_thread::CNDE_recv_thread(const std::string node_name):rclcpp::Node(node_name){
     using namespace std::chrono_literals;
-    _controller_ip = CONTROLLER_IP;//控制器默认ip地址
+    _controller_ip = this->declare_parameter<std::string>("controller_ip", CONTROLLER_IP);
 
     //创建套字
     _socketfd1 = socket(AF_INET,SOCK_DGRAM,0);//使用UDP通讯
