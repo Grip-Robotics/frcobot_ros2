@@ -64,6 +64,7 @@ public:
     std::string RobotEnable(std::string para);//机械臂使能
     std::string Mode(std::string para);//手动模式，自动模式切换
     std::string SetSpeed(std::string para);
+    std::string SetOaccScale(std::string para);
     std::string SetToolCoord(std::string para);
     std::string SetToolList(std::string para);
     std::string SetToolPoint(std::string para);
@@ -345,6 +346,7 @@ private:
     {"DragTeachSwitch",&robot_command_thread::DragTeachSwitch},
     {"RobotEnable",&robot_command_thread::RobotEnable},
     {"SetSpeed",&robot_command_thread::SetSpeed},
+    {"SetOaccScale",&robot_command_thread::SetOaccScale},
     {"Mode",&robot_command_thread::Mode},
     {"SetToolCoord",&robot_command_thread::SetToolCoord},
     {"ComputeTool",&robot_command_thread::ComputeTool},
