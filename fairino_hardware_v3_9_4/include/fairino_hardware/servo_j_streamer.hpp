@@ -87,7 +87,7 @@ public:
 class ServoJStreamer
 {
 public:
-  using FeedbackCallback = std::function<void (uint64_t, uint64_t)>;
+  using FeedbackCallback = std::function<void (uint64_t, uint64_t, int64_t)>;
 
   ServoJStreamer(
     ServoJRobot & robot, MonotonicClock & clock,
@@ -96,7 +96,8 @@ public:
   bool validate(const ServoJStreamRequest & request, std::string & reason) const;
   bool reserve(const ServoJStreamRequest & request, std::string & reason);
   ServoJStreamMetrics run_reserved(
-    const ServoJStreamRequest & request, const FeedbackCallback & feedback = {});
+    const ServoJStreamRequest & request, const FeedbackCallback & feedback = {},
+    const std::function<int64_t()> & ros_now = {});
 
   // Sets cancellation before taking the SDK lock, so no ServoJ can be issued after StopMotion.
   int cancel_and_stop();

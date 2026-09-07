@@ -188,7 +188,7 @@ TEST(ServoJStreamerExecution, CancellationStopsThenEndsAndReportsProgress)
   ASSERT_TRUE(streamer.reserve(request, reason));
 
   const auto result = streamer.run_reserved(
-    request, [&streamer](uint64_t samples_sent, uint64_t) {
+    request, [&streamer](uint64_t samples_sent, uint64_t, int64_t) {
       if (samples_sent == 1) {
         streamer.cancel_and_stop();
       }
@@ -339,6 +339,66 @@ TEST(ServoJStreamerExecution, EndFailureStopsThenRetriesEnd)
   EXPECT_EQ(
     robot.calls,
     (std::vector<std::string>{"start:1", "servo:1", "end:1", "stop", "end:1"}));
+}
+
+TEST(ServoJStreamerExecution, LatchesRosTimeAfterFirstSendAndRepeatsAcrossFeedback)
+{
+  MockRobot robot;
+  FakeClock clock;
+  robot.clock = &clock;
+  // Model the observed late worker start without any debug instrumentation.
+  clock.now += 868000000LL;
+  robot.servo_duration_nanoseconds = 1000000LL;
+  fairino_hardware::ServoJStreamer streamer(robot, clock);
+  const auto request = valid_request(40);
+  std::string reason;
+  ASSERT_TRUE(streamer.reserve(request, reason));
+  const int64_t ros_epoch = 1788791974000000000LL;
+  std::vector<int64_t> starts;
+  int clock_reads = 0;
+  const auto result = streamer.run_reserved(
+    request,
+    [&starts](uint64_t, uint64_t, int64_t stream_start) {starts.push_back(stream_start);},
+    [&]() {++clock_reads; return ros_epoch + clock.now;});
+
+  ASSERT_TRUE(result.success);
+  ASSERT_GT(starts.size(), 1U);
+  EXPECT_EQ(clock_reads, 1);
+  for (const auto start : starts) {
+    EXPECT_EQ(start, ros_epoch + 1869000000LL);
+  }
+
+  // A following goal gets its own origin, not the previous goal's timestamp.
+  ASSERT_TRUE(streamer.reserve(request, reason));
+  const auto previous_start = starts.back();
+  starts.clear();
+  ASSERT_TRUE(streamer.run_reserved(
+    request,
+    [&starts](uint64_t, uint64_t, int64_t start) {starts.push_back(start);},
+    [&]() {++clock_reads; return ros_epoch + clock.now;}).success);
+  EXPECT_EQ(clock_reads, 2);
+  EXPECT_GT(starts.front(), previous_start);
+}
+
+TEST(ServoJStreamerExecution, FailedFirstSendDoesNotAnnounceStreamStart)
+{
+  MockRobot robot;
+  FakeClock clock;
+  robot.servo_error = 7;
+  fairino_hardware::ServoJStreamer streamer(robot, clock);
+  const auto request = valid_request();
+  std::string reason;
+  ASSERT_TRUE(streamer.reserve(request, reason));
+  int clock_reads = 0;
+  int feedback_count = 0;
+  const auto result = streamer.run_reserved(
+    request,
+    [&](uint64_t, uint64_t, int64_t) {++feedback_count;},
+    [&]() {++clock_reads; return 123456789LL;});
+  EXPECT_FALSE(result.success);
+  EXPECT_EQ(result.samples_sent, 0U);
+  EXPECT_EQ(clock_reads, 0);
+  EXPECT_EQ(feedback_count, 0);
 }
 
 }  // namespace

@@ -17,3 +17,7 @@ bool cancelled
 ---
 uint64 samples_sent
 uint64 last_command_id
+
+# ROS time immediately after the first successful ServoJ send; constant per goal.
+# Zero until a sample has been sent. Repeated in every feedback message.
+builtin_interfaces/Time stream_start

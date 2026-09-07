@@ -492,12 +492,14 @@ void robot_command_thread::_execute_stream(
     const auto request = _make_stream_request(*goal_handle->get_goal());
     const auto metrics = _servo_j_streamer->run_reserved(
         request,
-        [goal_handle](uint64_t samples_sent, uint64_t last_command_id) {
+        [goal_handle](uint64_t samples_sent, uint64_t last_command_id, int64_t stream_start_ros_ns) {
             auto feedback = std::make_shared<stream_servo_j_action::Feedback>();
             feedback->samples_sent = samples_sent;
             feedback->last_command_id = last_command_id;
+            feedback->stream_start = rclcpp::Time(stream_start_ros_ns);
             goal_handle->publish_feedback(feedback);
-        });
+        },
+        [this]() {return this->now().nanoseconds();});
 
     auto result = std::make_shared<stream_servo_j_action::Result>();
     result->success = metrics.success;

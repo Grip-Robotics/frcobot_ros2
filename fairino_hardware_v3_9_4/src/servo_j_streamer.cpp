@@ -142,7 +142,8 @@ void ServoJStreamer::finish_with_stop_and_end(
 }
 
 ServoJStreamMetrics ServoJStreamer::run_reserved(
-  const ServoJStreamRequest & request, const FeedbackCallback & feedback)
+  const ServoJStreamRequest & request, const FeedbackCallback & feedback,
+  const std::function<int64_t()> & ros_now)
 {
   ServoJStreamMetrics metrics;
   metrics.samples_requested = request.joints_deg.size() / 6;
@@ -184,6 +185,7 @@ ServoJStreamMetrics ServoJStreamer::run_reserved(
   }
 
   int64_t previous_send_ns = -1;
+  int64_t stream_start_ros_ns = 0;
   int64_t last_feedback_ns = start_ns - feedback_period_ns;
   ServoJCallTiming last_call_timing{};
   for (uint64_t sample = 0; sample < metrics.samples_requested; ++sample) {
@@ -245,6 +247,10 @@ ServoJStreamMetrics ServoJStreamer::run_reserved(
       finish_with_stop_and_end(metrics, communication_type);
       return metrics;
     }
+    if (metrics.samples_sent == 0) {
+      // Capture before diagnostics or feedback can delay observing the first send.
+      stream_start_ros_ns = ros_now ? ros_now() : 0;
+    }
     ++metrics.samples_sent;
     metrics.last_command_id = static_cast<uint64_t>(command_id);
     last_call_timing = robot_.last_servo_j_timing();
@@ -277,7 +283,7 @@ ServoJStreamMetrics ServoJStreamer::run_reserved(
       (sent_ns - last_feedback_ns >= feedback_period_ns ||
       metrics.samples_sent == metrics.samples_requested))
     {
-      feedback(metrics.samples_sent, metrics.last_command_id);
+      feedback(metrics.samples_sent, metrics.last_command_id, stream_start_ros_ns);
       last_feedback_ns = sent_ns;
     }
   }
