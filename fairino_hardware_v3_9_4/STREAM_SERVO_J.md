@@ -23,6 +23,25 @@ the configured per-command limit between adjacent samples. Only one buffered str
 be active. Other motion commands are rejected until it finishes; action cancellation or
 the legacy `StopMotion()` command preempts the stream.
 
+Native `ActGripper` (including reset) and `MoveGripper` requests are rejected
+before acquiring the SDK mutex during either a buffered stream or a legacy
+`ServoMoveStart`/`ServoMoveEnd` session. Native gripper RPCs can wait inside the
+controller even with `block=1`; allowing them to hold the ServoJ SDK mutex can
+starve the stream. Finish the servo session before using these commands.
+
+Outside a servo session, `MoveGripper(index,position)` uses the configured
+`gripper_vel`, `gripper_force`, `gripper_maxtime` and `gripper_block` values.
+The four-argument form overrides speed/force; the six-argument form also
+overrides timeout and blocking mode. For example,
+`MoveGripper(2,100,100,100,3000,1)` requests device 2 at 100% position, speed
+and force, with a 3000 ms timeout and the vendor's non-blocking mode.
+Malformed or out-of-range arguments return `-1` without an SDK call.
+
+This does not establish simultaneous arm/gripper motion. The office Jodell
+pause was also measured using a separate direct XML-RPC connection that
+bypassed this ROS driver and its mutex. Firmware compatibility and a working
+independent wrist command path still need hardware validation.
+
 The result reports requested and sent sample counts, the controller error, final command
 ID, maximum measured SDK-command interval, missed deadlines, and cancellation state.
 Feedback is throttled independently of the command loop (50 ms by default).

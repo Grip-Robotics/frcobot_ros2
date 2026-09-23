@@ -1,4 +1,5 @@
 #include "fairino_hardware/command_server.hpp"
+#include "fairino_hardware/gripper_command.hpp"
 #include <sys/types.h>
 #include <sys/socket.h>
 #include "fairino_hardware/version_control.h"
@@ -586,6 +587,18 @@ void robot_command_thread::_parseROSCommandData_callback(
                     // Hold motion arbitration through dispatch so an action goal cannot reserve
                     // the controller between this check and an ordinary motion SDK call.
                     std::lock_guard<std::mutex> motion_lock(_motion_mutex);
+                    // Native gripper RPCs can wait for the controller's motion
+                    // queue even with block=1. Reject before taking _sdk_mutex,
+                    // which the ServoJ worker needs for every 4 ms sample.
+                    if (fairino_hardware::gripper_conflicts_with_servo(
+                            func_name, _servo_j_streamer && _servo_j_streamer->active(),
+                            _servo_move_active)) {
+                        RCLCPP_WARN(get_logger(),
+                            "Rejecting native %s during ServoJ; finish the servo session first",
+                            func_name.c_str());
+                        res->cmd_res = "-1";
+                        return;
+                    }
                     if (_servo_j_streamer && _servo_j_streamer->active()) {
                         if (func_name == "StopMotion") {
                             res->cmd_res = std::to_string(_servo_j_streamer->cancel_and_stop());
@@ -1471,12 +1484,8 @@ std::string robot_command_thread::SetFrictionValue_freedom(std::string para){
  * @retval 0-成功，其他-错误码 
  */
 std::string robot_command_thread::ActGripper(std::string para){
-    //int index, uint8_t act
-    std::list<std::string> list;
-    _splitString2List(para,list);
-    int index = std::stoi(list.front());list.pop_front();
-    uint8_t act = std::stoi(list.front());
-    return std::to_string(_ptr_robot->ActGripper(index,act));
+    const auto command = fairino_hardware::parse_gripper_activation(para);
+    return std::to_string(_ptr_robot->ActGripper(command[0], command[1]));
 }
 
 /**
@@ -1487,24 +1496,17 @@ std::string robot_command_thread::ActGripper(std::string para){
  * @retval 0-成功，其他-错误码 
  */
 std::string robot_command_thread::MoveGripper(std::string para){
-    //int index, int pos, int vel, int force, int max_time, uint8_t block
-    std::string vel,force,mtime,block;
-    vel = this->get_parameter("gripper_vel").value_to_string();
-    force = this->get_parameter("gripper_force").value_to_string();
-    mtime  = this->get_parameter("gripper_maxtime").value_to_string();//数据读取异常
-    block = this->get_parameter("gripper_block").value_to_string();
-    para = para + "," + vel + "," + force + "," + mtime + "," + block; 
-    
-    std::list<std::string> list;
-    _splitString2List(para,list);
-    
-    int index = std::stoi(list.front());list.pop_front();
-    int pos = std::stoi(list.front());list.pop_front();
-    int veli = std::stoi(list.front());list.pop_front();
-    int forcei = std::stoi(list.front());list.pop_front();
-    int max_timei = 30000;
-    uint8_t blocki = 1;
-    return std::to_string(_ptr_robot->MoveGripper(index,pos,veli,forcei,max_timei,blocki,0,0,0,0));
+    const fairino_hardware::GripperMove defaults{
+        0, 0,
+        get_parameter("gripper_vel").as_int(),
+        get_parameter("gripper_force").as_int(),
+        get_parameter("gripper_maxtime").as_int(),
+        get_parameter("gripper_block").as_int()};
+    const auto command = fairino_hardware::parse_gripper_move(para, defaults);
+    return std::to_string(_ptr_robot->MoveGripper(
+        command.index, command.position, static_cast<int>(command.speed),
+        static_cast<int>(command.force), static_cast<int>(command.max_time_ms),
+        static_cast<uint8_t>(command.block), 0, 0, 0, 0));
 }
     
 /**
