@@ -6,6 +6,7 @@
 #include "rclcpp_action/rclcpp_action.hpp"
 #include "rclcpp/service.hpp"
 #include "fairino_msgs/action/stream_servo_j.hpp"
+#include "fairino_msgs/srv/replace_servo_j_tail.hpp"
 #include "fairino_msgs/srv/remote_script_content.hpp"
 #include "fairino_msgs/srv/remote_cmd_interface.hpp"
 #include "fairino_msgs/msg/robot_nonrt_state.hpp"
@@ -275,6 +276,7 @@ private:
     void _state_recv_callback();
 
     rclcpp_action::Server<stream_servo_j_action>::SharedPtr _stream_servo_j_server;
+    rclcpp::Service<fairino_msgs::srv::ReplaceServoJTail>::SharedPtr _replace_tail_service;
     std::mutex _stream_goal_mutex;
     std::weak_ptr<stream_servo_j_goal_handle> _active_stream_goal;
     rclcpp_action::GoalResponse _handle_stream_goal(

@@ -1,0 +1,9 @@
+# Replace only the future suffix of this exact active action goal.
+string goal_id
+uint64 expected_revision
+uint64 start_sample
+float64[] joints_deg
+---
+bool success
+string message
+uint64 revision

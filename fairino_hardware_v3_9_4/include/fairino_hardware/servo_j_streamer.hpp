@@ -6,6 +6,7 @@
 #include <cstdint>
 #include <functional>
 #include <mutex>
+#include <memory>
 #include <string>
 #include <vector>
 
@@ -17,6 +18,7 @@ struct ServoJStreamRequest
   std::vector<double> joints_deg;
   double period_sec{0.004};
   uint8_t communication_type{1};
+  std::string goal_id;
 };
 
 struct ServoJStreamMetrics
@@ -95,6 +97,9 @@ public:
 
   bool validate(const ServoJStreamRequest & request, std::string & reason) const;
   bool reserve(const ServoJStreamRequest & request, std::string & reason);
+  bool replace_tail(const std::string & goal_id, uint64_t expected_revision,
+    uint64_t start_sample, const std::vector<double> & tail,
+    uint64_t & revision, std::string & reason);
   ServoJStreamMetrics run_reserved(
     const ServoJStreamRequest & request, const FeedbackCallback & feedback = {},
     const std::function<int64_t()> & ros_now = {});
@@ -119,6 +124,14 @@ private:
   ServoJStreamerConfig config_;
   std::atomic_bool active_{false};
   std::atomic_bool cancel_requested_{false};
+  std::mutex buffer_mutex_;
+  std::shared_ptr<const std::vector<double>> buffer_;
+  std::string goal_id_;
+  bool sealed_{false};
+  uint64_t revision_{0};
+  uint64_t next_sample_{0};
+  uint64_t buffer_offset_{0};
+  double period_sec_{0.004};
   std::mutex stop_mutex_;
   bool stop_called_{false};
   int stop_error_{0};

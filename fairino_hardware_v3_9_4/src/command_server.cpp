@@ -369,6 +369,15 @@ robot_command_thread::robot_command_thread(const std::string node_name):rclcpp::
         rcl_action_server_get_default_options(),
         _action_callback_group);
 
+    _replace_tail_service = create_service<fairino_msgs::srv::ReplaceServoJTail>(
+      "replace_servo_j_tail", [this](
+        const std::shared_ptr<fairino_msgs::srv::ReplaceServoJTail::Request> request,
+        std::shared_ptr<fairino_msgs::srv::ReplaceServoJTail::Response> response) {
+        response->success = _servo_j_streamer->replace_tail(request->goal_id,
+          request->expected_revision, request->start_sample, request->joints_deg,
+          response->revision, response->message);
+      }, rmw_qos_profile_services_default, _action_callback_group);
+
     _state_publisher = this->create_publisher<robot_feedback_msg>("nonrt_state_data", 1);
     _state_timer = this->create_wall_timer(
         50ms, std::bind(&robot_command_thread::_state_recv_callback, this),
@@ -420,7 +429,9 @@ rclcpp_action::GoalResponse robot_command_thread::_handle_stream_goal(
         RCLCPP_WARN(get_logger(), "Rejecting StreamServoJ goal: a legacy ServoJ session is active");
         return rclcpp_action::GoalResponse::REJECT;
     }
-    if (!_servo_j_streamer->reserve(_make_stream_request(*goal), reason)) {
+    auto request = _make_stream_request(*goal);
+    request.goal_id = rclcpp_action::to_string(uuid);
+    if (!_servo_j_streamer->reserve(request, reason)) {
         RCLCPP_WARN(get_logger(), "Rejecting StreamServoJ goal: %s", reason.c_str());
         return rclcpp_action::GoalResponse::REJECT;
     }

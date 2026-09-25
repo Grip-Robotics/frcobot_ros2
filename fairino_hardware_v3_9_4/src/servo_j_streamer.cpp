@@ -109,11 +109,73 @@ bool ServoJStreamer::reserve(const ServoJStreamRequest & request, std::string & 
     reason = "another ServoJ stream is already active";
     return false;
   }
+  {
+    std::lock_guard<std::mutex> lock(buffer_mutex_);
+    buffer_ = std::make_shared<const std::vector<double>>(request.joints_deg);
+    goal_id_ = request.goal_id;
+    sealed_ = false;
+    revision_ = next_sample_ = buffer_offset_ = 0;
+    period_sec_ = request.period_sec;
+  }
   cancel_requested_.store(false);
   {
     std::lock_guard<std::mutex> stop_lock(stop_mutex_);
     stop_called_ = false;
     stop_error_ = 0;
+  }
+  return true;
+}
+
+bool ServoJStreamer::replace_tail(const std::string & goal_id,
+  uint64_t expected_revision, uint64_t start_sample, const std::vector<double> & tail,
+  uint64_t & revision, std::string & reason)
+{
+  std::shared_ptr<const std::vector<double>> original;
+  double period;
+  uint64_t offset, retire;
+  {
+    std::lock_guard<std::mutex> lock(buffer_mutex_);
+    if (!active_ || sealed_ || cancel_requested_ || goal_id.empty() || goal_id != goal_id_ ||
+      revision_ != expected_revision || !buffer_ || start_sample < buffer_offset_ ||
+      start_sample >= buffer_offset_ + buffer_->size() / 6)
+    {
+      reason = "inactive stream, stale revision, or invalid splice";
+      return false;
+    }
+    original = buffer_;
+    period = period_sec_;
+    offset = buffer_offset_;
+    retire = std::max(offset, next_sample_ > 0 ? next_sample_ - 1 : 0);
+  }
+  if (tail.empty() || tail.size() % 6 != 0) {
+    reason = "replacement requires complete joint samples";
+    return false;
+  }
+  auto updated = std::make_shared<std::vector<double>>();
+  if (start_sample <= retire) {reason = "splice is already consumed"; return false;}
+  updated->reserve((start_sample - retire) * 6 + tail.size());
+  updated->insert(updated->end(), original->begin() + (retire - offset) * 6,
+    original->begin() + (start_sample - offset) * 6);
+  updated->insert(updated->end(), tail.begin(), tail.end());
+  ServoJStreamRequest check;
+  check.joints_deg = *updated;
+  check.period_sec = period;
+  if (!validate(check, reason)) {return false;}
+  {
+    // Allocation and validation happen outside the realtime stream lock.
+    std::lock_guard<std::mutex> lock(buffer_mutex_);
+    revision = revision_;
+    const uint64_t guard = static_cast<uint64_t>(std::ceil(0.1 / period_sec_));
+    if (!active_ || sealed_ || cancel_requested_ || goal_id != goal_id_ ||
+      revision_ != expected_revision || buffer_ != original ||
+      start_sample <= next_sample_ + guard)
+    {
+      reason = "continuation deadline passed or stream changed; fallback retained";
+      return false;
+    }
+    buffer_ = updated;
+    buffer_offset_ = retire;
+    revision = ++revision_;
   }
   return true;
 }
@@ -188,7 +250,18 @@ ServoJStreamMetrics ServoJStreamer::run_reserved(
   int64_t stream_start_ros_ns = 0;
   int64_t last_feedback_ns = start_ns - feedback_period_ns;
   ServoJCallTiming last_call_timing{};
-  for (uint64_t sample = 0; sample < metrics.samples_requested; ++sample) {
+  for (uint64_t sample = 0; ; ++sample) {
+    std::array<double, 6> joints{};
+    {
+      std::lock_guard<std::mutex> lock(buffer_mutex_);
+      metrics.samples_requested = buffer_offset_ + buffer_->size() / 6;
+      if (sample >= metrics.samples_requested) {
+        sealed_ = true;  // Keep motion ownership through end-of-stream cleanup.
+        break;
+      }
+      std::copy_n(buffer_->begin() + (sample - buffer_offset_) * 6, 6, joints.begin());
+      next_sample_ = sample + 1;
+    }
     if (cancel_requested_.load()) {
       metrics.cancelled = true;
       metrics.message = "ServoJ stream cancelled";
@@ -233,10 +306,6 @@ ServoJStreamMetrics ServoJStreamer::run_reserved(
       metrics.message = "ServoJ command ID exhausted the SDK integer range";
       finish_with_stop_and_end(metrics, communication_type);
       return metrics;
-    }
-    std::array<double, 6> joints{};
-    for (size_t joint = 0; joint < joints.size(); ++joint) {
-      joints[joint] = request.joints_deg[sample * 6 + joint];
     }
     error = robot_.servo_j(
       joints, static_cast<float>(request.period_sec), command_id, communication_type);

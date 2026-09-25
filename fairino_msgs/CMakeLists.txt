@@ -18,6 +18,7 @@ find_package(rosidl_default_generators REQUIRED)
 
 rosidl_generate_interfaces(${PROJECT_NAME}
    "action/StreamServoJ.action"
+   "srv/ReplaceServoJTail.srv"
    "srv/RemoteCmdInterface.srv"
    "srv/RemoteScriptContent.srv"
    "msg/RobotNonrtState.msg"
