@@ -26,6 +26,7 @@
 #include <thread>
 #include "semaphore.h"
 #include "fairino_hardware/servo_j_streamer.hpp"
+#include "fairino_hardware/servo_j_diagnostics.hpp"
 
 using remote_cmd_server_srv_msg = fairino_msgs::srv::RemoteCmdInterface;
 using remote_script_srv_msg = fairino_msgs::srv::RemoteScriptContent;
@@ -327,6 +328,18 @@ private:
     fairino_hardware::SystemMonotonicClock _monotonic_clock;
     std::unique_ptr<fairino_hardware::ServoJStreamer> _servo_j_streamer;
     std::thread _stream_worker;
+    std::string _servo_trace_directory;
+    std::unique_ptr<fairino_hardware::BoundedJsonlFile> _servo_trace_states;
+    std::unique_ptr<fairino_hardware::BoundedJsonlFile> _servo_trace_events;
+    unsigned int _servo_trace_fault_slot = 0;
+    bool _servo_trace_have_state = false;
+    uint64_t _servo_trace_controller_tick = 0;
+    uint8_t _servo_trace_frame = 0;
+    int64_t _servo_trace_last_change_ns = 0;
+    void _trace_controller_state(const ROBOT_STATE_PKG & state, int sdk_error,
+      int64_t read_ros_ns, int64_t read_mono_ns, bool read_skipped = false);
+    void _trace_stream_result(const fairino_hardware::ServoJStreamRequest & request,
+      const fairino_hardware::ServoJStreamMetrics & metrics);
     int _servo_j_realtime_priority = 0;
     int _robot_install;//机械臂安装方式
     std::vector<JointPos> _cmd_jnt_pos_list;//存储关节数据点

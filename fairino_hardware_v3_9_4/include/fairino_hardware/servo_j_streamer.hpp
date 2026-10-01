@@ -6,6 +6,7 @@
 #include <cstdint>
 #include <functional>
 #include <mutex>
+#include <ostream>
 #include <memory>
 #include <string>
 #include <vector>
@@ -32,6 +33,8 @@ struct ServoJStreamMetrics
   double maximum_interval_sec{0.0};
   uint64_t missed_deadlines{0};
   bool cancelled{false};
+  // Result-owned so a new reservation cannot relabel the completed trace.
+  double sdk_cmdt_sec{0.0};
 };
 
 struct ServoJStreamerConfig
@@ -46,8 +49,11 @@ struct ServoJStreamerConfig
   // A non-positive value uses one command period as the fatal lateness threshold.
   double maximum_lateness_sec{0.008};
   double feedback_period_sec{0.05};
-  // Zero preserves the host period. Positive values change only SDK cmdT.
+  // Startup-only experiment. Zero forwards the host period as before; a
+  // positive value changes only the SDK cmdT argument, never sample timing.
   double sdk_cmdt_override_sec{0.0};
+  // Preallocated once; zero disables capture. Clamped to 32768 records.
+  size_t trace_capacity{0};
 };
 
 // Breakdown of the most recent servo_j() call, used to attribute a fatal
@@ -56,6 +62,19 @@ struct ServoJCallTiming
 {
   int64_t lock_wait_nanoseconds{0};
   int64_t sdk_call_nanoseconds{0};
+};
+
+struct ServoJTraceSample
+{
+  uint64_t sample_index{0};
+  uint64_t revision{0};
+  int command_id{-1};  // -1 means the deadline failed before an SDK attempt.
+  int sdk_error{0};
+  int64_t deadline_ns{0};
+  int64_t wake_ns{0};
+  int64_t return_ns{0};
+  ServoJCallTiming timing{};
+  std::array<double, 6> joints_deg{};
 };
 
 class ServoJRobot
@@ -71,6 +90,10 @@ public:
   // Timing of the most recent servo_j() call, read from the streaming thread
   // that issued it. Implementations without measurements may return zeros.
   virtual ServoJCallTiming last_servo_j_timing() const {return ServoJCallTiming{};}
+  // Ordinary trace writers only. These hooks never participate in control.
+  virtual void write_udp_summary(std::ostream & out) {out << "null";}
+  virtual void write_udp_history(std::ostream &) {}
+  virtual void disable_diagnostics() {}
 };
 
 class MonotonicClock
@@ -99,7 +122,8 @@ public:
 
   bool validate(const ServoJStreamRequest & request, std::string & reason) const;
   bool reserve(const ServoJStreamRequest & request, std::string & reason);
-  bool replace_tail(const std::string & goal_id, uint64_t expected_revision,
+  bool replace_tail(
+    const std::string & goal_id, uint64_t expected_revision,
     uint64_t start_sample, const std::vector<double> & tail,
     uint64_t & revision, std::string & reason);
   ServoJStreamMetrics run_reserved(
@@ -111,9 +135,15 @@ public:
   void request_cancel();
   bool active() const;
   int allocate_command_id();
+  // The owning worker calls only after run_reserved returns and before the
+  // next worker starts. Formatting and I/O never run in the send loop.
+  void write_trace(
+    std::ostream & out, const ServoJStreamRequest & request,
+    const ServoJStreamMetrics & metrics, bool include_samples = true) const;
 
 private:
   int stop_once();
+  void record_trace(const ServoJTraceSample & sample);
   void finish_with_stop_and_end(ServoJStreamMetrics & metrics, int communication_type);
   static int64_t seconds_to_nanoseconds(double seconds);
   static std::string format_timing_failure(
@@ -139,6 +169,10 @@ private:
   bool stop_called_{false};
   int stop_error_{0};
   std::atomic<uint64_t> next_command_id_{1};
+  std::vector<ServoJTraceSample> trace_;
+  uint64_t trace_count_{0};
+  int64_t trace_start_mono_ns_{0};
+  int64_t trace_start_ros_ns_{0};
 };
 
 }  // namespace fairino_hardware

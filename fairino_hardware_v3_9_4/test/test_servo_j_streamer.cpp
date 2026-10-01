@@ -1,4 +1,5 @@
 #include "fairino_hardware/servo_j_streamer.hpp"
+#include "fairino_hardware/servo_j_diagnostics.hpp"
 
 #include <gtest/gtest.h>
 
@@ -7,6 +8,8 @@
 #include <limits>
 #include <string>
 #include <vector>
+#include <sstream>
+#include <unistd.h>
 
 namespace
 {
@@ -235,6 +238,29 @@ TEST(ServoJStreamerCmdT, RejectsInvalidOverrideBeforeAnyRobotCall)
   }
 }
 
+TEST(ServoJStreamerCmdT, NewReservationCannotRelabelPreviousResultTrace)
+{
+  MockRobot robot;
+  FakeClock clock;
+  fairino_hardware::ServoJStreamer streamer(robot, clock);
+  const auto first = valid_request();
+  std::string reason;
+  ASSERT_TRUE(streamer.reserve(first, reason));
+  const auto result = streamer.run_reserved(first);
+  ASSERT_TRUE(result.success);
+  auto second = valid_request();
+  second.period_sec = 0.006006;
+  ASSERT_TRUE(streamer.reserve(second, reason));
+  std::ostringstream out;
+  streamer.write_trace(out, first, result);
+  const std::string key = "\"sdk_cmdt_sec\":";
+  const auto pos = out.str().find(key);
+  ASSERT_NE(pos, std::string::npos);
+  EXPECT_DOUBLE_EQ(std::stod(out.str().substr(pos + key.size())), first.period_sec);
+  streamer.request_cancel();
+  EXPECT_TRUE(streamer.run_reserved(second).cancelled);
+}
+
 TEST(ServoJStreamerCmdT, OverrideDoesNotChangeRevisionClockOrCancellation)
 {
   MockRobot robot;
@@ -242,6 +268,7 @@ TEST(ServoJStreamerCmdT, OverrideDoesNotChangeRevisionClockOrCancellation)
   fairino_hardware::ServoJStreamerConfig config;
   config.sdk_cmdt_override_sec = 0.006;
   config.feedback_period_sec = 0.0;
+  config.trace_capacity = 2;
   fairino_hardware::ServoJStreamer streamer(robot, clock, config);
   auto request = valid_request(100);
   request.period_sec = 0.006006;
@@ -273,6 +300,20 @@ TEST(ServoJStreamerCmdT, OverrideDoesNotChangeRevisionClockOrCancellation)
   EXPECT_EQ(std::count(robot.calls.begin(), robot.calls.end(), "start:1"), 1);
   EXPECT_EQ(robot.calls[robot.calls.size() - 2], "stop");
   EXPECT_EQ(robot.calls.back(), "end:1");
+  std::ostringstream out;
+  streamer.write_trace(out, request, result);
+  const std::string trace = out.str();
+  for (const auto & field : std::vector<std::pair<std::string, double>>{
+      {"period_sec", 0.006006}, {"sdk_cmdt_sec", 0.006},
+      {"sdk_cmdt_float_sec", static_cast<double>(static_cast<float>(0.006))}})
+  {
+    const auto key = "\"" + field.first + "\":";
+    const auto pos = trace.find(key);
+    ASSERT_NE(pos, std::string::npos);
+    EXPECT_DOUBLE_EQ(std::stod(trace.substr(pos + key.size())), field.second);
+  }
+  EXPECT_NE(trace.find("\"sdk_cmdt_override_active\":true"), std::string::npos);
+  EXPECT_NE(trace.find("\"buffer_revision\":2"), std::string::npos);
 }
 
 TEST(ServoJStreamerExecution, RejectsASecondActiveStream)
@@ -486,8 +527,8 @@ TEST(ServoJStreamerExecution, LatchesRosTimeAfterFirstSendAndRepeatsAcrossFeedba
   starts.clear();
   ASSERT_TRUE(streamer.run_reserved(
     request,
-    [&starts](uint64_t, uint64_t, int64_t start) {starts.push_back(start);},
-    [&]() {++clock_reads; return ros_epoch + clock.now;}).success);
+      [&starts](uint64_t, uint64_t, int64_t start) {starts.push_back(start);},
+      [&]() {++clock_reads; return ros_epoch + clock.now;}).success);
   EXPECT_EQ(clock_reads, 2);
   EXPECT_GT(starts.front(), previous_start);
 }
@@ -527,16 +568,16 @@ TEST(ServoJStreamerExecution, FutureRevisionPreservesPrefixAndSingleMotionSessio
   auto longer = valid_request(150);
   std::vector<double> tail(longer.joints_deg.begin() + 60 * 6, longer.joints_deg.end());
   const auto result = streamer.run_reserved(request, [&](uint64_t sent, uint64_t, int64_t) {
-    if (sent == 1) {
-      EXPECT_FALSE(streamer.replace_tail("wrong", 0, 60, tail, revision, reason));
-      EXPECT_TRUE(streamer.replace_tail("root", 0, 60, tail, revision, reason));
-      EXPECT_EQ(revision, 1U);
-      EXPECT_FALSE(streamer.replace_tail("root", 0, 60, tail, revision, reason));
-      auto bad = tail;
-      bad[0] += 10;
-      EXPECT_FALSE(streamer.replace_tail("root", 1, 60, bad, revision, reason));
-      EXPECT_FALSE(streamer.replace_tail("root", 1, 2, tail, revision, reason));
-    }
+        if (sent == 1) {
+          EXPECT_FALSE(streamer.replace_tail("wrong", 0, 60, tail, revision, reason));
+          EXPECT_TRUE(streamer.replace_tail("root", 0, 60, tail, revision, reason));
+          EXPECT_EQ(revision, 1U);
+          EXPECT_FALSE(streamer.replace_tail("root", 0, 60, tail, revision, reason));
+          auto bad = tail;
+          bad[0] += 10;
+          EXPECT_FALSE(streamer.replace_tail("root", 1, 60, bad, revision, reason));
+          EXPECT_FALSE(streamer.replace_tail("root", 1, 2, tail, revision, reason));
+        }
   });
   ASSERT_TRUE(result.success);
   EXPECT_EQ(result.samples_sent, 150U);
@@ -560,9 +601,9 @@ TEST(ServoJStreamerExecution, RejectedRevisionKeepsOriginalFallback)
   uint64_t revision = 0;
   ASSERT_TRUE(streamer.reserve(request, reason));
   const auto result = streamer.run_reserved(request, [&](uint64_t sent, uint64_t, int64_t) {
-    if (sent == 1) {
-      EXPECT_FALSE(streamer.replace_tail("root", 0, 60, {NAN}, revision, reason));
-    }
+        if (sent == 1) {
+          EXPECT_FALSE(streamer.replace_tail("root", 0, 60, {NAN}, revision, reason));
+        }
   });
   EXPECT_TRUE(result.success);
   ASSERT_EQ(robot.targets.size(), 80U);
@@ -582,13 +623,14 @@ TEST(ServoJStreamerExecution, RollingRevisionsKeepGlobalSampleClock)
   uint64_t revision = 0;
   ASSERT_TRUE(streamer.reserve(request, reason));
   const auto result = streamer.run_reserved(request, [&](uint64_t sent, uint64_t, int64_t) {
-    if (revision == 0 && sent == 1) {
-      std::vector<double> tail(full.joints_deg.begin() + 60 * 6, full.joints_deg.begin() + 180 * 6);
-      ASSERT_TRUE(streamer.replace_tail("rolling", 0, 60, tail, revision, reason));
-    } else if (revision == 1 && sent > 60) {
-      std::vector<double> tail(full.joints_deg.begin() + 150 * 6, full.joints_deg.end());
-      ASSERT_TRUE(streamer.replace_tail("rolling", 1, 150, tail, revision, reason));
-    }
+        if (revision == 0 && sent == 1) {
+          std::vector<double> tail(full.joints_deg.begin() + 60 * 6,
+          full.joints_deg.begin() + 180 * 6);
+          ASSERT_TRUE(streamer.replace_tail("rolling", 0, 60, tail, revision, reason));
+        } else if (revision == 1 && sent > 60) {
+          std::vector<double> tail(full.joints_deg.begin() + 150 * 6, full.joints_deg.end());
+          ASSERT_TRUE(streamer.replace_tail("rolling", 1, 150, tail, revision, reason));
+        }
   });
   ASSERT_TRUE(result.success);
   ASSERT_EQ(revision, 2U);
@@ -598,6 +640,116 @@ TEST(ServoJStreamerExecution, RollingRevisionsKeepGlobalSampleClock)
   for (size_t i = 0; i < robot.targets.size(); ++i) {
     EXPECT_DOUBLE_EQ(robot.targets[i][0], full.joints_deg[i * 6]);
   }
+}
+
+TEST(ServoJStreamerDiagnostics, BoundedRingRetainsSentSamplesAfterTailRevisionAndCancel)
+{
+  MockRobot robot;
+  FakeClock clock;
+  fairino_hardware::ServoJStreamerConfig config;
+  config.trace_capacity = 4;
+  config.feedback_period_sec = 0;
+  fairino_hardware::ServoJStreamer streamer(robot, clock, config);
+  auto request = valid_request(100);
+  request.goal_id = "trace-goal";
+  auto revised = valid_request(150);
+  std::string reason;
+  uint64_t revision = 0;
+  ASSERT_TRUE(streamer.reserve(request, reason));
+  auto result = streamer.run_reserved(request, [&](uint64_t sent, uint64_t, int64_t) {
+        if (sent == 1) {
+          std::vector<double> tail(revised.joints_deg.begin() + 60 * 6, revised.joints_deg.end());
+          ASSERT_TRUE(streamer.replace_tail(request.goal_id, 0, 60, tail, revision, reason));
+        }
+        if (sent == 70) {streamer.request_cancel();}
+  }, []() {return 123456789LL;});
+  ASSERT_TRUE(result.cancelled);
+  ASSERT_EQ(result.samples_sent, 70U);
+  ASSERT_EQ(robot.targets.size(), 70U);
+  std::ostringstream out;
+  streamer.write_trace(out, request, result);
+  const auto trace = out.str();
+  EXPECT_NE(trace.find("\"stream_start_ros_ns\":123456789"), std::string::npos);
+  EXPECT_NE(trace.find("\"trace_records_overwritten\":66"), std::string::npos);
+  EXPECT_EQ(trace.find("\"sample_index\":65,"), std::string::npos);
+  EXPECT_NE(trace.find("\"sample_index\":66,\"buffer_revision\":1,\"command_id\":67"),
+      std::string::npos);
+  EXPECT_NE(trace.find("\"sample_index\":69,\"buffer_revision\":1,\"command_id\":70"),
+      std::string::npos);
+  EXPECT_NE(trace.find("\"joints_deg\":[34.5,35.5,36.5,37.5,38.5,39.5]"), std::string::npos);
+  EXPECT_EQ(std::count(trace.begin(), trace.end(), '\n'), 5);
+  // Existing absolute pacing and cleanup order are unchanged by capture.
+  EXPECT_EQ(clock.deadlines.back(), 1000000000LL + 69 * 4000000LL);
+  EXPECT_EQ(robot.calls[robot.calls.size() - 2], "stop");
+  EXPECT_EQ(robot.calls.back(), "end:1");
+}
+
+TEST(ServoJStreamerDiagnostics, DistinguishesFailedSdkAttemptFromUnsentLateSample)
+{
+  MockRobot robot;
+  FakeClock clock;
+  fairino_hardware::ServoJStreamerConfig config;
+  config.trace_capacity = 2;
+  fairino_hardware::ServoJStreamer streamer(robot, clock, config);
+  const auto request = valid_request();
+  std::string reason;
+  robot.servo_error = 7;
+  ASSERT_TRUE(streamer.reserve(request, reason));
+  auto result = streamer.run_reserved(request);
+  std::ostringstream failed;
+  streamer.write_trace(failed, request, result);
+  EXPECT_NE(failed.str().find("\"sdk_attempted\":true,\"sdk_error\":7"), std::string::npos);
+  EXPECT_NE(failed.str().find("\"samples_sent\":0"), std::string::npos);
+
+  robot.servo_error = 0;
+  clock.lateness = 9000000;
+  ASSERT_TRUE(streamer.reserve(request, reason));
+  result = streamer.run_reserved(request);
+  std::ostringstream late;
+  streamer.write_trace(late, request, result);
+  EXPECT_NE(late.str().find("\"command_id\":-1,\"sdk_attempted\":false"), std::string::npos);
+  EXPECT_NE(late.str().find("\"trace_records_total\":1"), std::string::npos);
+  EXPECT_EQ(robot.targets.size(), 1U);  // No late command reached the SDK.
+}
+
+TEST(ServoJStreamerDiagnostics, DisabledCaptureAndSummaryDoNotDumpSamples)
+{
+  MockRobot robot;
+  FakeClock clock;
+  fairino_hardware::ServoJStreamer streamer(robot, clock);
+  auto request = valid_request();
+  request.goal_id = "quoted\"goal\n";
+  std::string reason;
+  ASSERT_TRUE(streamer.reserve(request, reason));
+  const auto result = streamer.run_reserved(request);
+  std::ostringstream out;
+  streamer.write_trace(out, request, result);
+  EXPECT_NE(out.str().find("quoted\\\"goal\\u000a"), std::string::npos);
+  EXPECT_EQ(out.str().find("\"event\":\"servo_sample\""), std::string::npos);
+  EXPECT_NE(out.str().find("\"trace_capacity\":0"), std::string::npos);
+}
+
+TEST(ServoJStreamerDiagnostics, JsonFileRotationBoundsRetentionAndNonfiniteIsNull)
+{
+  char directory[] = "/tmp/servo-diagnostics-XXXXXX";
+  ASSERT_NE(mkdtemp(directory), nullptr);
+  const std::filesystem::path path = std::filesystem::path(directory) / "state.jsonl";
+  fairino_hardware::BoundedJsonlFile writer(path.string(), 16);
+  EXPECT_TRUE(writer.append("{\"row\":1}"));
+  EXPECT_TRUE(writer.append("{\"row\":2}"));
+  EXPECT_TRUE(writer.append("{\"row\":3}"));
+  EXPECT_FALSE(writer.append(std::string(17, 'x')));
+  std::ifstream current(path), previous(path.string() + ".1");
+  std::string value;
+  std::getline(current, value);
+  EXPECT_EQ(value, "{\"row\":3}");
+  std::getline(previous, value);
+  EXPECT_EQ(value, "{\"row\":2}");
+  EXPECT_LE(std::filesystem::file_size(path), 16U);
+  std::ostringstream number;
+  fairino_hardware::json_number(number, NAN);
+  EXPECT_EQ(number.str(), "null");
+  std::filesystem::remove_all(directory);
 }
 
 }  // namespace

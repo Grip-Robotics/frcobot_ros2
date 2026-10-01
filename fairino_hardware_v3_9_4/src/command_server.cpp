@@ -1,4 +1,5 @@
 #include "fairino_hardware/command_server.hpp"
+#include "fairino_hardware/servo_j_udp_diagnostics.hpp"
 #include <sys/types.h>
 #include <sys/socket.h>
 #include "fairino_hardware/version_control.h"
@@ -16,16 +17,49 @@ std::atomic_bool _reconnect_flag;
 std::atomic<int> mainerrcode;
 std::atomic<int> suberrcode;
 
+namespace
+{
+fairino_hardware::ServoUdpDiagnostics & process_udp_diagnostics()
+{
+    // The SDK callback has no context pointer and its receiver thread is
+    // detached. Keep the disabled mailbox alive through process termination.
+    static auto * mailbox = new fairino_hardware::ServoUdpDiagnostics;
+    return *mailbox;
+}
+
+void record_udp_reply(int source, int counter, int command, int length, std::string content)
+{
+    process_udp_diagnostics().receive(source, counter, command, length, content,
+        fairino_hardware::ServoUdpDiagnostics::now_ns());
+}
+}  // namespace
+
 class FairinoServoJRobot : public fairino_hardware::ServoJRobot
 {
 public:
-    FairinoServoJRobot(FRRobot & robot, std::mutex & sdk_mutex)
-      : robot_(robot), sdk_mutex_(sdk_mutex) {}
+    FairinoServoJRobot(FRRobot & robot, std::mutex & sdk_mutex, bool trace_enabled)
+      : robot_(robot), sdk_mutex_(sdk_mutex)
+    {
+        if (trace_enabled) {
+            udp_ = &process_udp_diagnostics();
+            if (udp_->enable_once()) {
+                callback_registration_error_ = robot_.SetCmdRpyCallback(record_udp_reply);
+                if (callback_registration_error_ != 0) {udp_->disable();}
+            } else {callback_registration_error_ = -1;}
+        }
+    }
 
     int servo_move_start(int communication_type) override
     {
         std::lock_guard<std::mutex> lock(sdk_mutex_);
-        return robot_.ServoMoveStart(communication_type);
+        if (udp_ && communication_type == 1) {
+            udp_->call(689, -1, fairino_hardware::ServoUdpDiagnostics::now_ns());
+        }
+        const int result = robot_.ServoMoveStart(communication_type);
+        if (udp_ && communication_type == 1 && result != 0) {
+            udp_->failure(689, result, fairino_hardware::ServoUdpDiagnostics::now_ns());
+        }
+        return result;
     }
 
     int servo_j(
@@ -45,10 +79,18 @@ public:
         const auto lock_requested = std::chrono::steady_clock::now();
         std::lock_guard<std::mutex> lock(sdk_mutex_);
         const auto lock_acquired = std::chrono::steady_clock::now();
+        if (udp_ && communication_type == 1) {
+            udp_->call(376, command_id, std::chrono::duration_cast<std::chrono::nanoseconds>(
+                lock_acquired.time_since_epoch()).count());
+        }
         const int result = robot_.ServoJ(
           &joints, &external_axes, 0.0F, 0.0F, period_sec, 0.0F, 0.0F, command_id,
           communication_type);
         const auto call_finished = std::chrono::steady_clock::now();
+        if (udp_ && communication_type == 1 && result != 0) {
+            udp_->failure(376, result, std::chrono::duration_cast<std::chrono::nanoseconds>(
+                call_finished.time_since_epoch()).count());
+        }
         last_timing_.lock_wait_nanoseconds =
           std::chrono::duration_cast<std::chrono::nanoseconds>(
             lock_acquired - lock_requested).count();
@@ -73,13 +115,41 @@ public:
     int servo_move_end(int communication_type) override
     {
         std::lock_guard<std::mutex> lock(sdk_mutex_);
-        return robot_.ServoMoveEnd(communication_type);
+        if (udp_ && communication_type == 1) {
+            udp_->call(690, -1, fairino_hardware::ServoUdpDiagnostics::now_ns());
+        }
+        const int result = robot_.ServoMoveEnd(communication_type);
+        if (udp_ && communication_type == 1 && result != 0) {
+            udp_->failure(690, result, fairino_hardware::ServoUdpDiagnostics::now_ns());
+        }
+        return result;
+    }
+
+    void write_udp_summary(std::ostream & out) override
+    {
+        if (!udp_) {out << "null"; return;}
+        out << "{\"callback_registration_error\":" << callback_registration_error_ <<
+            ",\"capture\":";
+        udp_->write_summary(out);
+        out << '}';
+    }
+
+    void write_udp_history(std::ostream & out) override
+    {
+        if (udp_) {udp_->write_history(out);}
+    }
+
+    void disable_diagnostics() override
+    {
+        if (udp_) {udp_->disable();}
     }
 
 private:
     FRRobot & robot_;
     std::mutex & sdk_mutex_;
     fairino_hardware::ServoJCallTiming last_timing_{};
+    fairino_hardware::ServoUdpDiagnostics * udp_{nullptr};
+    int callback_registration_error_{0};
 };
 
 #define LOGGER_NAME "fairino_ros2_command_server"
@@ -278,9 +348,11 @@ robot_command_thread::robot_command_thread(const std::string node_name):rclcpp::
     rcl_interfaces::msg::ParameterDescriptor cmdt_descriptor;
     cmdt_descriptor.read_only = true;
     cmdt_descriptor.description =
-        "SDK cmdT override in seconds; zero follows the host action period. "
+        "Experimental SDK cmdT override in seconds; zero follows the host action period. "
         "Startup-only, latched for each stream; does not retime samples or feedback.";
     this->declare_parameter<double>("servo_j.sdk_cmdt_override_sec", 0.0, cmdt_descriptor);
+    this->declare_parameter<std::string>("servo_j.trace_directory", "");
+    this->declare_parameter<int>("servo_j.trace_samples", 8192);
     // 0 keeps the stream worker on the default best-effort policy. A positive
     // value requests that SCHED_FIFO priority for the worker instead.
     this->declare_parameter<int>("servo_j.realtime_priority", 0);
@@ -351,8 +423,32 @@ robot_command_thread::robot_command_thread(const std::string node_name):rclcpp::
         this->get_parameter("servo_j.sdk_cmdt_override_sec").as_double();
     if (stream_config.sdk_cmdt_override_sec != 0.0) {
         RCLCPP_WARN(get_logger(),
-            "ServoJ SDK cmdT override %.9g s; host action period remains independent",
+            "Experimental ServoJ SDK cmdT override %.9g s; host action period remains independent",
             stream_config.sdk_cmdt_override_sec);
+    }
+    const auto trace_base = this->get_parameter("servo_j.trace_directory").as_string();
+    if (!trace_base.empty()) {
+        // Each namespace owns its files when drivers share a host mount.
+        std::string trace_namespace = get_namespace();
+        for (char & ch : trace_namespace) {
+            if (!(std::isalnum(static_cast<unsigned char>(ch)) || ch == '_')) {ch = '_';}
+        }
+        _servo_trace_directory = (std::filesystem::path(trace_base) / trace_namespace).string();
+        std::error_code error;
+        std::filesystem::create_directories(_servo_trace_directory, error);
+        if (error) {
+            RCLCPP_WARN(get_logger(), "ServoJ trace disabled: %s", error.message().c_str());
+            _servo_trace_directory.clear();
+        } else {
+            stream_config.trace_capacity = static_cast<size_t>(std::clamp<int64_t>(
+                this->get_parameter("servo_j.trace_samples").as_int(), 1, 32768));
+            _servo_trace_states = std::make_unique<fairino_hardware::BoundedJsonlFile>(
+                _servo_trace_directory + "/controller-state.jsonl");
+            _servo_trace_events = std::make_unique<fairino_hardware::BoundedJsonlFile>(
+                _servo_trace_directory + "/stream-events.jsonl", 1024 * 1024);
+            RCLCPP_INFO(get_logger(), "ServoJ trace enabled: %s (%zu samples)",
+                _servo_trace_directory.c_str(), stream_config.trace_capacity);
+        }
     }
     const int64_t requested_priority =
         this->get_parameter("servo_j.realtime_priority").as_int();
@@ -365,7 +461,8 @@ robot_command_thread::robot_command_thread(const std::string node_name):rclcpp::
             "servo_j.realtime_priority %ld is outside [0, %ld]; using %d",
             requested_priority, maximum_priority, _servo_j_realtime_priority);
     }
-    _servo_j_robot = std::make_unique<FairinoServoJRobot>(*_ptr_robot, _sdk_mutex);
+    _servo_j_robot = std::make_unique<FairinoServoJRobot>(
+        *_ptr_robot, _sdk_mutex, !_servo_trace_directory.empty());
     _servo_j_streamer = std::make_unique<fairino_hardware::ServoJStreamer>(
         *_servo_j_robot, _monotonic_clock, stream_config);
 
@@ -414,6 +511,7 @@ robot_command_thread::~robot_command_thread()
     if (_stream_worker.joinable()) {
         _stream_worker.join();
     }
+    if (_servo_j_robot) {_servo_j_robot->disable_diagnostics();}
     if (_ptr_robot) {
         std::lock_guard<std::mutex> lock(_sdk_mutex);
         _ptr_robot->CloseRPC();
@@ -513,7 +611,8 @@ void robot_command_thread::_execute_stream(
         const std::shared_ptr<stream_servo_j_goal_handle> goal_handle)
 {
     _apply_stream_thread_scheduling();
-    const auto request = _make_stream_request(*goal_handle->get_goal());
+    auto request = _make_stream_request(*goal_handle->get_goal());
+    request.goal_id = rclcpp_action::to_string(goal_handle->get_goal_id());
     const auto metrics = _servo_j_streamer->run_reserved(
         request,
         [goal_handle](uint64_t samples_sent, uint64_t last_command_id, int64_t stream_start_ros_ns) {
@@ -562,6 +661,34 @@ void robot_command_thread::_execute_stream(
         if (_active_stream_goal.lock() == goal_handle) {
             _active_stream_goal.reset();
         }
+    }
+    _trace_stream_result(request, metrics);
+}
+
+void robot_command_thread::_trace_stream_result(
+    const fairino_hardware::ServoJStreamRequest & request,
+    const fairino_hardware::ServoJStreamMetrics & metrics)
+{
+    if (!_servo_trace_events) {return;}
+    // Called after terminal feedback; never performs I/O during ServoJ.
+    try {
+        std::ostringstream summary;
+        _servo_j_streamer->write_trace(summary, request, metrics, false);
+        auto row = summary.str();
+        if (!row.empty() && row.back() == '\n') {row.pop_back();}
+        _servo_trace_events->append(row);
+        if (metrics.success && !metrics.cancelled) {return;}
+        const auto path = _servo_trace_directory + "/stream-fault-" +
+            std::to_string(_servo_trace_fault_slot++ % 4) + ".jsonl";
+        std::ofstream out(path + ".tmp", std::ios::trunc);
+        _servo_j_streamer->write_trace(out, request, metrics);
+        out.close();
+        if (!out) {throw std::runtime_error("trace write failed");}
+        std::filesystem::rename(path + ".tmp", path);
+        RCLCPP_INFO(get_logger(), "ServoJ fault trace saved: %s (goal=%s)",
+            path.c_str(), request.goal_id.c_str());
+    } catch (const std::exception & error) {
+        RCLCPP_WARN(get_logger(), "ServoJ trace unavailable: %s", error.what());
     }
 }
 
@@ -737,10 +864,14 @@ void robot_command_thread::_state_recv_callback(){
         // instead of silencing state for the whole trajectory.
         std::unique_lock<std::mutex> sdk_lock(_sdk_mutex, std::try_to_lock);
         if (!sdk_lock.owns_lock()) {
+            _trace_controller_state(ctrl_state, -1, now().nanoseconds(),
+                _monotonic_clock.now_nanoseconds(), true);
             return;
         }
         res = _ptr_robot->GetRobotRealTimeState(&ctrl_state);
     }
+    const auto read_ros_ns = now().nanoseconds();
+    const auto read_mono_ns = _monotonic_clock.now_nanoseconds();
     if (res == 0) {
         mainerrcode = ctrl_state.main_code;
         suberrcode = ctrl_state.sub_code;
@@ -894,6 +1025,79 @@ void robot_command_thread::_state_recv_callback(){
         msg.reconnect_flag = 1;
     }
     _state_publisher->publish(msg);
+    _trace_controller_state(ctrl_state, res, read_ros_ns, read_mono_ns);
+}
+
+void robot_command_thread::_trace_controller_state(const ROBOT_STATE_PKG & state, int sdk_error,
+    int64_t read_ros_ns, int64_t read_mono_ns, bool read_skipped)
+{
+    if (!_servo_trace_states) {return;}
+    try {
+        std::ostringstream row;
+        row << std::setprecision(17) << "{\"event\":\"controller_state\",\"schema\":1,\"read_ros_ns\":" <<
+            read_ros_ns << ",\"read_mono_ns\":" << read_mono_ns <<
+            ",\"sdk_error\":" << sdk_error <<
+            ",\"sdk_read_skipped\":" << (read_skipped ? "true" : "false");
+        if (sdk_error == 0) {
+            const auto & time = state.robotTime;
+            // An identity key, not an epoch conversion or clock-sync assertion.
+            const uint64_t tick = (((((static_cast<uint64_t>(time.year) * 13 + time.mouth) *
+                32 + time.day) * 24 + time.hour) * 60 + time.minute) * 60 + time.second) *
+                1000 + time.millisecond;
+            if (!_servo_trace_have_state || tick != _servo_trace_controller_tick ||
+                state.frame_cnt != _servo_trace_frame) {
+                _servo_trace_last_change_ns = read_mono_ns;
+            }
+            _servo_trace_have_state = true;
+            _servo_trace_controller_tick = tick;
+            _servo_trace_frame = state.frame_cnt;
+            row << ",\"controller_time\":[" << time.year << ',' << static_cast<int>(time.mouth) <<
+                ',' << static_cast<int>(time.day) << ',' << static_cast<int>(time.hour) <<
+                ',' << static_cast<int>(time.minute) << ',' << static_cast<int>(time.second) <<
+                ',' << time.millisecond << ']' <<
+                ",\"frame_cnt\":" << static_cast<int>(state.frame_cnt) <<
+                ",\"servo_j_cmd_num\":" << state.servoJCmdNum <<
+                ",\"mc_queue_len\":" << state.mc_queue_len <<
+                ",\"trajectory_pnum\":" << state.trajectory_pnum <<
+                ",\"main_error\":" << state.main_code << ",\"sub_error\":" << state.sub_code <<
+                ",\"robot_mode\":" << static_cast<int>(state.robot_mode) <<
+                ",\"robot_state\":" << static_cast<int>(state.robot_state) <<
+                ",\"motion_done\":" << state.motion_done <<
+                ",\"emg\":" << static_cast<int>(state.EmergencyStop) <<
+                ",\"collision\":" << static_cast<int>(state.collisionState) <<
+                ",\"safety_stop0\":" << static_cast<int>(state.safety_stop0_state) <<
+                ",\"safety_stop1\":" << static_cast<int>(state.safety_stop1_state) <<
+                ",\"queued_target_deg\":";
+            fairino_hardware::json_six(row, state.lastServoTarget);
+            row << ",\"actual_q_deg\":";
+            fairino_hardware::json_six(row, state.jt_cur_pos);
+            row << ",\"actual_qd_deg_s\":";
+            fairino_hardware::json_six(row, state.actual_qd);
+            row << ",\"actual_qdd_deg_s2\":";
+            fairino_hardware::json_six(row, state.actual_qdd);
+            row << ",\"actual_torque_nm\":";
+            fairino_hardware::json_six(row, state.jt_cur_tor);
+            row << ",\"target_torque_nm\":";
+            fairino_hardware::json_six(row, state.jt_tgt_tor);
+            row << ",\"driver_torque_nm\":";
+            fairino_hardware::json_six(row, state.jointDriverTorque);
+            // This SDK exposes no joint target velocity or saturation flag.
+            row << ",\"target_joint_velocity_available\":false,\"saturation_available\":false";
+        }
+        row << ",\"observed_sample_unchanged_ns\":";
+        if (_servo_trace_have_state) {row << read_mono_ns - _servo_trace_last_change_ns;}
+        else {row << "null";}
+        row << ",\"udp_replies\":";
+        if (_servo_j_robot) {_servo_j_robot->write_udp_summary(row);} else {row << "null";}
+        row << '}';
+        if (!_servo_trace_states->append(row.str())) {
+            RCLCPP_WARN_THROTTLE(get_logger(), *get_clock(), 5000,
+                "ServoJ controller trace write failed");
+        }
+    } catch (const std::exception & error) {
+        RCLCPP_WARN_THROTTLE(get_logger(), *get_clock(), 5000,
+            "ServoJ controller trace unavailable: %s", error.what());
+    }
 }
 
 

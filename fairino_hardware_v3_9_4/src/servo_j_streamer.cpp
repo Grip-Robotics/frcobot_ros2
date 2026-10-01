@@ -1,4 +1,5 @@
 #include "fairino_hardware/servo_j_streamer.hpp"
+#include "fairino_hardware/servo_j_diagnostics.hpp"
 
 #include <cerrno>
 #include <algorithm>
@@ -44,7 +45,8 @@ int SystemMonotonicClock::sleep_until(int64_t absolute_nanoseconds)
 
 ServoJStreamer::ServoJStreamer(
   ServoJRobot & robot, MonotonicClock & clock, ServoJStreamerConfig config)
-: robot_(robot), clock_(clock), config_(config)
+: robot_(robot), clock_(clock), config_(config),
+  trace_(std::min<size_t>(config.trace_capacity, 32768))
 {
 }
 
@@ -132,7 +134,8 @@ bool ServoJStreamer::reserve(const ServoJStreamRequest & request, std::string & 
   return true;
 }
 
-bool ServoJStreamer::replace_tail(const std::string & goal_id,
+bool ServoJStreamer::replace_tail(
+  const std::string & goal_id,
   uint64_t expected_revision, uint64_t start_sample, const std::vector<double> & tail,
   uint64_t & revision, std::string & reason)
 {
@@ -214,14 +217,18 @@ ServoJStreamMetrics ServoJStreamer::run_reserved(
   const std::function<int64_t()> & ros_now)
 {
   ServoJStreamMetrics metrics;
+  trace_count_ = 0;
+  trace_start_mono_ns_ = trace_start_ros_ns_ = 0;
   metrics.samples_requested = request.joints_deg.size() / 6;
   const int communication_type = request.communication_type;
-  // reserve() freezes SDK cmdT across the stream and its tail revisions.
+  // reserve() freezes this value for the complete stream and its revisions.
+  // Firmware interpretation/quantization of cmdT is not inferred here.
   double sdk_cmdt_sec;
   {
     std::lock_guard<std::mutex> lock(buffer_mutex_);
     sdk_cmdt_sec = sdk_cmdt_sec_;
   }
+  metrics.sdk_cmdt_sec = sdk_cmdt_sec;
   const int64_t period_ns = seconds_to_nanoseconds(request.period_sec);
   const int64_t tolerance_ns = seconds_to_nanoseconds(config_.deadline_tolerance_sec);
   const double fatal_lateness = config_.maximum_lateness_sec > 0.0 ?
@@ -252,6 +259,7 @@ ServoJStreamMetrics ServoJStreamer::run_reserved(
   }
 
   const int64_t start_ns = clock_.now_nanoseconds();
+  trace_start_mono_ns_ = start_ns;
   if (start_ns < 0) {
     metrics.message = "clock_gettime(CLOCK_MONOTONIC) failed";
     finish_with_stop_and_end(metrics, communication_type);
@@ -264,6 +272,7 @@ ServoJStreamMetrics ServoJStreamer::run_reserved(
   ServoJCallTiming last_call_timing{};
   for (uint64_t sample = 0; ; ++sample) {
     std::array<double, 6> joints{};
+    uint64_t sample_revision = 0;
     {
       std::lock_guard<std::mutex> lock(buffer_mutex_);
       metrics.samples_requested = buffer_offset_ + buffer_->size() / 6;
@@ -272,6 +281,7 @@ ServoJStreamMetrics ServoJStreamer::run_reserved(
         break;
       }
       std::copy_n(buffer_->begin() + (sample - buffer_offset_) * 6, 6, joints.begin());
+      sample_revision = revision_;
       next_sample_ = sample + 1;
     }
     if (cancel_requested_.load()) {
@@ -300,6 +310,7 @@ ServoJStreamMetrics ServoJStreamer::run_reserved(
       ++metrics.missed_deadlines;
     }
     if (wake_lateness_ns > fatal_lateness_ns) {
+      record_trace({sample, sample_revision, -1, 0, deadline_ns, wake_ns, 0, {}, joints});
       metrics.message = format_timing_failure(
         "ServoJ timing failure: command deadline exceeded maximum lateness",
         metrics, sample, request.period_sec, wake_lateness_ns, true, last_call_timing);
@@ -322,6 +333,8 @@ ServoJStreamMetrics ServoJStreamer::run_reserved(
     error = robot_.servo_j(
       joints, static_cast<float>(sdk_cmdt_sec), command_id, communication_type);
     if (error != 0) {
+      record_trace({sample, sample_revision, command_id, error, deadline_ns, wake_ns,
+          clock_.now_nanoseconds(), robot_.last_servo_j_timing(), joints});
       metrics.controller_error = error;
       metrics.cancelled = cancel_requested_.load();
       metrics.message = "ServoJ failed";
@@ -331,6 +344,7 @@ ServoJStreamMetrics ServoJStreamer::run_reserved(
     if (metrics.samples_sent == 0) {
       // Capture before diagnostics or feedback can delay observing the first send.
       stream_start_ros_ns = ros_now ? ros_now() : 0;
+      trace_start_ros_ns_ = stream_start_ros_ns;
     }
     ++metrics.samples_sent;
     metrics.last_command_id = static_cast<uint64_t>(command_id);
@@ -338,6 +352,8 @@ ServoJStreamMetrics ServoJStreamer::run_reserved(
 
     // Measure after the SDK call so mutex contention and SDK/UDP call time are reflected.
     const int64_t sent_ns = clock_.now_nanoseconds();
+    record_trace({sample, sample_revision, command_id, 0, deadline_ns, wake_ns,
+        sent_ns, last_call_timing, joints});
     if (sent_ns < 0) {
       metrics.message = "clock_gettime(CLOCK_MONOTONIC) failed";
       finish_with_stop_and_end(metrics, communication_type);
@@ -387,6 +403,63 @@ ServoJStreamMetrics ServoJStreamer::run_reserved(
   metrics.success = true;
   metrics.message = "ServoJ stream completed";
   return metrics;
+}
+
+void ServoJStreamer::record_trace(const ServoJTraceSample & sample)
+{
+  if (trace_.empty()) {return;}
+  trace_[trace_count_ % trace_.size()] = sample;
+  ++trace_count_;
+}
+
+void ServoJStreamer::write_trace(
+  std::ostream & out, const ServoJStreamRequest & request,
+  const ServoJStreamMetrics & metrics, bool include_samples) const
+{
+  out << std::setprecision(17);
+  out << "{\"event\":\"servo_stream_result\",\"schema\":1,\"goal_id\":";
+  json_string(out, request.goal_id);
+  out << ",\"period_sec\":" << request.period_sec <<
+    ",\"sdk_cmdt_sec\":" << metrics.sdk_cmdt_sec <<
+    ",\"sdk_cmdt_float_sec\":" << static_cast<double>(static_cast<float>(metrics.sdk_cmdt_sec)) <<
+    ",\"sdk_cmdt_override_active\":" << (config_.sdk_cmdt_override_sec > 0.0 ? "true" : "false") <<
+    ",\"communication_type\":" << static_cast<int>(request.communication_type) <<
+    ",\"stream_start_ros_ns\":" << trace_start_ros_ns_ <<
+    ",\"deadline_origin_mono_ns\":" << trace_start_mono_ns_ <<
+    ",\"success\":" << (metrics.success ? "true" : "false") <<
+    ",\"cancelled\":" << (metrics.cancelled ? "true" : "false") <<
+    ",\"controller_error\":" << metrics.controller_error <<
+    ",\"samples_requested\":" << metrics.samples_requested <<
+    ",\"samples_sent\":" << metrics.samples_sent <<
+    ",\"last_command_id\":" << metrics.last_command_id <<
+    ",\"missed_deadlines\":" << metrics.missed_deadlines <<
+    ",\"trace_capacity\":" << trace_.size() <<
+    ",\"trace_records_total\":" << trace_count_ <<
+    ",\"trace_records_overwritten\":" << (trace_count_ > trace_.size() ?
+  trace_count_ - trace_.size() : 0) << ",\"message\":";
+  json_string(out, metrics.message);
+  out << ",\"udp_replies\":";
+  robot_.write_udp_summary(out);
+  out << "}\n";
+  if (!include_samples || trace_.empty()) {return;}
+  const uint64_t first = trace_count_ > trace_.size() ? trace_count_ - trace_.size() : 0;
+  for (uint64_t index = first; index < trace_count_; ++index) {
+    const auto & sample = trace_[index % trace_.size()];
+    out << "{\"event\":\"servo_sample\",\"sample_index\":" << sample.sample_index <<
+      ",\"buffer_revision\":" << sample.revision <<
+      ",\"command_id\":" << sample.command_id <<
+      ",\"sdk_attempted\":" << (sample.command_id >= 0 ? "true" : "false") <<
+      ",\"sdk_error\":" << sample.sdk_error <<
+      ",\"deadline_mono_ns\":" << sample.deadline_ns <<
+      ",\"wake_mono_ns\":" << sample.wake_ns <<
+      ",\"return_mono_ns\":" << sample.return_ns <<
+      ",\"lock_wait_ns\":" << sample.timing.lock_wait_nanoseconds <<
+      ",\"sdk_call_ns\":" << sample.timing.sdk_call_nanoseconds <<
+      ",\"joints_deg\":";
+    json_six(out, sample.joints_deg);
+    out << "}\n";
+  }
+  robot_.write_udp_history(out);
 }
 
 int ServoJStreamer::cancel_and_stop()

@@ -129,6 +129,8 @@ if(BUILD_TESTING)
 
   ament_add_gmock(test_servo_j_streamer test/test_servo_j_streamer.cpp)
   target_link_libraries(test_servo_j_streamer servo_j_streamer)
+  ament_add_gmock(test_servo_j_udp_diagnostics test/test_servo_j_udp_diagnostics.cpp)
+  target_link_libraries(test_servo_j_udp_diagnostics servo_j_streamer)
 endif()
 
 #export
