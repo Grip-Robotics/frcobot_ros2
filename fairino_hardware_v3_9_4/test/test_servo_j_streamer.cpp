@@ -164,6 +164,117 @@ TEST(ServoJStreamerExecution, UsesAbsoluteDeadlinesUdpAndIncreasingIds)
   EXPECT_EQ(second_result.last_command_id, 4U);
 }
 
+TEST(ServoJStreamerCmdT, DefaultPreservesRequestedSdkPeriod)
+{
+  for (const double period : {0.004, 0.006, 0.006006, 0.016}) {
+    MockRobot robot;
+    FakeClock clock;
+    fairino_hardware::ServoJStreamer streamer(robot, clock);
+    auto request = valid_request(3);
+    request.period_sec = period;
+    std::string reason;
+    ASSERT_TRUE(streamer.reserve(request, reason)) << reason;
+    ASSERT_TRUE(streamer.run_reserved(request).success);
+    for (const auto sdk_period : robot.periods) {
+      EXPECT_EQ(sdk_period, static_cast<float>(period));
+    }
+    EXPECT_EQ(clock.deadlines.back() - clock.deadlines.front(),
+      2 * std::llround(period * 1.0e9));
+  }
+}
+
+TEST(ServoJStreamerCmdT, OverrideKeepsLongHostClockTargetsAndFeedbackUnchanged)
+{
+  MockRobot robot;
+  FakeClock clock;
+  fairino_hardware::ServoJStreamerConfig config;
+  config.sdk_cmdt_override_sec = 0.006;
+  fairino_hardware::ServoJStreamer streamer(robot, clock, config);
+  auto request = valid_request(1);
+  request.period_sec = 0.006006;
+  request.joints_deg.assign(300001 * 6, 0.0);  // >30 minutes of virtual stationary time.
+  std::string reason;
+  ASSERT_TRUE(streamer.reserve(request, reason)) << reason;
+  config.sdk_cmdt_override_sec = 0.005;  // The copied configuration cannot mutate an active stream.
+  uint64_t last_feedback = 0;
+  const auto result = streamer.run_reserved(request,
+    [&](uint64_t sent, uint64_t command, int64_t origin) {
+      last_feedback = sent;
+      EXPECT_EQ(sent, command);
+      EXPECT_EQ(origin, 123456789LL);
+    }, []() {return 123456789LL;});
+  ASSERT_TRUE(result.success);
+  ASSERT_EQ(robot.periods.size(), 300001U);
+  ASSERT_EQ(clock.deadlines.size(), robot.periods.size());
+  for (size_t i = 0; i < robot.periods.size(); ++i) {
+    EXPECT_EQ(robot.periods[i], static_cast<float>(0.006));
+    EXPECT_EQ(clock.deadlines[i], 1000000000LL + static_cast<int64_t>(i) * 6006000LL);
+    EXPECT_EQ(robot.targets[i], (std::array<double, 6>{}));
+  }
+  EXPECT_EQ(last_feedback, result.samples_sent);
+  EXPECT_DOUBLE_EQ(result.maximum_interval_sec, request.period_sec);
+  EXPECT_EQ(result.missed_deadlines, 0U);
+}
+
+TEST(ServoJStreamerCmdT, RejectsInvalidOverrideBeforeAnyRobotCall)
+{
+  for (const double override_value : {-0.001, 0.000999, 0.016001,
+      std::numeric_limits<double>::quiet_NaN(),
+      std::numeric_limits<double>::infinity()})
+  {
+    MockRobot robot;
+    FakeClock clock;
+    fairino_hardware::ServoJStreamerConfig config;
+    config.sdk_cmdt_override_sec = override_value;
+    fairino_hardware::ServoJStreamer streamer(robot, clock, config);
+    std::string reason;
+    EXPECT_FALSE(streamer.reserve(valid_request(), reason));
+    EXPECT_FALSE(streamer.active());
+    EXPECT_TRUE(robot.calls.empty());
+    EXPECT_TRUE(clock.deadlines.empty());
+  }
+}
+
+TEST(ServoJStreamerCmdT, OverrideDoesNotChangeRevisionClockOrCancellation)
+{
+  MockRobot robot;
+  FakeClock clock;
+  fairino_hardware::ServoJStreamerConfig config;
+  config.sdk_cmdt_override_sec = 0.006;
+  config.feedback_period_sec = 0.0;
+  fairino_hardware::ServoJStreamer streamer(robot, clock, config);
+  auto request = valid_request(100);
+  request.period_sec = 0.006006;
+  request.goal_id = "separate-cmdt";
+  const auto full = valid_request(300);
+  uint64_t revision = 0;
+  std::string reason;
+  ASSERT_TRUE(streamer.reserve(request, reason));
+  const auto result = streamer.run_reserved(request,
+    [&](uint64_t sent, uint64_t, int64_t) {
+      if (revision == 0 && sent == 1) {
+        std::vector<double> tail(full.joints_deg.begin() + 60 * 6,
+          full.joints_deg.begin() + 180 * 6);
+        ASSERT_TRUE(streamer.replace_tail(request.goal_id, 0, 60, tail, revision, reason));
+      } else if (revision == 1 && sent == 90) {
+        std::vector<double> tail(full.joints_deg.begin() + 150 * 6, full.joints_deg.end());
+        ASSERT_TRUE(streamer.replace_tail(request.goal_id, 1, 150, tail, revision, reason));
+      }
+      if (sent == 200) {streamer.request_cancel();}
+    });
+  ASSERT_TRUE(result.cancelled);
+  ASSERT_EQ(revision, 2U);
+  ASSERT_EQ(robot.targets.size(), 200U);
+  for (size_t i = 0; i < robot.targets.size(); ++i) {
+    EXPECT_DOUBLE_EQ(robot.targets[i][0], full.joints_deg[i * 6]);
+    EXPECT_EQ(robot.periods[i], static_cast<float>(0.006));
+    EXPECT_EQ(clock.deadlines[i], 1000000000LL + static_cast<int64_t>(i) * 6006000LL);
+  }
+  EXPECT_EQ(std::count(robot.calls.begin(), robot.calls.end(), "start:1"), 1);
+  EXPECT_EQ(robot.calls[robot.calls.size() - 2], "stop");
+  EXPECT_EQ(robot.calls.back(), "end:1");
+}
+
 TEST(ServoJStreamerExecution, RejectsASecondActiveStream)
 {
   MockRobot robot;

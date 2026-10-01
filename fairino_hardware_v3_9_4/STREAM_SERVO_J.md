@@ -100,3 +100,23 @@ samples in the submitted buffer, then wait for a `nonrt_state_data` message publ
 after the action completes before checking the endpoint. Checking the cached state
 immediately can report the controller's normal following lag (or the last pre-stream
 state) as a goal-tolerance failure.
+
+## Independent host cadence and SDK cmdT
+
+The startup-only, read-only `servo_j.sdk_cmdt_override_sec` parameter defaults to
+`0.0`, which forwards the action's `period_sec` to the SDK as before. A positive
+value overrides only the SDK `ServoJ` cmdT argument. It must be finite and within
+`servo_j.minimum_period_sec` and `servo_j.maximum_period_sec`; invalid values
+reject stream reservation before any robot call.
+
+The override is latched at reservation and stays fixed across tail replacements.
+Host absolute deadlines, original sample positions, feedback, revision indexes,
+cancellation, and lateness limits continue to use the action's `period_sec`.
+For the qualified GRIP cadence, the action period is `0.006006` seconds and the
+startup override is `0.006` seconds. This does not establish firmware cmdT
+quantization or guarantee absence of queue underflow for other controllers.
+SDK cmdT is passed as a float, as required by the vendor API. Direct legacy
+ServoJ services are unchanged. No action or service definition changes.
+
+Four fake-robot/clock regressions cover default behavior, a virtual 30-minute
+stream, invalid overrides, and two tail revisions followed by cancellation.

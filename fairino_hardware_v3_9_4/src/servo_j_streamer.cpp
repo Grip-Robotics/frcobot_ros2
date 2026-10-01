@@ -56,7 +56,11 @@ bool ServoJStreamer::validate(const ServoJStreamRequest & request, std::string &
     !std::isfinite(config_.maximum_joint_step_deg) || config_.maximum_joint_step_deg <= 0.0 ||
     !std::isfinite(config_.deadline_tolerance_sec) || config_.deadline_tolerance_sec < 0.0 ||
     !std::isfinite(config_.maximum_lateness_sec) ||
-    !std::isfinite(config_.feedback_period_sec) || config_.feedback_period_sec < 0.0)
+    !std::isfinite(config_.feedback_period_sec) || config_.feedback_period_sec < 0.0 ||
+    !std::isfinite(config_.sdk_cmdt_override_sec) || config_.sdk_cmdt_override_sec < 0.0 ||
+    (config_.sdk_cmdt_override_sec > 0.0 &&
+    (config_.sdk_cmdt_override_sec < config_.minimum_period_sec ||
+    config_.sdk_cmdt_override_sec > config_.maximum_period_sec)))
   {
     reason = "invalid ServoJ driver configuration";
     return false;
@@ -116,6 +120,8 @@ bool ServoJStreamer::reserve(const ServoJStreamRequest & request, std::string & 
     sealed_ = false;
     revision_ = next_sample_ = buffer_offset_ = 0;
     period_sec_ = request.period_sec;
+    sdk_cmdt_sec_ = config_.sdk_cmdt_override_sec > 0.0 ?
+      config_.sdk_cmdt_override_sec : request.period_sec;
   }
   cancel_requested_.store(false);
   {
@@ -210,6 +216,12 @@ ServoJStreamMetrics ServoJStreamer::run_reserved(
   ServoJStreamMetrics metrics;
   metrics.samples_requested = request.joints_deg.size() / 6;
   const int communication_type = request.communication_type;
+  // reserve() freezes SDK cmdT across the stream and its tail revisions.
+  double sdk_cmdt_sec;
+  {
+    std::lock_guard<std::mutex> lock(buffer_mutex_);
+    sdk_cmdt_sec = sdk_cmdt_sec_;
+  }
   const int64_t period_ns = seconds_to_nanoseconds(request.period_sec);
   const int64_t tolerance_ns = seconds_to_nanoseconds(config_.deadline_tolerance_sec);
   const double fatal_lateness = config_.maximum_lateness_sec > 0.0 ?
@@ -308,7 +320,7 @@ ServoJStreamMetrics ServoJStreamer::run_reserved(
       return metrics;
     }
     error = robot_.servo_j(
-      joints, static_cast<float>(request.period_sec), command_id, communication_type);
+      joints, static_cast<float>(sdk_cmdt_sec), command_id, communication_type);
     if (error != 0) {
       metrics.controller_error = error;
       metrics.cancelled = cancel_requested_.load();

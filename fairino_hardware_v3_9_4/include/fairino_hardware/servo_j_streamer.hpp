@@ -46,6 +46,8 @@ struct ServoJStreamerConfig
   // A non-positive value uses one command period as the fatal lateness threshold.
   double maximum_lateness_sec{0.008};
   double feedback_period_sec{0.05};
+  // Zero preserves the host period. Positive values change only SDK cmdT.
+  double sdk_cmdt_override_sec{0.0};
 };
 
 // Breakdown of the most recent servo_j() call, used to attribute a fatal
@@ -132,6 +134,7 @@ private:
   uint64_t next_sample_{0};
   uint64_t buffer_offset_{0};
   double period_sec_{0.004};
+  double sdk_cmdt_sec_{0.004};
   std::mutex stop_mutex_;
   bool stop_called_{false};
   int stop_error_{0};

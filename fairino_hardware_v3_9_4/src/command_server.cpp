@@ -275,6 +275,12 @@ robot_command_thread::robot_command_thread(const std::string node_name):rclcpp::
     // deadlines by several milliseconds under load. 0.0 = one requested period.
     this->declare_parameter<double>("servo_j.maximum_lateness_sec", 0.008);
     this->declare_parameter<double>("servo_j.feedback_period_sec", 0.05);
+    rcl_interfaces::msg::ParameterDescriptor cmdt_descriptor;
+    cmdt_descriptor.read_only = true;
+    cmdt_descriptor.description =
+        "SDK cmdT override in seconds; zero follows the host action period. "
+        "Startup-only, latched for each stream; does not retime samples or feedback.";
+    this->declare_parameter<double>("servo_j.sdk_cmdt_override_sec", 0.0, cmdt_descriptor);
     // 0 keeps the stream worker on the default best-effort policy. A positive
     // value requests that SCHED_FIFO priority for the worker instead.
     this->declare_parameter<int>("servo_j.realtime_priority", 0);
@@ -341,6 +347,13 @@ robot_command_thread::robot_command_thread(const std::string node_name):rclcpp::
         this->get_parameter("servo_j.maximum_lateness_sec").as_double();
     stream_config.feedback_period_sec =
         this->get_parameter("servo_j.feedback_period_sec").as_double();
+    stream_config.sdk_cmdt_override_sec =
+        this->get_parameter("servo_j.sdk_cmdt_override_sec").as_double();
+    if (stream_config.sdk_cmdt_override_sec != 0.0) {
+        RCLCPP_WARN(get_logger(),
+            "ServoJ SDK cmdT override %.9g s; host action period remains independent",
+            stream_config.sdk_cmdt_override_sec);
+    }
     const int64_t requested_priority =
         this->get_parameter("servo_j.realtime_priority").as_int();
     const int64_t maximum_priority = sched_get_priority_max(SCHED_FIFO);
