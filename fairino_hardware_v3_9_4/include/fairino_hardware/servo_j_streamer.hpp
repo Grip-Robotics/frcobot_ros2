@@ -2,6 +2,7 @@
 #define FAIRINO_HARDWARE__SERVO_J_STREAMER_HPP_
 
 #include "fairino_hardware/servo_start_settings.hpp"
+#include "fairino_hardware/servo_j_feedback.hpp"
 
 #include <array>
 #include <atomic>
@@ -37,6 +38,7 @@ struct ServoJStreamMetrics
   bool cancelled{false};
   // Result-owned so a new reservation cannot relabel the completed trace.
   double sdk_cmdt_sec{0.0};
+  ServoJFeedbackStats feedback_publication{};
 };
 
 struct ServoJStreamerConfig
@@ -71,13 +73,21 @@ struct ServoJTraceSample
 {
   uint64_t sample_index{0};
   uint64_t revision{0};
-  int command_id{-1};  // -1 means the deadline failed before an SDK attempt.
+  int command_id{-1};  // -1 means no SDK attempt.
   int sdk_error{0};
   int64_t deadline_ns{0};
   int64_t wake_ns{0};
   int64_t return_ns{0};
   ServoJCallTiming timing{};
   std::array<double, 6> joints_deg{};
+  int64_t loop_begin_ns{0};
+  int64_t buffer_ready_ns{0};
+  int64_t sleep_enter_ns{0};
+  int64_t sdk_enter_ns{0};
+  int64_t sdk_return_ns{0};
+  int64_t feedback_begin_ns{0};
+  int64_t feedback_end_ns{0};
+  int64_t loop_end_ns{0};
 };
 
 class ServoJRobot
@@ -118,6 +128,7 @@ public:
 class ServoJStreamer
 {
 public:
+  // Synchronous, bounded handoff only: never publish ROS feedback here.
   using FeedbackCallback = std::function<void (uint64_t, uint64_t, int64_t)>;
 
   ServoJStreamer(

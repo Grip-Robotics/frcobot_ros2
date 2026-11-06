@@ -132,9 +132,14 @@ if(BUILD_TESTING)
   ament_add_gmock(test_servo_start_settings test/test_servo_start_settings.cpp)
   target_link_libraries(test_servo_start_settings servo_j_streamer)
 
-  ament_add_gmock(test_servo_start_sdk test/test_servo_start_sdk.cpp)
+  ament_add_gmock(test_servo_start_sdk test/test_servo_start_sdk.cpp test/offline_network_guard.cpp)
   target_include_directories(test_servo_start_sdk PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
   target_link_libraries(test_servo_start_sdk servo_j_streamer
+    ${CMAKE_CURRENT_SOURCE_DIR}/libfairino/lib/libfairino.so.2.4.1 "-Wl,--export-dynamic")
+
+  ament_add_gmock(test_servo_j_sdk test/test_servo_j_sdk.cpp test/offline_network_guard.cpp)
+  target_include_directories(test_servo_j_sdk PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
+  target_link_libraries(test_servo_j_sdk
     ${CMAKE_CURRENT_SOURCE_DIR}/libfairino/lib/libfairino.so.2.4.1 "-Wl,--export-dynamic")
 
   ament_add_gmock(test_servo_j_streamer test/test_servo_j_streamer.cpp)

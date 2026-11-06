@@ -543,6 +543,7 @@ robot_command_thread::~robot_command_thread()
     if (_stream_worker.joinable()) {
         _stream_worker.join();
     }
+    _stream_feedback_publisher.shutdown();
     if (_servo_j_robot) {_servo_j_robot->disable_diagnostics();}
     if (_ptr_robot) {
         std::lock_guard<std::mutex> lock(_sdk_mutex);
@@ -642,19 +643,24 @@ void robot_command_thread::_apply_stream_thread_scheduling()
 void robot_command_thread::_execute_stream(
         const std::shared_ptr<stream_servo_j_goal_handle> goal_handle)
 {
-    _apply_stream_thread_scheduling();
     auto request = _make_stream_request(*goal_handle->get_goal());
     request.goal_id = rclcpp_action::to_string(goal_handle->get_goal_id());
-    const auto metrics = _servo_j_streamer->run_reserved(
-        request,
+    auto feedback_session = _stream_feedback_publisher.start(
         [goal_handle](uint64_t samples_sent, uint64_t last_command_id, int64_t stream_start_ros_ns) {
             auto feedback = std::make_shared<stream_servo_j_action::Feedback>();
             feedback->samples_sent = samples_sent;
             feedback->last_command_id = last_command_id;
             feedback->stream_start = rclcpp::Time(stream_start_ros_ns);
             goal_handle->publish_feedback(feedback);
+        });
+    _apply_stream_thread_scheduling();
+    auto metrics = _servo_j_streamer->run_reserved(
+        request,
+        [session = feedback_session.get()](uint64_t sent, uint64_t command, int64_t start) {
+            session->offer(sent, command, start);
         },
         [this]() {return this->now().nanoseconds();});
+    metrics.feedback_publication = feedback_session->close();
 
     auto result = std::make_shared<stream_servo_j_action::Result>();
     result->success = metrics.success;

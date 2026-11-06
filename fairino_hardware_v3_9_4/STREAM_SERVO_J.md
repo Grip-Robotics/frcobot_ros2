@@ -25,7 +25,8 @@ the legacy `StopMotion()` command preempts the stream.
 
 The result reports requested and sent sample counts, the controller error, final command
 ID, maximum measured SDK-command interval, missed deadlines, and cancellation state.
-Feedback is throttled independently of the command loop (50 ms by default).
+Feedback is throttled independently of the command loop (50 ms by default) and
+published by a separate best-effort worker through a bounded latest-value handoff.
 
 Configuration parameters and defaults:
 
@@ -94,13 +95,12 @@ missed_deadlines=41]
   shared SDK mutex for the sample that tripped the post-call check (`0.000` when the
   abort happened before this sample's `ServoJ()` was issued).
 - `prev_sdk_call_ms` / `prev_lock_wait_ms` (pre-call aborts only): the same split for
-  the previous sample, which is what pushed the wake past the deadline.
+  the previous sample. These are context; they do not establish why the wake was late.
 - `max_interval_ms` / `missed_deadlines`: running metrics up to the abort.
 
-The same message is logged at ERROR by the command server, so
-`docker compose logs fr5-driver | grep 'ServoJ timing'` shows whether a stall came from
-OS scheduling (large `wake_lateness_ms` with small SDK numbers), SDK/UDP time
-(`sdk_call_ms`), or mutex contention (`lock_wait_ms`).
+The same message is logged at ERROR by the command server. A large wake lateness
+with small SDK numbers leaves sleep/scheduling and other intervening stages open;
+inspect the stage trace below before attributing a cause.
 
 ## State polling during a stream
 
@@ -134,8 +134,9 @@ handling and does not issue extra SDK state queries.
 
 The stream worker copies a fixed-size record into preallocated memory for each SDK
 attempt. It also records a sample rejected by the lateness check before an SDK attempt.
-It does no trace formatting, logging, allocation, file I/O, or extra successful-path
-clock reads in the send loop. Formatting and file writes happen after termination:
+It does no trace formatting, logging, allocation, or file I/O in the send loop.
+When capture is enabled, additional monotonic reads bracket the stages described
+below. Formatting and file writes happen after termination:
 
 | File | Contents and retention |
 | --- | --- |
@@ -149,7 +150,8 @@ termination cannot dump the in-memory send ring; already written controller rows
 Write failures warn without changing robot control. There is no full trajectory archive:
 the send ring preserves exact attempted joint samples across accepted tail revisions.
 
-All rows are JSON with schema version 1 in result/controller headers. Nonfinite state
+All rows are JSON with schema version 2 in stream-result headers and version 1 in
+controller headers. Existing fields retain their meanings. Nonfinite state
 values are `null`. The stream result header identifies the ROS action `goal_id`, period,
 first successful send's `stream_start_ros_ns`, monotonic deadline origin, terminal
 status, sent/requested counts, and number of overwritten ring records. `servo_sample`
@@ -164,10 +166,22 @@ rows contain:
 - `joints_deg`: the exact six values supplied to `ServoJ` for an attempted sample.
 - `deadline_mono_ns`, `wake_mono_ns`, `return_mono_ns`, `lock_wait_ns`, `sdk_call_ns`:
   pacing and SDK timings. `return_mono_ns` is zero for an unattempted late sample.
+- `loop_begin_mono_ns`, `buffer_ready_mono_ns`: buffer-lock acquisition and sample-copy envelope.
+- `sleep_enter_mono_ns`, `wake_mono_ns`: absolute-sleep/scheduler envelope.
+- `sdk_enter_mono_ns`, `sdk_return_mono_ns`: complete robot adapter call, including
+  argument preparation, SDK mutex wait, diagnostics and vendor serialization/send.
+  Existing `lock_wait_ns` / `sdk_call_ns` split the inner mutex and SDK intervals.
+- `sdk_return_mono_ns` to `return_mono_ns`: includes the first-send ROS clock read
+  on sample zero and ordinary progress bookkeeping.
+- `feedback_handoff_begin_mono_ns`, `feedback_handoff_end_mono_ns`: bounded progress
+  copy, or both zero if no progress update was due.
+- `loop_end_mono_ns`: immediately before copying the trace record into its ring.
+  Inspect adjacent rows to locate gaps between iterations; zero means a stage was
+  not entered. These intervals include preemption and do not alone identify a blocking function.
 
 Controller rows include host ROS/monotonic read times, the SDK's raw calendar
 `controller_time` array `[year, month, day, hour, minute, second, millisecond]`, frame
-counter, consumed command counter, queue length, motion/error/safety flags, and joint
+counter, vendor command counter, queue length, motion/error/safety flags, and joint
 position/velocity/acceleration and torque. `queued_target_deg` is `lastServoTarget`, the
 newest queued target; it is not an instantaneous target aligned with measured joints.
 The SDK exposes no joint target velocity or saturation flag, so those availability
@@ -239,3 +253,60 @@ Offline validation is `test_servo_j_udp_diagnostics` alongside
 `test_servo_j_streamer`; it covers wrap, loss, reordering, duplicate/stale replies,
 session boundaries, send failure, bounded raw content, queue overflow, concurrent
 queue ordering, and callbacks after shutdown. No controller is needed.
+
+## Action-feedback isolation and result boundaries
+
+The node creates one publication worker before applying the sender's SCHED_FIFO
+policy. Each goal gets its own fixed progress slot and immutable callback/goal
+identity. The sender makes one atomic-flag attempt to copy three scalar values;
+it never waits for that slot, allocates a ROS message, wakes a condition variable,
+or calls DDS. Pending progress is coalesced, and slot contention drops a diagnostic
+update. The worker polls at 1 ms and releases all handoff locks before allocation
+or publication. There is no unbounded feedback queue and no per-goal worker join.
+
+Closing a session prevents a new publication claim and discards pending progress.
+An already claimed call can complete later, tied to its original goal UUID. A
+stalled old publication can delay progress for later goals, but cannot relabel it.
+Sending, cleanup and the terminal result path do not wait for this worker. ROS/DDS
+may still share internal resources; end-to-end result delivery needs its own
+integration test. The result remains the
+authoritative final sample count; a terminal progress message is not guaranteed.
+Publisher exceptions are counted and contained. The node joins the publication
+worker only on shutdown; permanently blocked middleware can therefore delay shutdown.
+Detaching a worker that retains node/action resources would be unsafe.
+
+Stream-result traces include an `action_feedback` snapshot taken at close:
+published/coalesced/contended/exception counts, latest publication begin/end
+monotonic timestamps, maximum completed publication duration, and
+`in_flight_at_close`. The snapshot does not update if middleware returns later.
+This does not remove existing SDK or trajectory-buffer locks, nor allocations
+inside the vendor SDK. Those remain measured boundaries. Cancellation, SDK
+errors, fatal lateness, tail revisions, and action terminal-state selection are
+unchanged. GRIP's controller-fault/stale-state watchdogs retain their independent
+state subscription and cancellation path.
+
+The mock tests deliberately block publication through completion, another
+session, cancellation and SDK failure, then separately block SDK sending and
+verify deadline abort plus StopMotion-before-ServoMoveEnd. They also check latest
+progress, publication exceptions, ROS-clock versus SDK timing, and bounded trace
+retention. They establish software behavior with mocks, not Linux real-time bounds
+or ROS/DDS end-to-end result delivery.
+
+Without ROS installed, run the same C++ tests with local GoogleTest sources:
+
+```sh
+cmake -S fairino_hardware_v3_9_4/test/offline -B work/offline-tests \
+  -DGOOGLETEST_SOURCE_DIR=/path/to/local/googletest
+cmake --build work/offline-tests -j4
+ctest --test-dir work/offline-tests --output-on-failure
+```
+
+No dependencies are downloaded. Optionally set `SDK234_PACKAGE_ROOT` to the
+`fairino_hardware_v3_9_4` directory extracted from commit
+`5925704ec25b27b3787544632a66a3702d80866a` to test ServoJ serialization against that
+SDK as well. SDK tests interpose the UDP SendFrame boundary and abort before any
+unexpected connect/send/sendto call. SDK 2.3.4 uses a different constructor and
+communication-type-only ServoMoveStart; branch head still requires SDK 2.4.1.0's
+filter/six-gain start interface. These tests do not make the branch head compatible
+with older controllers, or replace the required Jazzy build and mock action-client
+integration test before deployment. No firmware or runtime image is changed here.

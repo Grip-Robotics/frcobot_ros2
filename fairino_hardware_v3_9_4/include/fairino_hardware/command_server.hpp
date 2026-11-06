@@ -329,6 +329,7 @@ private:
     fairino_hardware::SystemMonotonicClock _monotonic_clock;
     std::unique_ptr<fairino_hardware::ServoJStreamer> _servo_j_streamer;
     std::thread _stream_worker;
+    fairino_hardware::ServoJFeedbackPublisher _stream_feedback_publisher;
     std::string _servo_trace_directory;
     std::unique_ptr<fairino_hardware::BoundedJsonlFile> _servo_trace_states;
     std::unique_ptr<fairino_hardware::BoundedJsonlFile> _servo_trace_events;

@@ -10,6 +10,9 @@
 #include <vector>
 #include <sstream>
 #include <unistd.h>
+#include <condition_variable>
+#include <future>
+#include <stdexcept>
 
 namespace
 {
@@ -92,6 +95,43 @@ public:
   std::vector<std::array<double, 6>> targets;
   std::vector<float> periods;
   std::vector<int> communication_types;
+};
+
+// Shared state stays alive in a blocked callback even if an assertion exits the test.
+class StalledCall
+{
+public:
+  struct State
+  {
+    std::mutex mutex;
+    std::condition_variable changed;
+    bool entered{false};
+    bool released{false};
+  };
+  ~StalledCall() {release();}
+  std::function<void()> callback()
+  {
+    return [state = state_]() {
+        std::unique_lock<std::mutex> lock(state->mutex);
+        state->entered = true;
+        state->changed.notify_all();
+        state->changed.wait(lock, [&]() {return state->released;});
+      };
+  }
+  bool wait_entered()
+  {
+    std::unique_lock<std::mutex> lock(state_->mutex);
+    return state_->changed.wait_for(lock, std::chrono::seconds(2),
+      [&]() {return state_->entered;});
+  }
+  void release()
+  {
+    std::lock_guard<std::mutex> lock(state_->mutex);
+    state_->released = true;
+    state_->changed.notify_all();
+  }
+private:
+  std::shared_ptr<State> state_ = std::make_shared<State>();
 };
 
 fairino_hardware::ServoJStreamRequest valid_request(size_t samples = 2)
@@ -796,6 +836,205 @@ TEST(ServoJStreamerDiagnostics, JsonFileRotationBoundsRetentionAndNonfiniteIsNul
   fairino_hardware::json_number(number, NAN);
   EXPECT_EQ(number.str(), "null");
   std::filesystem::remove_all(directory);
+}
+
+TEST(ServoJFeedback, StalledPublisherAllowsCompletionAndDoesNotRelabelNextSession)
+{
+  fairino_hardware::ServoJFeedbackPublisher publisher;
+  StalledCall stalled;
+  auto old_calls = std::make_shared<std::atomic<int>>(0);
+  auto new_calls = std::make_shared<std::atomic<int>>(0);
+  auto old = publisher.start([old_calls, block = stalled.callback()](
+      uint64_t sent, uint64_t command, int64_t start) {
+      EXPECT_EQ(sent, 1U);
+      EXPECT_EQ(command, 11U);
+      EXPECT_EQ(start, 111);
+      ++*old_calls;
+      block();
+    });
+  old->offer(1, 11, 111);
+  ASSERT_TRUE(stalled.wait_entered());
+  MockRobot robot;
+  FakeClock clock;
+  fairino_hardware::ServoJStreamerConfig config;
+  config.feedback_period_sec = 0;
+  config.trace_capacity = 4;
+  fairino_hardware::ServoJStreamer streamer(robot, clock, config);
+  auto request = valid_request(1000);
+  std::string reason;
+  ASSERT_TRUE(streamer.reserve(request, reason));
+  auto sender = std::async(std::launch::async, [&]() {
+      return streamer.run_reserved(request, [&](uint64_t n, uint64_t id, int64_t start) {
+          old->offer(n, id, start);
+        }, []() {return 222;});
+    });
+  const auto status = sender.wait_for(std::chrono::seconds(2));
+  if (status != std::future_status::ready) {stalled.release();}
+  ASSERT_EQ(status, std::future_status::ready);
+  auto result = sender.get();
+  result.feedback_publication = old->close();
+  EXPECT_TRUE(result.success);
+  EXPECT_EQ(result.samples_sent, 1000U);
+  EXPECT_EQ(result.last_command_id, 1000U);
+  EXPECT_EQ(result.missed_deadlines, 0U);
+  EXPECT_DOUBLE_EQ(result.maximum_interval_sec, request.period_sec);
+  EXPECT_GT(result.feedback_publication.coalesced, 900U);
+  EXPECT_GT(result.feedback_publication.publication_begin_ns,
+    result.feedback_publication.publication_end_ns);
+  std::ostringstream trace;
+  streamer.write_trace(trace, request, result);
+  EXPECT_NE(trace.str().find("\"in_flight_at_close\":true"), std::string::npos);
+
+  // A new stream and its result finish while the old goal is still publishing.
+  auto next = publisher.start([new_calls](uint64_t, uint64_t, int64_t) {++*new_calls;});
+  ASSERT_TRUE(streamer.reserve(valid_request(2), reason));
+  const auto second = streamer.run_reserved(valid_request(2),
+    [&](uint64_t n, uint64_t id, int64_t start) {next->offer(n, id, start);});
+  next->close();
+  EXPECT_TRUE(second.success);
+  EXPECT_EQ(second.last_command_id, 1002U);
+  EXPECT_EQ(new_calls->load(), 0);
+  stalled.release();
+  publisher.shutdown();
+  EXPECT_EQ(old_calls->load(), 1);
+  EXPECT_EQ(new_calls->load(), 0);  // Closed sessions do not flush pending progress.
+}
+
+TEST(ServoJFeedback, CoalescesToLatestValueAndContainsPublisherExceptions)
+{
+  fairino_hardware::ServoJFeedbackPublisher publisher;
+  StalledCall stalled;
+  auto old = publisher.start([block = stalled.callback()](uint64_t, uint64_t, int64_t) {block();});
+  old->offer(1, 1, 1);
+  ASSERT_TRUE(stalled.wait_entered());
+  old->close();
+  auto delivered = std::make_shared<std::promise<void>>();
+  auto delivery = delivered->get_future();
+  auto next = publisher.start([delivered](uint64_t sent, uint64_t command, int64_t start) {
+      EXPECT_EQ(sent, 300U);
+      EXPECT_EQ(command, 400U);
+      EXPECT_EQ(start, 500);
+      delivered->set_value();
+      throw std::runtime_error("mock DDS failure");
+    });
+  next->offer(100, 200, 500);
+  next->offer(300, 400, 500);
+  stalled.release();
+  ASSERT_EQ(delivery.wait_for(std::chrono::seconds(2)), std::future_status::ready);
+  publisher.shutdown();
+  const auto stats = next->close();
+  EXPECT_EQ(stats.coalesced, 1U);
+  EXPECT_EQ(stats.exceptions, 1U);
+  EXPECT_EQ(stats.published, 0U);
+  EXPECT_GE(stats.publication_end_ns, stats.publication_begin_ns);
+}
+
+TEST(ServoJFeedback, StalledPublicationDoesNotDelayCancelOrSdkFaultResults)
+{
+  for (const bool cancel : {false, true}) {
+    fairino_hardware::ServoJFeedbackPublisher publisher;
+    StalledCall stalled;
+    auto session = publisher.start([block = stalled.callback()](uint64_t, uint64_t, int64_t) {block();});
+    session->offer(1, 1, 1);
+    ASSERT_TRUE(stalled.wait_entered());
+    MockRobot robot;
+    FakeClock clock;
+    fairino_hardware::ServoJStreamerConfig config;
+    config.feedback_period_sec = 0;
+    fairino_hardware::ServoJStreamer streamer(robot, clock, config);
+    auto request = valid_request(20);
+    std::string reason;
+    ASSERT_TRUE(streamer.reserve(request, reason));
+    auto sender = std::async(std::launch::async, [&]() {
+        return streamer.run_reserved(request, [&](uint64_t n, uint64_t id, int64_t start) {
+            session->offer(n, id, start);
+            if (n == 2) {
+              // State-fault/staleness watchdogs and action cancel use this same stop path.
+              if (cancel) {streamer.cancel_and_stop();} else {robot.servo_error = 42;}
+            }
+          });
+      });
+    const auto status = sender.wait_for(std::chrono::seconds(2));
+    if (status != std::future_status::ready) {stalled.release();}
+    ASSERT_EQ(status, std::future_status::ready);
+    const auto result = sender.get();
+    session->close();
+    EXPECT_FALSE(result.success);
+    EXPECT_EQ(result.cancelled, cancel);
+    EXPECT_EQ(result.samples_sent, 2U);
+    EXPECT_EQ(result.controller_error, cancel ? 0 : 42);
+    ASSERT_GE(robot.calls.size(), 2U);
+    EXPECT_EQ(robot.calls[robot.calls.size() - 2], "stop");
+    EXPECT_EQ(robot.calls.back(), "end:1");
+  }
+}
+
+TEST(ServoJFeedback, SdkStallStillTripsDeadlineAndRecordsSendStage)
+{
+  class StalledRobot : public MockRobot
+  {
+  public:
+    std::function<void()> stall;
+    int servo_j(const std::array<double, 6> & q, float period, int id, int type) override
+    {
+      stall();
+      return MockRobot::servo_j(q, period, id, type);
+    }
+  } robot;
+  StalledCall sdk;
+  robot.stall = sdk.callback();
+  FakeClock clock;
+  robot.clock = &clock;
+  robot.servo_duration_nanoseconds = 325090000;
+  fairino_hardware::ServoJStreamerConfig config;
+  config.trace_capacity = 4;
+  fairino_hardware::ServoJStreamer streamer(robot, clock, config);
+  auto request = valid_request(10);
+  request.period_sec = 0.006;
+  std::string reason;
+  ASSERT_TRUE(streamer.reserve(request, reason));
+  auto sender = std::async(std::launch::async, [&]() {return streamer.run_reserved(request);});
+  const bool entered = sdk.wait_entered();
+  if (!entered) {sdk.release();}
+  ASSERT_TRUE(entered);
+  EXPECT_EQ(sender.wait_for(std::chrono::milliseconds(10)), std::future_status::timeout);
+  sdk.release();
+  const auto result = sender.get();
+  EXPECT_FALSE(result.success);
+  EXPECT_EQ(result.samples_sent, 1U);
+  EXPECT_EQ(result.missed_deadlines, 1U);
+  EXPECT_NE(result.message.find("SDK command completed after maximum lateness"), std::string::npos);
+  EXPECT_EQ(robot.calls, (std::vector<std::string>{"start:1", "servo:1", "stop", "end:1"}));
+  std::ostringstream out;
+  streamer.write_trace(out, request, result);
+  EXPECT_NE(out.str().find("\"sdk_enter_mono_ns\":1000000000"), std::string::npos);
+  EXPECT_NE(out.str().find("\"sdk_return_mono_ns\":1325090000"), std::string::npos);
+  EXPECT_NE(out.str().find("\"feedback_handoff_begin_mono_ns\":0"), std::string::npos);
+}
+
+TEST(ServoJStreamerDiagnostics, SeparatesFirstRosClockReadFromSdkAndHandoff)
+{
+  MockRobot robot;
+  FakeClock clock;
+  robot.clock = &clock;
+  robot.servo_duration_nanoseconds = 1000000;
+  fairino_hardware::ServoJStreamerConfig config;
+  config.trace_capacity = 1;
+  fairino_hardware::ServoJStreamer streamer(robot, clock, config);
+  const auto request = valid_request(1);
+  std::string reason;
+  ASSERT_TRUE(streamer.reserve(request, reason));
+  const auto result = streamer.run_reserved(request,
+    [&](uint64_t, uint64_t, int64_t) {clock.now += 10000;},
+    [&]() {clock.now += 2000000; return 123;});
+  ASSERT_TRUE(result.success);
+  std::ostringstream out;
+  streamer.write_trace(out, request, result);
+  EXPECT_NE(out.str().find("\"sdk_return_mono_ns\":1001000000"), std::string::npos);
+  EXPECT_NE(out.str().find("\"return_mono_ns\":1003000000"), std::string::npos);
+  EXPECT_NE(out.str().find("\"feedback_handoff_begin_mono_ns\":1003000000"), std::string::npos);
+  EXPECT_NE(out.str().find("\"feedback_handoff_end_mono_ns\":1003010000"), std::string::npos);
+  EXPECT_NE(out.str().find("\"loop_end_mono_ns\":1003010000"), std::string::npos);
 }
 
 }  // namespace

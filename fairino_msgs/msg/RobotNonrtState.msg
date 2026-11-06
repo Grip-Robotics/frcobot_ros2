@@ -128,7 +128,7 @@ int32 slave_domain_id
 # joint state come from the same controller sample, so they can be compared
 # directly without aligning two feeds against each other.
 float64[6] jt_servo_target_pos  # lastServoTarget: newest queued ServoJ target, deg
-int32 servo_j_cmd_num           # servoJCmdNum: ServoJ commands consumed
+int32 servo_j_cmd_num           # servoJCmdNum: vendor counter; execution semantics unverified
 int32 mc_queue_len              # controller motion-command queue depth
 float64[6] jt_cur_vel           # actual_qd, deg/s
 float64[6] jt_cur_acc           # actual_qdd, deg/s^2
