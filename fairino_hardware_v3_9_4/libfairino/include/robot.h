@@ -17,2368 +17,2425 @@
 #include <vector>
 #include <memory>
 
-class FRTcpClient;
-class FRUdpClient;
+class FRTCPClientBase;
+class FRUDPClientBase;
+class FRCNDEClient;
 
 class FR_LIB_EXPORT FRRobot
 {
 public:
-	/**
-	 * @brief  机器人接口类构造函数
+    /**
+	 * @brief Robot interface class constructor
+	 * @param [in] _TLSEnable Robot SDK Integration Command Protocol Communication Encryption Enable
 	 */
-	FRRobot();
+	FRRobot(bool _TLSEnable = false);
 
 	/**
-	 * @brief  与机器人控制器建立通讯
-	 * @param  [in] ip  控制器IP地址，出场默认为192.168.58.2
-	 * @return 错误码
+    *@brief  Establish communication with the robot controller
+    *@param  [in] ip  Controller IP address. The default value is 192.168.58.2
+    *@return Error code
 	 */
-	errno_t RPC(const char *ip);
+    errno_t  RPC(const char *ip);
 
 	/**
-	 * @brief  与机器人控制器关闭通讯
-	 * @return 错误码
+	 * @brief  Close communication with robot controller
+	 * @return Error code
 	 */
-	errno_t CloseRPC();
+    errno_t  CloseRPC();
 
 	/**
-	 * @brief  查询SDK版本号
-	 * @param  [out] version   SDK版本号
-	 * @return  错误码
-	 */
-	errno_t GetSDKVersion(char *version);
+    *@brief  Query the SDK version number
+    *@param  [out] version  SDK version
+    *@return  Error code
+     */
+	errno_t  GetSDKVersion(char *version);
 
 	/**
-	 * @brief  获取控制器IP
-	 * @param  [out] ip  控制器IP
-	 * @return  错误码
+    *@brief  Obtain Controller IP address
+    *@param  [out] ip  Controller IP
+    *@return  Error code
 	 */
-	errno_t GetControllerIP(char *ip);
+	errno_t  GetControllerIP(char *ip);
 
 	/**
-	 * @brief  控制机器人进入或退出拖动示教模式
-	 * @param  [in] state 0-退出拖动示教模式，1-进入拖动示教模式
-	 * @return  错误码
+    *@brief  Control the robot to enter or exit the drag teaching mode
+    *@param  [in] state 0-exit drag mode，1-enter the drag mode
+    *@return  Error code
 	 */
-	errno_t DragTeachSwitch(uint8_t state);
+	errno_t  DragTeachSwitch(uint8_t state);
 
 	/**
-	 * @brief  查询机器人是否处于拖动示教模式
-	 * @param  [out] state 0-非拖动示教模式，1-拖动示教模式
-	 * @return  错误码
+    *@brief  Check whether the robot is in drag mode
+    *@param  [out] state 0-non-drag teaching mode，1-drag the teaching mode
+    *@return  Error code
 	 */
-	errno_t IsInDragTeach(uint8_t *state);
+	errno_t  IsInDragTeach(uint8_t *state);
 
 	/**
-	 * @brief  控制机器人上使能或下使能，机器人上电后默认自动上使能
-	 * @param  [in] state  0-下使能，1-上使能
-	 * @return  错误码
+    *@brief  Enable or disable the function on or off the robot. By default, the function is enabled automatically after the robot is powered on
+    *@param  [in] state  0-down-enable，1-upper enable
+    *@return  Error code
 	 */
-	errno_t RobotEnable(uint8_t state);
+	errno_t  RobotEnable(uint8_t state);
 
 	/**
-	 * @brief 控制机器人手自动模式切换
-	 * @param [in] mode 0-自动模式，1-手动模式
-	 * @return 错误码
+    *@brief Control robot hand/automatic mode
+    *@param [in] mode 0-automatic mode，1-manual mode
+    *@return Error code
 	 */
-	errno_t Mode(int mode);
+    errno_t  Mode(int mode);
 
 	/**
-	 * @brief  jog点动
-	 * @param  [in]  ref 0-关节点动，2-基坐标系下点动，4-工具坐标系下点动，8-工件坐标系下点动
-	 * @param  [in]  nb 1-关节1(或x轴)，2-关节2(或y轴)，3-关节3(或z轴)，4-关节4(或绕x轴旋转)，5-关节5(或绕y轴旋转)，6-关节6(或绕z轴旋转)
-	 * @param  [in]  dir 0-负方向，1-正方向
-	 * @param  [in]  vel 速度百分比，[0~100]
-	 * @param  [in]  acc 加速度百分比， [0~100]
-	 * @param  [in]  max_dis 单次点动最大角度，单位[°]或距离，单位[mm]
-	 * @return  错误码
+    *@brief  Jog point movement
+    *@param  [in]  ref 0- node movement, 2- base coordinate system, 4- tool coordinate system, 8- workpiece coordinate system
+    *@param  [in]  nb 1-joint 1(or axis x), 2-joint 2(or axis y), 3-joint 3(or axis z), 4-joint 4(or rotation about axis x), 5-joint 5(or rotation about axis y), 6-joint 6(or rotation about axis z)
+    *@param  [in]  dir 0-negative correlation, 1-positive correlation
+    *@param  [in]  vel The percentage of velocity,[0~100]
+    *@param  [in]  acc The percentage of acceleration, [0~100]
+    *@param  [in]  max_dis Maximum Angle of single click, unit: [°] or distance, unit: [mm]
+    *@return  Error code
 	 */
-	errno_t StartJOG(uint8_t ref, uint8_t nb, uint8_t dir, float vel, float acc, float max_dis);
+	errno_t  StartJOG(uint8_t ref, uint8_t nb, uint8_t dir, float vel, float acc, float max_dis);
 
 	/**
-	 * @brief  jog点动减速停止
-	 * @param  [in]  ref  1-关节点动停止，3-基坐标系下点动停止，5-工具坐标系下点动停止，9-工件坐标系下点动停止
-	 * @return  错误码
+    *@brief  Jog point dynamic deceleration stop
+    *@param  [in]  ref  1- point stop, 3- point stop in base coordinate system, 5- point stop in tool coordinate system, 9- point stop in workpiece coordinate system
+    *@return  Error code
 	 */
-	errno_t StopJOG(uint8_t ref);
+	errno_t  StopJOG(uint8_t ref);
 
 	/**
-	 * @brief jog点动立即停止
-	 * @return  错误码
+    *@brief The jog stops immediately
+    *@return  Error code
 	 */
-	errno_t ImmStopJOG();
+	errno_t  ImmStopJOG();
 
 	/**
-	 * @brief  关节空间运动
-	 * @param  [in] joint_pos  目标关节位置,单位deg
-	 * @param  [in] desc_pos   目标笛卡尔位姿
-	 * @param  [in] tool  工具坐标号，范围[0~14]
-	 * @param  [in] user  工件坐标号，范围[0~14]
-	 * @param  [in] vel  速度百分比，范围[0~100]
-	 * @param  [in] acc  加速度百分比，范围[0~100],暂不开放
-	 * @param  [in] ovl  速度缩放因子，范围[0~100]
-	 * @param  [in] epos  扩展轴位置，单位mm
-	 * @param  [in] blendT [-1.0]-运动到位(阻塞)，[0~500.0]-平滑时间(非阻塞)，单位ms
-	 * @param  [in] offset_flag  0-不偏移，1-基坐标系/工件坐标系下偏移，2-工具坐标系下偏移
-	 * @param  [in] offset_pos  位姿偏移量
-	 * @return  错误码
+    *@brief  Joint space motion
+    *@param  [in] joint_pos  Target joint location, unit: deg
+    *@param  [in] desc_pos   Target Cartesian position
+    *@param  [in] tool  Tool coordinate number, range [0~14]
+    *@param  [in] user  Workpiece coordinate number, range [0~14]
+    *@param  [in] vel  Percentage of speed, range [0~100]
+    *@param  [in] acc  Acceleration percentage, range [0~100], not open for now
+    *@param  [in] ovl  Velocity scaling factor, range[0~100]
+    *@param  [in] epos  Position of expansion shaft, unit: mm
+    *@param  [in] blendT [-1.0]- movement in place (blocking), [0~500.0]- smoothing time (non-blocking), in ms
+    *@param  [in] offset_flag  0- no offset, 1- offset in base/job coordinate system, 2- offset in tool coordinate system
+    *@param  [in] offset_pos  The pose offset
+    *@return  Error code
 	 */
-	errno_t MoveJ(JointPos *joint_pos, DescPose *desc_pos, int tool, int user, float vel, float acc, float ovl, ExaxisPos *epos, float blendT, uint8_t offset_flag, DescPose *offset_pos);
+	errno_t  MoveJ(JointPos *joint_pos, DescPose *desc_pos, int tool, int user, float vel, float acc, float ovl, ExaxisPos *epos, float blendT, uint8_t offset_flag, DescPose *offset_pos);
 
 	/**
-	 * @brief  关节空间运动(重载函数 不需要输入笛卡尔位置)
-	 * @param  [in] joint_pos  目标关节位置,单位deg
-	 * @param  [in] tool  工具坐标号，范围[0~14]
-	 * @param  [in] user  工件坐标号，范围[0~14]
-	 * @param  [in] vel  速度百分比，范围[0~100]
-	 * @param  [in] acc  加速度百分比，范围[0~100],暂不开放
-	 * @param  [in] ovl  速度缩放因子，范围[0~100]
-	 * @param  [in] epos  扩展轴位置，单位mm
-	 * @param  [in] blendT [-1.0]-运动到位(阻塞)，[0~500.0]-平滑时间(非阻塞)，单位ms
-	 * @param  [in] offset_flag  0-不偏移，1-基坐标系/工件坐标系下偏移，2-工具坐标系下偏移
-	 * @param  [in] offset_pos  位姿偏移量
-	 * @return  错误码
+	 *@brief  Joint space motion(Overloaded functions do not require the input of Cartesian positions)
+	 *@param  [in] joint_pos  Target joint location, unit: deg
+	 *@param  [in] tool  Tool coordinate number, range [0~14]
+	 *@param  [in] user  Workpiece coordinate number, range [0~14]
+	 *@param  [in] vel  Percentage of speed, range [0~100]
+	 *@param  [in] acc  Acceleration percentage, range [0~100], not open for now
+	 *@param  [in] ovl  Velocity scaling factor, range[0~100]
+	 *@param  [in] epos  Position of expansion shaft, unit: mm
+	 *@param  [in] blendT [-1.0]- movement in place (blocking), [0~500.0]- smoothing time (non-blocking), in ms
+	 *@param  [in] offset_flag  0- no offset, 1- offset in base/job coordinate system, 2- offset in tool coordinate system
+	 *@param  [in] offset_pos  The pose offset
+	 *@return Error code
 	 */
-	errno_t MoveJ(JointPos* joint_pos, int tool, int user, float vel, float acc, float ovl, ExaxisPos* epos, float blendT, uint8_t offset_flag, DescPose* offset_pos);
+	errno_t  MoveJ(JointPos* joint_pos, int tool, int user, float vel, float acc, float ovl, ExaxisPos* epos, float blendT, uint8_t offset_flag, DescPose* offset_pos);
 
 	/**
-	 * @brief 笛卡尔空间直线运动(重载函数1 增加blendMode)
-	 * @param [in] joint_pos 目标关节位置,单位deg
-	 * @param [in] desc_pos 目标笛卡尔位姿
-	 * @param [in] tool 工具坐标号，范围[0~14]
-	 * @param [in] user 工件坐标号，范围[0~14]
-	 * @param [in] vel 速度百分比，范围[0~100]
-	 * @param [in] acc 加速度百分比，范围[0~100],暂不开放
-	 * @param [in] ovl 速度缩放因子[0~100]/物理速度(mm/s)
-	 * @param [in] blendR [-1.0]-运动到位(阻塞)，[0~1000.0]-平滑半径(非阻塞)，单位mm
-	 * @param [in] blendMode 过渡方式；0-内切过渡；1-角点过渡
-	 * @param [in] epos 扩展轴位置，单位mm
-	 * @param [in] search 0-不焊丝寻位，1-焊丝寻位
-	 * @param [in] offset_flag 0-不偏移，1-基坐标系/工件坐标系下偏移，2-工具坐标系下偏移
-	 * @param [in] offset_pos 位姿偏移量
-	 * @param [in] oacc 加速度缩放因子[0-100]/物理加速度(mm/s2)
-	 * @param [in] velAccParamMode 速度加速度参数模式；0-百分比；1-物理速度(mm/s)加速度(mm/s2)
-	 * @param [in] overSpeedStrategy 超速处理策略，1-标准；2-超速时报错停止；3-自适应降速，默认为0
-     * @param [in] speedPercent 允许降速阈值百分比[0-100]，默认10%
-	 * @return 错误码
+     * @brief Rectilinear motion in Cartesian space
+     * @param [in] joint_pos  Target joint location, unit: deg
+     * @param [in] desc_pos   Target Cartesian position
+     * @param [in] tool  Tool coordinate number, range [0~14]
+     * @param [in] user  Workpiece coordinate number, range [0~14]
+     * @param [in] vel  Percentage of speed, range [0~100]
+     * @param [in] acc  Acceleration percentage, range [0~100], not open for now
+     * @param [in] ovl  Velocity scaling factor[0~100]/physics velocity(mm/s)
+     * @param [in] blendR [-1.0]- movement in place (blocking), [0~1000.0]- Smoothing radius (non-blocking), unit: mm
+     * @param [in] blendMode transition mode; 0- Internal cutting transition 1- Corner transition
+	 * @param [in] epos  Position of expansion shaft, unit: mm
+     * @param [in] search  0- no wire seeking, 1- wire seeking
+     * @param [in] offset_flag  0- no offset, 1- offset in base/job coordinate system, 2- offset in tool coordinate system
+     * @param [in] offset_pos  The pose offset
+	 * @param [in] oacc Acceleration scaling factor [0-100]/ physical acceleration (mm/s ²)
+	 * @param [in] velAccParamMode Speed-acceleration parameter mode 0- percentage 1- Physical velocity (mm/s) Acceleration (mm/s ²)
+	 * @param [in] overSpeedStrategy  Overspeed handling strategy, 1-standard; 2- Reporting a wrong stop when speeding; 3- Adaptive deceleration, default is 0
+	 * @param [in] speedPercent  The allowable deceleration threshold percentage [0-100], default 10%
+	 * @return Error code
 	 */
 	errno_t MoveL(JointPos *joint_pos, DescPose *desc_pos, int tool, int user, float vel, float acc, float ovl, float blendR, int blendMode, ExaxisPos *epos, uint8_t search, uint8_t offset_flag, DescPose *offset_pos, float oacc = 100.0, int velAccParamMode = 0, int overSpeedStrategy = 0, int speedPercent = 10);
 
 	/**
-	 * @brief  笛卡尔空间直线运动(重载函数2 不需要输入关节位置)
-	 * @param  [in] desc_pos   目标笛卡尔位姿
-	 * @param  [in] tool  工具坐标号，范围[0~14]
-	 * @param  [in] user  工件坐标号，范围[0~14]
-	 * @param  [in] vel  速度百分比，范围[0~100]
-	 * @param  [in] acc  加速度百分比，范围[0~100],暂不开放
-	 * @param  [in] ovl  速度缩放因子[0~100]/物理速度(mm/s)
-	 * @param  [in] blendR [-1.0]-运动到位(阻塞)，[0~1000.0]-平滑半径(非阻塞)，单位mm
-	 * @param  [in] blendMode 过渡方式；0-内切过渡；1-角点过渡
-	 * @param  [in] epos  扩展轴位置，单位mm
-	 * @param  [in] search  0-不焊丝寻位，1-焊丝寻位
-	 * @param  [in] offset_flag  0-不偏移，1-基坐标系/工件坐标系下偏移，2-工具坐标系下偏移
-	 * @param  [in] offset_pos  位姿偏移量
-	 * @param  [in] config 逆解关节空间配置，[-1]-参考当前关节位置解算，[0~7]-依据特定关节空间配置求解
-	 * @param  [in] velAccParamMode 速度加速度参数模式；0-百分比；1-物理速度(mm/s)加速度(mm/s2)
-	 * @param  [in] overSpeedStrategy  超速处理策略，1-标准；2-超速时报错停止；3-自适应降速，默认为0
-	 * @param  [in] speedPercent  允许降速阈值百分比[0-100]，默认10%
-	 * @return  错误码
+	 * @brief Rectilinear motion in Cartesian space(Overloaded function 2 does not require the input of joint positions)
+	 * @param [in] desc_pos Target Cartesian position
+	 * @param [in] tool Tool coordinate number, range [0~14]
+	 * @param [in] user Workpiece coordinate number, range [0~14]
+	 * @param [in] vel Percentage of speed, range [0~100]
+	 * @param [in] acc Acceleration percentage, range [0~100], not open for now
+	 * @param [in] ovl Velocity scaling factor[0~100]/physics velocity(mm/s)
+	 * @param [in] blendR [-1.0]- movement in place (blocking), [0~1000.0]- Smoothing radius (non-blocking), unit: mm
+	 * @param [in] blendMode transition mode; 0- Internal cutting transition 1- Corner transition
+	 * @param [in] epos Position of expansion shaft, unit: mm
+	 * @param [in] search 0- no wire seeking, 1- wire seeking
+	 * @param [in] offset_flag 0- no offset, 1- offset in base/job coordinate system, 2- offset in tool coordinate system
+	 * @param [in] offset_pos The pose offset
+	 * @param [in] config Robot inverse kinematics calculation joint configuration, [-1]- calculate based on the current joint position, [0~7]- solve based on the specific joint space configuration
+	 * @param [in] velAccParamMode Speed-acceleration parameter mode 0- percentage 1- Physical velocity (mm/s) Acceleration (mm/s ²)
+	 * @param [in] overSpeedStrategy Overspeed handling strategy, 1-standard; 2- Reporting a wrong stop when speeding; 3- Adaptive deceleration, default is 0
+	 * @param [in] speedPercent The allowable deceleration threshold percentage [0-100], default 10%
+	 * @return Error code
 	 */
 	errno_t MoveL(DescPose* desc_pos, int tool, int user, float vel, float acc, float ovl, float blendR, int blendMode, ExaxisPos* epos, uint8_t search, uint8_t offset_flag, DescPose* offset_pos, int config = -1, int velAccParamMode = 0, int overSpeedStrategy = 0, int speedPercent = 10);
 
 
 	/**
-	 * @brief  笛卡尔空间直线运动
-	 * @param  [in] joint_pos  目标关节位置,单位deg
-	 * @param  [in] desc_pos   目标笛卡尔位姿
-	 * @param  [in] tool  工具坐标号，范围[0~14]
-	 * @param  [in] user  工件坐标号，范围[0~14]
-	 * @param  [in] vel  速度百分比，范围[0~100]
-	 * @param  [in] acc  加速度百分比，范围[0~100],暂不开放
-	 * @param  [in] ovl  速度缩放因子，范围[0~100]
-	 * @param  [in] blendR [-1.0]-运动到位(阻塞)，[0~1000.0]-平滑半径(非阻塞)，单位mm
-	 * @param  [in] epos  扩展轴位置，单位mm
-	 * @param  [in] search  0-不焊丝寻位，1-焊丝寻位
-	 * @param  [in] offset_flag  0-不偏移，1-基坐标系/工件坐标系下偏移，2-工具坐标系下偏移
-	 * @param  [in] offset_pos  位姿偏移量
-	 * @param  [in] overSpeedStrategy  超速处理策略，1-标准；2-超速时报错停止；3-自适应降速，默认为0
-	 * @param  [in] speedPercent  允许降速阈值百分比[0-100]，默认10%
-	 * @return  错误码
-	 */
+	* @brief Rectilinear motion in Cartesian space
+	* @param [in] joint_pos Target joint location, unit: deg
+	* @param [in] desc_pos Target Cartesian position
+	* @param [in] tool Tool coordinate number, range [0~14]
+	* @param [in] user Workpiece coordinate number, range [0~14]
+	* @param [in] vel Percentage of speed, range [0~100]
+	* @param [in] acc Acceleration percentage, range [0~100], not open for now
+	* @param [in] ovl Velocity scaling factor, range[0~100]
+	* @param [in] blendR [-1.0]- movement in place (blocking), [0~1000.0]- Smoothing radius (non-blocking), unit: mm
+	* @param [in] epos Position of expansion shaft, unit: mm
+	* @param [in] search 0- no wire seeking, 1- wire seeking
+	* @param [in] offset_flag 0- no offset, 1- offset in base/job coordinate system, 2- offset in tool coordinate system
+	* @param [in] offset_pos The pose offset
+	* @param [in] overSpeedStrategy Overspeed handling strategy, 1-standard; 2- Reporting a wrong stop when speeding; 3- Adaptive deceleration, default is 0
+	* @param [in] speedPercent The allowable deceleration threshold percentage [0-100], default 10%
+	* @return Error code
+	*/
 	errno_t MoveL(JointPos* joint_pos, DescPose* desc_pos, int tool, int user, float vel, float acc, float ovl, float blendR, ExaxisPos* epos, uint8_t search, uint8_t offset_flag, DescPose* offset_pos, int overSpeedStrategy = 0, int speedPercent = 10);
-	
+
+
 	/**
-	 * @brief  笛卡尔空间圆弧运动
-	 * @param  [in] joint_pos_p  路径点关节位置,单位deg
-	 * @param  [in] desc_pos_p   路径点笛卡尔位姿
-	 * @param  [in] ptool  工具坐标号，范围[0~14]
-	 * @param  [in] puser  工件坐标号，范围[0~14]
-	 * @param  [in] pvel  速度百分比，范围[0~100]
-	 * @param  [in] pacc  加速度百分比，范围[0~100],暂不开放
-	 * @param  [in] epos_p  扩展轴位置，单位mm
-	 * @param  [in] poffset_flag  0-不偏移，1-基坐标系/工件坐标系下偏移，2-工具坐标系下偏移
-	 * @param  [in] offset_pos_p  位姿偏移量
-	 * @param  [in] joint_pos_t  目标点关节位置,单位deg
-	 * @param  [in] desc_pos_t   目标点笛卡尔位姿
-	 * @param  [in] ttool  工具坐标号，范围[0~14]
-	 * @param  [in] tuser  工件坐标号，范围[0~14]
-	 * @param  [in] tvel  速度百分比，范围[0~100]
-	 * @param  [in] tacc  加速度百分比，范围[0~100],暂不开放
-	 * @param  [in] epos_t  扩展轴位置，单位mm
-	 * @param  [in] toffset_flag  0-不偏移，1-基坐标系/工件坐标系下偏移，2-工具坐标系下偏移
-	 * @param  [in] offset_pos_t  位姿偏移量
-	 * @param  [in] ovl  速度缩放因子[0~100]/物理速度(mm/s)
-	 * @param  [in] blendR [-1.0]-运动到位(阻塞)，[0~1000.0]-平滑半径(非阻塞)，单位mm
-	 * @param  [in] oacc 加速度缩放因子[0-100]/物理加速度(mm/s2)
-	 * @param  [in] velAccParamMode 速度加速度参数模式；0-百分比；1-物理速度(mm/s)加速度(mm/s2)
-	 * @return  错误码
+     * @brief Circular arc motion in Cartesian space
+     * @param [in] joint_pos_p Waypoint joint position, unit: deg
+     * @param [in] desc_pos_p Waypoint Cartesian position
+     * @param [in] ptool Tool coordinate number, range [0~14]
+     * @param [in] puser Workpiece coordinate number, range [0~14]
+     * @param [in] pvel Percentage of speed, range [0~100]
+     * @param [in] pacc Acceleration percentage, range [0~100], not open for now
+     * @param [in] epos_p Position of expansion shaft, unit: mm
+     * @param [in] poffset_flag 0- no offset, 1- offset in base/job coordinate system, 2- offset in tool coordinate system
+     * @param [in] offset_pos_p The pose offset
+     * @param [in] joint_pos_t Target joint position, unit: deg
+     * @param [in] desc_pos_t Target point Cartesian position
+     * @param [in] ttool Tool coordinate number, range [0~14]
+     * @param [in] tuser Workpiece coordinate number, range [0~14]
+     * @param [in] tvel Percentage of speed, range [0~100]
+     * @param [in] tacc Acceleration percentage, range [0~100], not open for now
+     * @param [in] epos_t Position of expansion shaft, unit: mm
+     * @param [in] toffset_flag 0- no offset, 1- offset in base/job coordinate system, 2- offset in tool coordinate system
+     * @param [in] offset_pos_t The pose offset
+     * @param [in] ovl Velocity scaling factor[0~100]/physics velocity(mm/s)
+     * @param [in] blendR [-1.0]- movement in place (blocking), [0~1000.0]- Smoothing radius (non-blocking), unit: mm
+	 * @param [in] oacc Acceleration scaling factor [0-100]/ physical acceleration (mm/s ²)
+	 * @param [in] velAccParamMode Speed-acceleration parameter mode 0- percentage 1- Physical velocity (mm/s) Acceleration (mm/s ²)
+	 * @return Error code
 	 */
 	errno_t MoveC(JointPos *joint_pos_p, DescPose *desc_pos_p, int ptool, int puser, float pvel, float pacc, ExaxisPos *epos_p, uint8_t poffset_flag, DescPose *offset_pos_p, JointPos *joint_pos_t, DescPose *desc_pos_t, int ttool, int tuser, float tvel, float tacc, ExaxisPos *epos_t, uint8_t toffset_flag, DescPose *offset_pos_t, float ovl, float blendR, float oacc = 100.0, int velAccParamMode = 0);
 
 	/**
-	 * @brief  笛卡尔空间圆弧运动 (重载函数1 不需要输入关节位置)
-	 * @param  [in] desc_pos_p   路径点笛卡尔位姿
-	 * @param  [in] ptool  工具坐标号，范围[0~14]
-	 * @param  [in] puser  工件坐标号，范围[0~14]
-	 * @param  [in] pvel  速度百分比，范围[0~100]
-	 * @param  [in] pacc  加速度百分比，范围[0~100],暂不开放
-	 * @param  [in] epos_p  扩展轴位置，单位mm
-	 * @param  [in] poffset_flag  0-不偏移，1-基坐标系/工件坐标系下偏移，2-工具坐标系下偏移
-	 * @param  [in] offset_pos_p  位姿偏移量
-	 * @param  [in] desc_pos_t   目标点笛卡尔位姿
-	 * @param  [in] ttool  工具坐标号，范围[0~14]
-	 * @param  [in] tuser  工件坐标号，范围[0~14]
-	 * @param  [in] tvel  速度百分比，范围[0~100]
-	 * @param  [in] tacc  加速度百分比，范围[0~100],暂不开放
-	 * @param  [in] epos_t  扩展轴位置，单位mm
-	 * @param  [in] toffset_flag  0-不偏移，1-基坐标系/工件坐标系下偏移，2-工具坐标系下偏移
-	 * @param  [in] offset_pos_t  位姿偏移量
-	 * @param  [in] ovl  速度缩放因子，范围[0~100]
-	 * @param  [in] blendR [-1.0]-运动到位(阻塞)，[0~1000.0]-平滑半径(非阻塞)，单位mm
-	 * @param  [in] config 逆解关节空间配置，[-1]-参考当前关节位置解算，[0~7]-依据特定关节空间配置求解
-	 * @param  [in] velAccParamMode 速度加速度参数模式；0-百分比；1-物理速度(mm/s)加速度(mm/s2)
-	 * @return  错误码
+	 * @brief Circular arc motion in Cartesian space (Overloaded function does not require input of joint positions.)
+	 * @param [in] desc_pos_p Waypoint Cartesian position
+	 * @param [in] ptool Tool coordinate number, range [0~14]
+	 * @param [in] puser Workpiece coordinate number, range [0~14]
+	 * @param [in] pvel Percentage of speed, range [0~100]
+	 * @param [in] pacc Acceleration percentage, range [0~100], not open for now
+	 * @param [in] epos_p Position of expansion shaft, unit: mm
+	 * @param [in] poffset_flag 0- no offset, 1- offset in base/job coordinate system, 2- offset in tool coordinate system
+	 * @param [in] offset_pos_p The pose offset
+	 * @param [in] desc_pos_t Target point Cartesian position
+	 * @param [in] ttool Tool coordinate number, range [0~14]
+	 * @param [in] tuser Workpiece coordinate number, range [0~14]
+	 * @param [in] tvel Percentage of speed, range [0~100]
+	 * @param [in] tacc Acceleration percentage, range [0~100], not open for now
+	 * @param [in] epos_t Position of expansion shaft, unit: mm
+	 * @param [in] toffset_flag 0- no offset, 1- offset in base/job coordinate system, 2- offset in tool coordinate system
+	 * @param [in] offset_pos_t The pose offset
+	 * @param [in] ovl Velocity scaling factor, range[0~100]
+	 * @param [in] blendR [-1.0]- movement in place (blocking), [0~1000.0]- Smoothing radius (non-blocking), unit: mm
+	 * @param [in] config Robot inverse kinematics calculation joint configuration, [-1]- calculate based on the current joint position, [0~7]- solve based on the specific joint space configuration
+	 * @param [in] velAccParamMode Speed-acceleration parameter mode 0- percentage 1- Physical velocity (mm/s) Acceleration (mm/s ²)
+	 * @return Error code
 	 */
 	errno_t MoveC(DescPose* desc_pos_p, int ptool, int puser, float pvel, float pacc, ExaxisPos* epos_p, uint8_t poffset_flag, DescPose* offset_pos_p, DescPose* desc_pos_t, int ttool, int tuser, float tvel, float tacc, ExaxisPos* epos_t, uint8_t toffset_flag, DescPose* offset_pos_t, float ovl, float blendR, int config = -1, int velAccParamMode = 0);
 
 	/**
-	 * @brief  笛卡尔空间整圆运动
-	 * @param  [in] joint_pos_p  路径点1关节位置,单位deg
-	 * @param  [in] desc_pos_p   路径点1笛卡尔位姿
-	 * @param  [in] ptool  工具坐标号，范围[0~14]
-	 * @param  [in] puser  工件坐标号，范围[0~14]
-	 * @param  [in] pvel  速度百分比，范围[0~100]
-	 * @param  [in] pacc  加速度百分比，范围[0~100],暂不开放
-	 * @param  [in] epos_p  扩展轴位置，单位mm
-	 * @param  [in] joint_pos_t  路径点2关节位置,单位deg
-	 * @param  [in] desc_pos_t   路径点2笛卡尔位姿
-	 * @param  [in] ttool  工具坐标号，范围[0~14]
-	 * @param  [in] tuser  工件坐标号，范围[0~14]
-	 * @param  [in] tvel  速度百分比，范围[0~100]
-	 * @param  [in] tacc  加速度百分比，范围[0~100],暂不开放
-	 * @param  [in] epos_t  扩展轴位置，单位mm
-	 * @param  [in] ovl  速度缩放因子[0~100]/物理速度(mm/s)
-	 * @param  [in] offset_flag  0-不偏移，1-基坐标系/工件坐标系下偏移，2-工具坐标系下偏移
-	 * @param  [in] offset_pos  位姿偏移量
-	 * @param  [in] oacc 加速度缩放因子[0-100]/物理加速度(mm/s2)
-	 * @param  [in] blendR -1：阻塞；0~1000：平滑半径
-	 * @param  [in] velAccParamMode 速度加速度参数模式；0-百分比；1-物理速度(mm/s)加速度(mm/s2)
-	 * @return  错误码
+     *@brief  Circular motion in Cartesian space
+     *@param  [in] joint_pos_p  Path point 1 joint position, unit: deg
+     *@param  [in] desc_pos_p   Waypoint 1 Cartesian position
+     *@param  [in] ptool  Tool coordinate number, range [0~14]
+     *@param  [in] puser  Workpiece coordinate number, range [0~14]
+     *@param  [in] pvel  Percentage of speed, range [0~100]
+     *@param  [in] pacc  Acceleration percentage, range [0~100], not open for now
+     *@param  [in] epos_p  Position of expansion shaft, unit: mm
+     *@param  [in] joint_pos_t  Joint position at waypoint 2, unit: deg
+     *@param  [in] desc_pos_t   Waypoint 2 Cartesian position
+     *@param  [in] ttool  Tool coordinate number, range [0~14]
+     *@param  [in] tuser  Workpiece coordinate number, range [0~14]
+     *@param  [in] tvel  Percentage of speed, range [0~100]
+     *@param  [in] tacc  Acceleration percentage, range [0~100], not open for now
+     *@param  [in] epos_t  Position of expansion shaft, unit: mm
+     *@param  [in] ovl  Velocity scaling factor[0~100]/physics velocity(mm/s)
+     *@param  [in] offset_flag  0- no offset, 1- offset in base/job coordinate system, 2- offset in tool coordinate system
+     *@param  [in] offset_pos  The pose offset
+     *@param  [in] oacc Acceleration scaling factor [0-100]/ physical acceleration (mm/s ²)
+	 *@param  [in] blendR -1: Block; 0-1000: Smooth radius
+	 * @param  [in] velAccParamMode Speed-acceleration parameter mode 0- percentage 1- Physical velocity (mm/s) Acceleration (mm/s ²)
+	 * @return  Error code
 	 */
 	errno_t Circle(JointPos* joint_pos_p, DescPose* desc_pos_p, int ptool, int puser, float pvel, float pacc, ExaxisPos* epos_p, JointPos* joint_pos_t, DescPose* desc_pos_t, int ttool, int tuser, float tvel, float tacc, ExaxisPos* epos_t, float ovl, uint8_t offset_flag, DescPose* offset_pos, double oacc = 100.0, double blendR = -1, int velAccParamMode = 0);
 
 	/**
-	 * @brief  笛卡尔空间整圆运动 (重载函数1 不需要输入关节位置)
-	 * @param  [in] desc_pos_p   路径点1笛卡尔位姿
-	 * @param  [in] ptool  工具坐标号，范围[0~14]
-	 * @param  [in] puser  工件坐标号，范围[0~14]
-	 * @param  [in] pvel  速度百分比，范围[0~100]
-	 * @param  [in] pacc  加速度百分比，范围[0~100],暂不开放
-	 * @param  [in] epos_p  扩展轴位置，单位mm
-	 * @param  [in] desc_pos_t   路径点2笛卡尔位姿
-	 * @param  [in] ttool  工具坐标号，范围[0~14]
-	 * @param  [in] tuser  工件坐标号，范围[0~14]
-	 * @param  [in] tvel  速度百分比，范围[0~100]
-	 * @param  [in] tacc  加速度百分比，范围[0~100],暂不开放
-	 * @param  [in] epos_t  扩展轴位置，单位mm
-	 * @param  [in] ovl  速度缩放因子，范围[0~100]
-	 * @param  [in] offset_flag  0-不偏移，1-基坐标系/工件坐标系下偏移，2-工具坐标系下偏移
-	 * @param  [in] offset_pos  位姿偏移量
-	 * @param  [in] oacc 加速度百分比
-	 * @param  [in] blendR -1：阻塞；0~1000：平滑半径
-	 * @param  [in] config 逆解关节空间配置，[-1]-参考当前关节位置解算，[0~7]-依据特定关节空间配置求解
-	 * @param  [in] velAccParamMode 速度加速度参数模式；0-百分比；1-物理速度(mm/s)加速度(mm/s2)
-	 * @return  错误码
+	 *@brief  Circular motion in Cartesian space (Overloaded function does not require input of joint positions.)
+	 *@param  [in] desc_pos_p   Waypoint 1 Cartesian position
+	 *@param  [in] ptool  Tool coordinate number, range [0~14]
+	 *@param  [in] puser  Workpiece coordinate number, range [0~14]
+	 *@param  [in] pvel  Percentage of speed, range [0~100]
+	 *@param  [in] pacc  Acceleration percentage, range [0~100], not open for now
+	 *@param  [in] epos_p  Position of expansion shaft, unit: mm
+	 *@param  [in] desc_pos_t   Waypoint 2 Cartesian position
+	 *@param  [in] ttool  Tool coordinate number, range [0~14]
+	 *@param  [in] tuser  Workpiece coordinate number, range [0~14]
+	 *@param  [in] tvel  Percentage of speed, range [0~100]
+	 *@param  [in] tacc  Acceleration percentage, range [0~100], not open for now
+	 *@param  [in] epos_t  Position of expansion shaft, unit: mm
+	 *@param  [in] ovl  Velocity scaling factor, range[0~100]
+	 *@param  [in] offset_flag  0- no offset, 1- offset in base/job coordinate system, 2- offset in tool coordinate system
+	 *@param  [in] offset_pos  The pose offset
+	 *@param  [in] oacc Percentage of acceleration
+	 *@param  [in] blendR -1: Block; 0-1000: Smooth radius
+	 *@param  [in] config Robot inverse kinematics calculation joint configuration, [-1]- calculate based on the current joint position, [0~7]- solve based on the specific joint space configuration
+	 * @param  [in] velAccParamMode Speed-acceleration parameter mode 0- percentage 1- Physical velocity (mm/s) Acceleration (mm/s ²)
+	 * @return Error code
 	 */
 	errno_t Circle(DescPose* desc_pos_p, int ptool, int puser, float pvel, float pacc, ExaxisPos* epos_p, DescPose* desc_pos_t, int ttool, int tuser, float tvel, float tacc, ExaxisPos* epos_t, float ovl, uint8_t offset_flag, DescPose* offset_pos, double oacc = 100.0, double blendR = -1, int config = -1, int velAccParamMode = 0);
 
-	/**
-	 * @brief  笛卡尔空间螺旋线运动
-	 * @param  [in] joint_pos  目标关节位置,单位deg
-	 * @param  [in] desc_pos   目标笛卡尔位姿
-	 * @param  [in] tool  工具坐标号，范围[0~14]
-	 * @param  [in] user  工件坐标号，范围[0~14]
-	 * @param  [in] vel  速度百分比，范围[0~100]
-	 * @param  [in] acc  加速度百分比，范围[0~100],暂不开放
-	 * @param  [in] epos  扩展轴位置，单位mm
-	 * @param  [in] ovl  速度缩放因子，范围[0~100]
-	 * @param  [in] offset_flag  0-不偏移，1-基坐标系/工件坐标系下偏移，2-工具坐标系下偏移
-	 * @param  [in] offset_pos  位姿偏移量
-	 * @param  [in] spiral_param  螺旋参数
-	 * @return  错误码
-	 */
-	errno_t NewSpiral(JointPos *joint_pos, DescPose *desc_pos, int tool, int user, float vel, float acc, ExaxisPos *epos, float ovl, uint8_t offset_flag, DescPose *offset_pos, SpiralParam spiral_param);
-	
-	/**
-	 * @brief  笛卡尔空间螺旋线运动 (重载函数1 不需要输入关节位置)
-	 * @param  [in] desc_pos   目标笛卡尔位姿
-	 * @param  [in] tool  工具坐标号，范围[0~14]
-	 * @param  [in] user  工件坐标号，范围[0~14]
-	 * @param  [in] vel  速度百分比，范围[0~100]
-	 * @param  [in] acc  加速度百分比，范围[0~100],暂不开放
-	 * @param  [in] epos  扩展轴位置，单位mm
-	 * @param  [in] ovl  速度缩放因子，范围[0~100]
-	 * @param  [in] offset_flag  0-不偏移，1-基坐标系/工件坐标系下偏移，2-工具坐标系下偏移
-	 * @param  [in] offset_pos  位姿偏移量
-	 * @param  [in] spiral_param  螺旋参数
-	 * @param  [in] config 逆解关节空间配置，[-1]-参考当前关节位置解算，[0~7]-依据特定关节空间配置求解
-	 * @return  错误码
-	 */
-	errno_t NewSpiral(DescPose* desc_pos, int tool, int user, float vel, float acc, ExaxisPos* epos, float ovl, uint8_t offset_flag, DescPose* offset_pos, SpiralParam spiral_param, int config = -1);
 
 	/**
-	 * @brief 伺服运动开始，配合ServoJ、ServoCart指令使用
-	 * @param [in] comType 指令下发类型；0-xmlrpc；1-UDP(对应机器人20007端口)
-	 * @return  错误码
+	 *@brief  Spiral motion in Cartesian space
+	 *@param  [in] joint_pos  Target joint location, unit: deg
+	 *@param  [in] desc_pos   Target Cartesian position
+	 *@param  [in] tool  Tool coordinate number, range [0~14]
+	 *@param  [in] user  Workpiece coordinate number, range [0~14]
+	 *@param  [in] vel  Percentage of speed, range [0~100]
+	 *@param  [in] acc  Acceleration percentage, range [0~100], not open for now
+	 *@param  [in] epos  Position of expansion shaft, unit: mm
+	 *@param  [in] ovl  Velocity scaling factor, range[0~100]
+	 *@param  [in] offset_flag  0- no offset, 1- offset in base/job coordinate system, 2- offset in tool coordinate system
+	 *@param  [in] offset_pos  The pose offset
+	 *@param  [in] spiral_param  Spiral parameter
+	 *@return  Error code
 	 */
-	errno_t ServoMoveStart(int comType = 0);
+	errno_t  NewSpiral(JointPos* joint_pos, DescPose* desc_pos, int tool, int user, float vel, float acc, ExaxisPos* epos, float ovl, uint8_t offset_flag, DescPose* offset_pos, SpiralParam spiral_param);
 
 	/**
-	 * @brief 伺服运动结束，配合ServoJ、ServoCart指令使用
-	 * @param [in] comType 指令下发类型；0-xmlrpc；1-UDP(对应机器人20007端口)
-	 * @return  错误码
+     *@brief  Spiral motion in Cartesian space (Overloaded function does not require input of joint positions.)
+     *@param  [in] desc_pos   Target Cartesian position
+     *@param  [in] tool  Tool coordinate number, range [0~14]
+     *@param  [in] user  Workpiece coordinate number, range [0~14]
+     *@param  [in] vel  Percentage of speed, range [0~100]
+     *@param  [in] acc  Acceleration percentage, range [0~100], not open for now
+     *@param  [in] epos  Position of expansion shaft, unit: mm
+     *@param  [in] ovl  Velocity scaling factor, range[0~100]
+     *@param  [in] offset_flag  0- no offset, 1- offset in base/job coordinate system, 2- offset in tool coordinate system
+     *@param  [in] offset_pos  The pose offset
+     *@param  [in] spiral_param  Spiral parameter
+	 *@param  [in] config Robot inverse kinematics calculation joint configuration, [-1]- calculate based on the current joint position, [0~7]- solve based on the specific joint space configuration
+     *@return  Error code
+	 */
+	errno_t  NewSpiral(DescPose *desc_pos, int tool, int user, float vel, float acc, ExaxisPos *epos, float ovl, uint8_t offset_flag, DescPose *offset_pos, SpiralParam spiral_param, int config = -1);
+
+	/**
+	 * @brief Start servo motion, used with ServoJ and ServoCart commands
+	 * @param [in] comType Command transmission type; 0-xmlrpc; 1-UDP (corresponds to robot port 20007)
+	 * @param [in] filtertime Filter time in ms, default value is 0
+     * @param [in] gain Position loop gain array with a length of 6, corresponding to the position loop gains of joints J1~J6 in sequence; default value { -1.0, -1.0, -1.0, -1.0, -1.0, -1.0 }
+	 * @return  Error code
+	 */
+	errno_t ServoMoveStart(int comType = 0, int filtertime = 0, std::vector<double> gain = { -1.0, -1.0, -1.0, -1.0, -1.0, -1.0 });
+
+	/**
+	 * @brief End servo motion, used with ServoJ and ServoCart commands
+	 * @param [in] comType Command transmission type; 0-xmlrpc; 1-UDP (corresponds to robot port 20007)
+	 * @return  Error code
 	 */
 	errno_t ServoMoveEnd(int comType = 0);
 
 	/**
-	 * @brief 关节空间伺服模式运动
-	 * @param [in] joint_pos 目标关节位置,单位deg
-	 * @param [in] axisPos 外部轴位置,单位mm
-	 * @param [in] acc 加速度百分比，范围[0~100],暂不开放，默认为0
-	 * @param [in] vel 速度百分比，范围[0~100]，暂不开放，默认为0
-	 * @param [in] cmdT 指令下发周期，单位s，建议范围[0.001~0.0016]
-	 * @param [in] filterT 滤波时间，单位s，暂不开放，默认为0
-	 * @param [in] gain 目标位置的比例放大器，暂不开放，默认为0
-	 * @param [in] id servoJ指令ID,默认为0
-	 * @param [in] comType 指令下发类型；0-xmlrpc；1-UDP(对应机器人20007端口)
-	 * @return  错误码
+	 * @brief Joint space servo mode motion
+	 * @param [in] joint_pos Target joint position, unit: deg
+	 * @param [in] axisPos External axis position, unit: mm
+	 * @param [in] acc Acceleration percentage, range [0~100], temporarily not available, default is 0
+	 * @param [in] vel Velocity percentage, range [0~100], temporarily not available, default is 0
+	 * @param [in] cmdT Command transmission period, unit: s, recommended range [0.001~0.0016]
+	 * @param [in] filterT Filter time, unit: s, temporarily not available, default is 0
+	 * @param [in] gain Proportional amplifier for target position, temporarily not available, default is 0
+	 * @param [in] id ServoJ command ID, default is 0
+	 * @param [in] comType Command transmission type; 0-xmlrpc; 1-UDP (corresponds to robot port 20007)
+	 * @return  Error code
 	 */
 	errno_t ServoJ(JointPos *joint_pos, ExaxisPos* axisPos, float acc, float vel, float cmdT, float filterT, float gain, int id = 0, int comType = 0);
 
 	/**
-	 * @brief 笛卡尔空间伺服模式运动
-	 * @param [in] mode 0-绝对运动(基坐标系)，1-增量运动(基坐标系)，2-增量运动(工具坐标系)
-	 * @param [in] desc_pos 目标笛卡尔位姿或位姿增量
-	 * @param [in] exaxis 扩展轴位置
-	 * @param [in] pos_gain 位姿增量比例系数，仅在增量运动下生效，范围[0~1]
-	 * @param [in] acc 加速度百分比，范围[0~100],暂不开放，默认为0
-	 * @param [in] vel 速度百分比，范围[0~100]，暂不开放，默认为0
-	 * @param [in] cmdT 指令下发周期，单位s，建议范围[0.001~0.016]
-	 * @param [in] filterT 滤波时间，单位s，暂不开放，默认为0
-	 * @param [in] gain 目标位置的比例放大器，暂不开放，默认为0
-	 * @return 错误码
+	 * @brief Joint space servo mode motion(Support multiple input points at once)
+	 * @param [in] joint_pos Target joint position, unit: deg
+	 * @param [in] axisPos External axis position, unit: mm
+	 * @param [in] acc Acceleration percentage, range [0~100], temporarily not available, default is 0
+	 * @param [in] vel Velocity percentage, range [0~100], temporarily not available, default is 0
+	 * @param [in] cmdT Command transmission period, unit: s, recommended range [0.001~0.0016]
+	 * @param [in] filterT Filter time, unit: s, temporarily not available, default is 0
+	 * @param [in] gain Proportional amplifier for target position, temporarily not available, default is 0
+	 * @param [out] ServoJCmdCount ServoJ Command Position Count [0-10000]
+	 * @param [in] id ServoJ command ID, default is 0
+	 * @param [in] comType Command transmission type; 0-xmlrpc; 1-UDP (corresponds to robot port 20007)
+	 * @return  Error code
 	 */
-	errno_t ServoCart(int mode, DescPose *desc_pose, ExaxisPos exaxis, float pos_gain[6], float acc, float vel, float cmdT, float filterT, float gain);
+	errno_t ServoJ(std::vector<JointPos> joint_pos, ExaxisPos* axisPos, float acc, float vel, float cmdT, float filterT, float gain, int& servoJCmdCount, int id = 0, int comType = 0);
 
 	/**
-	 * @brief  笛卡尔空间点到点运动
-	 * @param  [in]  desc_pos  目标笛卡尔位姿或位姿增量
-	 * @param  [in] tool  工具坐标号，范围[0~14]
-	 * @param  [in] user  工件坐标号，范围[0~14]
-	 * @param  [in] vel  速度百分比，范围[0~100]
-	 * @param  [in] acc  加速度百分比，范围[0~100],暂不开放
-	 * @param  [in] ovl  速度缩放因子，范围[0~100]
-	 * @param  [in] blendT [-1.0]-运动到位(阻塞)，[0~500.0]-平滑时间(非阻塞)，单位ms
-	 * @param  [in] config  关节空间配置，[-1]-参考当前关节位置解算，[0~7]-参考特定关节空间配置解算，默认为-1
-	 * @return  错误码
+    *@brief Cartesian space servo mode motion
+    *@param [in] mode  0-absolute motion (base coordinates), 1-incremental motion (base coordinates), 2-incremental motion (tool coordinates)
+    *@param [in] desc_pos  Target Cartesian pose or pose increment
+	*@param [in] exaxis Extended axis position
+    *@param [in] pos_gain  Proportional coefficient of pose increment, effective only for incremental motion, range [0~1]
+    *@param [in] acc  Acceleration percentage range[0~100], not open yet, default: 0
+    *@param [in] vel  The value ranges from 0 to 100. The value is not available. The default value is 0
+    *@param [in] cmdT Instruction delivery period, unit: s, recommended range [0.001~0.016]
+    *@param [in] filterT Filtering time (unit: s), temporarily disabled. The default value is 0
+    *@param [in] gain  The proportional amplifier at the target position, not yet open, defaults to 0
+    *@return Error code
 	 */
-	errno_t MoveCart(DescPose *desc_pos, int tool, int user, float vel, float acc, float ovl, float blendT, int config);
+	errno_t  ServoCart(int mode, DescPose *desc_pose, ExaxisPos exaxis, float pos_gain[6], float acc, float vel, float cmdT, float filterT, float gain);
 
 	/**
-	 * @brief  样条运动开始
-	 * @return  错误码
+    *@brief  Point to point motion in Cartesian space
+    *@param  [in]  desc_pos  Target Cartesian pose or pose increment
+    *@param  [in] tool  Tool coordinate number, range [0~14]
+    *@param  [in] user  Workpiece coordinate number, range [0~14]
+    *@param  [in] vel  Percentage of speed, range [0~100]
+    *@param  [in] acc  Acceleration percentage, range [0~100], not open for now
+    *@param  [in] ovl  Velocity scaling factor, range[0~100]
+    *@param  [in] blendT [-1.0]- movement in place (blocking), [0~500.0]- smoothing time (non-blocking), in ms
+    *@param  [in] config  Joint space configuration, [-1]- refer to the current joint position, [0~7]- refer to the specific joint space configuration, the default is -1
+    *@return  Error code
 	 */
-	errno_t SplineStart();
+	errno_t  MoveCart(DescPose *desc_pos, int tool, int user, float vel, float acc, float ovl, float blendT, int config);
 
 	/**
-	 * @brief  关节空间样条运动
-	 * @param  [in] joint_pos  目标关节位置,单位deg
-	 * @param  [in] desc_pos   目标笛卡尔位姿
-	 * @param  [in] tool  工具坐标号，范围[0~14]
-	 * @param  [in] user  工件坐标号，范围[0~14]
-	 * @param  [in] vel  速度百分比，范围[0~100]
-	 * @param  [in] acc  加速度百分比，范围[0~100],暂不开放
-	 * @param  [in] ovl  速度缩放因子，范围[0~100]
-	 * @return  错误码
+    *@brief  The spline motion begins
+    *@return  Error code
 	 */
-	errno_t SplinePTP(JointPos *joint_pos, DescPose *desc_pos, int tool, int user, float vel, float acc, float ovl);
+	errno_t  SplineStart();
+
+    /**
+     *@brief  Joint space spline movement
+     *@param  [in] joint_pos  Target joint location, unit: deg
+     *@param  [in] desc_pos   Target Cartesian position
+     *@param  [in] tool  Tool coordinate number, range [0~14]
+     *@param  [in] user  Workpiece coordinate number, range [0~14]
+     *@param  [in] vel  Percentage of speed, range [0~100]
+     *@param  [in] acc  Acceleration percentage, range [0~100], not open for now
+     *@param  [in] ovl  Velocity scaling factor, range[0~100]
+     *@return  Error code
+	 */
+	errno_t  SplinePTP(JointPos *joint_pos, DescPose *desc_pos, int tool, int user, float vel, float acc, float ovl);
 
 	/**
-	 * @brief  关节空间样条运动 (重载函数1 不需要输入笛卡尔位置)
-	 * @param  [in] joint_pos  目标关节位置,单位deg
-	 * @param  [in] tool  工具坐标号，范围[0~14]
-	 * @param  [in] user  工件坐标号，范围[0~14]
-	 * @param  [in] vel  速度百分比，范围[0~100]
-	 * @param  [in] acc  加速度百分比，范围[0~100],暂不开放
-	 * @param  [in] ovl  速度缩放因子，范围[0~100]
-	 * @return  错误码
+	 *@brief  Joint space spline movement(Overloaded functions do not require the input of Cartesian positions)
+	 *@param  [in] joint_pos  Target joint location, unit: deg
+	 *@param  [in] tool  Tool coordinate number, range [0~14]
+	 *@param  [in] user  Workpiece coordinate number, range [0~14]
+	 *@param  [in] vel  Percentage of speed, range [0~100]
+	 *@param  [in] acc  Acceleration percentage, range [0~100], not open for now
+	 *@param  [in] ovl  Velocity scaling factor, range[0~100]
+	 *@return  Error code
 	 */
-	errno_t SplinePTP(JointPos* joint_pos, int tool, int user, float vel, float acc, float ovl);
+	errno_t  SplinePTP(JointPos* joint_pos, int tool, int user, float vel, float acc, float ovl);
+
 
 	/**
-	 * @brief  样条运动结束
-	 * @return  错误码
+    *@brief  The spline movement is complete
+    *@return  Error code
 	 */
-	errno_t SplineEnd();
+	errno_t  SplineEnd();
 
 	/**
-	 * @brief 新样条运动开始
-	 * @param  [in] type   0-圆弧过渡，1-给定点位为路径点
-	 * @param  [in] averageTime  全局平均衔接时间(ms)(10 ~  )，默认2000
-	 * @return  错误码
+	 *@brief New spline motion starts
+	 *@param  [in] type   0-arc transition, 1-the given point is the path point
+	 *@param  [in] averageTime global average connection time (ms) (10 ~ ), default 2000
+	 *@return  Error code
 	 */
-	errno_t NewSplineStart(int type, int averageTime=2000);
+	errno_t NewSplineStart(int type, int averageTime = 2000);
 
 	/**
-	 * @brief 新样条指令点
-	 * @param  [in] joint_pos  目标关节位置,单位deg
-	 * @param  [in] desc_pos   目标笛卡尔位姿
-	 * @param  [in] tool  工具坐标号，范围[0~14]
-	 * @param  [in] user  工件坐标号，范围[0~14]
-	 * @param  [in] vel  速度百分比，范围[0~100]
-	 * @param  [in] acc  加速度百分比，范围[0~100],暂不开放
-	 * @param  [in] ovl  速度缩放因子，范围[0~100]
-	 * @param  [in] blendR [-1.0]-运动到位(阻塞)，[0~1000.0]-平滑半径(非阻塞)，单位mm
-	 * @param  [in] lastFlag 是否为最后一个点，0-否，1-是
-	 * @return  错误码
+	 *@brief New Spline Cue Points
+	 *@param  [in] joint_pos  Target joint position, unit: deg
+	 *@param  [in] desc_pos   Target Cartesian pose
+	 *@param  [in] tool  Tool coordinate number, range [0~14]
+	 *@param  [in] user  Workpiece coordinate number, range [0~14]
+	 *@param  [in] vel  Speed percentage, range [0~100]
+	 *@param  [in] acc  Acceleration percentage, range [0~100], not open yet
+	 *@param  [in] ovl  Speed scaling factor, range [0~100]
+	 *@param  [in] blendR [-1.0]-movement in place (blocking), [0~1000.0]-smooth radius (non-blocking), unit: mm
+	 *@param  [in] lastFlag [0,1] 0-the middle point of the spline curve, continue to execute the next point after execution, 1-the end point of the spline curve, decelerate and stop after execution
+	 *@return  Error code
 	 */
-	errno_t NewSplinePoint(JointPos *joint_pos, DescPose *desc_pos, int tool, int user, float vel, float acc, float ovl, float blendR, int lastFlag);
+	errno_t  NewSplinePoint(JointPos *joint_pos, DescPose *desc_pos, int tool, int user, float vel, float acc, float ovl, float blendR, int lastFlag);
 
 	/**
-	 * @brief 新样条指令点(重载函数1 不需要输入关节位置)
-	 * @param  [in] desc_pos   目标笛卡尔位姿
-	 * @param  [in] tool  工具坐标号，范围[0~14]
-	 * @param  [in] user  工件坐标号，范围[0~14]
-	 * @param  [in] vel  速度百分比，范围[0~100]
-	 * @param  [in] acc  加速度百分比，范围[0~100],暂不开放
-	 * @param  [in] ovl  速度缩放因子，范围[0~100]
-	 * @param  [in] blendR [-1.0]-运动到位(阻塞)，[0~1000.0]-平滑半径(非阻塞)，单位mm
-	 * @param  [in] lastFlag 是否为最后一个点，0-否，1-是
-	 * @param  [in] config 逆解关节空间配置，[-1]-参考当前关节位置解算，[0~7]-依据特定关节空间配置求解
-	 * @return  错误码
+	 *@brief New Spline Cue Points (Overloaded function does not require input of joint positions.)
+	 *@param  [in] desc_pos   Target Cartesian pose
+	 *@param  [in] tool  Tool coordinate number, range [0~14]
+	 *@param  [in] user  Workpiece coordinate number, range [0~14]
+	 *@param  [in] vel  Speed percentage, range [0~100]
+	 *@param  [in] acc  Acceleration percentage, range [0~100], not open yet
+	 *@param  [in] ovl  Speed scaling factor, range [0~100]
+	 *@param  [in] blendR [-1.0]-movement in place (blocking), [0~1000.0]-smooth radius (non-blocking), unit: mm
+	 *@param  [in] lastFlag [0,1] 0-the middle point of the spline curve, continue to execute the next point after execution, 1-the end point of the spline curve, decelerate and stop after execution
+	 *@param  [in] config Robot inverse kinematics calculation joint configuration, [-1]- calculate based on the current joint position, [0~7]- solve based on the specific joint space configuration
+	 *@return  Error code
 	 */
 	errno_t NewSplinePoint(DescPose* desc_pos, int tool, int user, float vel, float acc, float ovl, float blendR, int lastFlag, int config = -1);
 
 
 	/**
-	 * @brief 新样条运动结束
-	 * @return  错误码
+	 *@brief New spline motion ends
+	 *@return  Error code
 	 */
-	errno_t NewSplineEnd();
+	errno_t  NewSplineEnd();
 
 	/**
-	 * @brief 终止运动
-	 * @return  错误码
+	 *@brief Stop motion
+	 *@return  Error code
 	 */
-	errno_t StopMotion();
+	errno_t  StopMotion();
 
 	/**
-	 * @brief 暂停运动
-	 * @return  错误码
+	 * @brief Pause motion
+	 * @return  Error code
 	 */
-	errno_t PauseMotion();
+	errno_t  PauseMotion();
 
 	/**
-	 * @brief 恢复运动
-	 * @return  错误码
+	 * @brief Resume motion
+	 * @return  Error code
 	 */
-	errno_t ResumeMotion();
+	errno_t  ResumeMotion();
 
 	/**
-	 * @brief  点位整体偏移开始
-	 * @param  [in]  flag  0-基坐标系下/工件坐标系下偏移，2-工具坐标系下偏移
-	 * @param  [in] offset_pos  位姿偏移量
-	 * @return  错误码
+	 * @brief  The whole point shift begins
+	 * @param  [in]  flag 0- offset in base coordinate system/workpiece coordinate system, 2- offset in tool coordinate system
+	 * @param  [in] offset_pos  The pose offset
+	 * @return  Error code
 	 */
-	errno_t PointsOffsetEnable(int flag, DescPose *offset_pos);
+	errno_t  PointsOffsetEnable(int flag, DescPose *offset_pos);
 
 	/**
-	 * @brief  点位整体偏移结束
-	 * @return  错误码
+    *@brief  The whole point shift ends
+    *@return  Error code
 	 */
-	errno_t PointsOffsetDisable();
+	errno_t  PointsOffsetDisable();
 
 	/**
-	 * @brief  设置控制箱数字量输出
-	 * @param  [in] id  io编号，范围[0~15]
-	 * @param  [in] status 0-关，1-开
-	 * @param  [in] smooth 0-不平滑， 1-平滑
-	 * @param  [in] block  0-阻塞，1-非阻塞
-	 * @return  错误码
+    *@brief  Set the control box digital output
+    *@param  [in] id  I/O number and range[0~15]
+    *@param  [in] status 0- off, 1- on
+    *@param  [in] smooth 0- Not smooth, 1- smooth
+    *@param  [in] block  0- blocking, 1- non-blocking
+    *@return  Error code
 	 */
-	errno_t SetDO(int id, uint8_t status, uint8_t smooth, uint8_t block);
+	errno_t  SetDO(int id, uint8_t status, uint8_t smooth, uint8_t block);
 
 	/**
-	 * @brief  设置工具数字量输出
-	 * @param  [in] id  io编号，范围[0~1]
-	 * @param  [in] status 0-关，1-开
-	 * @param  [in] smooth 0-不平滑， 1-平滑
-	 * @param  [in] block  0-阻塞，1-非阻塞
-	 * @return  错误码
+    *@brief  Set tool digital output
+    *@param  [in] id  I/O number and range[0~1]
+    *@param  [in] status 0- off, 1- on
+    *@param  [in] smooth 0- not smooth, 1- smooth
+    *@param  [in] block  0- blocking, 1- non-blocking
+    *@return  Error code
 	 */
-	errno_t SetToolDO(int id, uint8_t status, uint8_t smooth, uint8_t block);
+	errno_t  SetToolDO(int id, uint8_t status, uint8_t smooth, uint8_t block);
 
 	/**
-	 * @brief  设置控制箱模拟量输出
-	 * @param  [in] id  io编号，范围[0~1]
-	 * @param  [in] value 电流或电压值百分比，范围[0~100]对应电流值[0~20mA]或电压[0~10V]
-	 * @param  [in] block  0-阻塞，1-非阻塞
-	 * @return  错误码
+    *@brief  Set control box analog output
+    *@param  [in] id  I/O number and range[0~1]
+    *@param  [in] value Percentage of current or voltage value, range [0~100] corresponding to current value [0~20mA] or voltage [0~10V]
+    *@param  [in] block  0- blocking, 1- non-blocking
+    *@return  Error code
 	 */
-	errno_t SetAO(int id, float value, uint8_t block);
+	errno_t  SetAO(int id, float value, uint8_t block);
 
 	/**
-	 * @brief  设置工具模拟量输出
-	 * @param  [in] id  io编号，范围[0]
-	 * @param  [in] value 电流或电压值百分比，范围[0~100]对应电压[0~10V]
-	 * @param  [in] block  0-阻塞，1-非阻塞
-	 * @return  错误码
+    *@brief  Set tool analog output
+    *@param  [in] id  I/O number, range [0]
+    *@param  [in] value Percentage of current or voltage value, range [0~100] corresponding to voltage [0~10V]
+    *@param  [in] block  0- blocking, 1- non-blocking
+    *@return  Error code
 	 */
-	errno_t SetToolAO(int id, float value, uint8_t block);
+	errno_t  SetToolAO(int id, float value, uint8_t block);
 
 	/**
-	 * @brief  获取控制箱数字量输入
-	 * @param  [in] id  io编号，范围[0~15]
-	 * @param  [in] block  0-阻塞，1-非阻塞
-	 * @param  [out] result  0-低电平，1-高电平
-	 * @return  错误码
+    *@brief  Get the control box digital input
+    *@param  [in] id  I/O number range[0~15]
+    *@param  [in] block  0- blocking, 1- non-blocking
+    *@param  [out] result  0- low, 1- high
+    *@return  Error code
 	 */
-	errno_t GetDI(int id, uint8_t block, uint8_t *result);
+	errno_t  GetDI(int id, uint8_t block, uint8_t *result);
 
 	/**
-	 * @brief  获取工具数字量输入
-	 * @param  [in] id  io编号，范围[0~1]
-	 * @param  [in] block  0-阻塞，1-非阻塞
-	 * @param  [out] result  0-低电平，1-高电平
-	 * @return  错误码
+    *@brief  Get tool numeric input
+    *@param  [in] id  I/O number, range[0~1]
+    *@param  [in] block  0- blocking, 1- non-blocking
+    *@param  [out] result  0- low, 1- high
+    *@return  Error code
 	 */
-	errno_t GetToolDI(int id, uint8_t block, uint8_t *result);
+	errno_t  GetToolDI(int id, uint8_t block, uint8_t *result);
 
 	/**
-	 * @brief 等待控制箱数字量输入
-	 * @param  [in] id  io编号，范围[0~15]
-	 * @param  [in]  status 0-关，1-开
-	 * @param  [in]  max_time  最大等待时间，单位ms
-	 * @param  [in]  opt  超时后策略，0-程序停止并提示超时，1-忽略超时提示程序继续执行，2-一直等待
-	 * @return  错误码
+    *@brief Wait for the control box digital input
+    *@param  [in] id  I/O number，range[0~15]
+    *@param  [in]  status 0- off, 1- on
+    *@param  [in]  max_time  Maximum waiting time, expressed in ms
+    *@param  [in]  opt  After timeout policy, 0- program stops and prompts timeout, 1- ignores timeout prompts and continues execution, 2- waits
+    *@return  Error code
 	 */
-	errno_t WaitDI(int id, uint8_t status, int max_time, int opt);
+	errno_t  WaitDI(int id, uint8_t status, int max_time, int opt);
 
 	/**
-	 * @brief 等待控制箱多路数字量输入
-	 * @param  [in] mode 0-多路与，1-多路或
-	 * @param  [in] id  io编号，bit0~bit7对应DI0~DI7，bit8~bit15对应CI0~CI7
-	 * @param  [in]  status 0-关，1-开
-	 * @param  [in]  max_time  最大等待时间，单位ms
-	 * @param  [in]  opt  超时后策略，0-程序停止并提示超时，1-忽略超时提示程序继续执行，2-一直等待
-	 * @return  错误码
+    *@brief Wait for control box multiplex digital input
+    *@param  [in] mode 0- multiplexed and, 1- multiplexed or
+    *@param  [in] id  I/O numbers. bit0 to bit7 corresponds to DI0 to DI7, and bit8 to bit15 corresponds to CI0 to CI7
+    *@param  [in]  status 0- off, 1- on
+    *@param  [in]  max_time  Maximum waiting time, expressed in ms
+    *@param  [in]  opt  After timeout policy, 0- program stops and prompts timeout, 1- ignores timeout prompts and continues execution, 2- waits
+    *@return  Error code
 	 */
-	errno_t WaitMultiDI(int mode, int id, uint8_t status, int max_time, int opt);
+	errno_t  WaitMultiDI(int mode, int id, uint8_t status, int max_time, int opt);
 
 	/**
-	 * @brief 等待工具数字量输入
-	 * @param  [in] id  io编号，范围[0~1]
-	 * @param  [in]  status 0-关，1-开
-	 * @param  [in]  max_time  最大等待时间，单位ms
-	 * @param  [in]  opt  超时后策略，0-程序停止并提示超时，1-忽略超时提示程序继续执行，2-一直等待
-	 * @return  错误码
+    *@brief Wait for the tool number to enter
+    *@param  [in] id  I/O numbers，range[0~1]
+    *@param  [in]  status 0- off, 1- on
+    *@param  [in]  max_time  Maximum waiting time, expressed in ms
+    *@param  [in]  opt  After timeout policy, 0- program stops and prompts timeout, 1- ignores timeout prompts and continues execution, 2- waits
+    *@return  Error code
 	 */
-	errno_t WaitToolDI(int id, uint8_t status, int max_time, int opt);
+	errno_t  WaitToolDI(int id, uint8_t status, int max_time, int opt);
 
 	/**
-	 * @brief  获取控制箱模拟量输入
-	 * @param  [in] id  io编号，范围[0~1]
-	 * @param  [in] block  0-阻塞，1-非阻塞
-	 * @param  [out] result  输入电流或电压值百分比，范围[0~100]对应电流值[0~20mS]或电压[0~10V]
-	 * @return  错误码
+    *@brief  Get control box analog input
+    *@param  [in] id  I/O numbers，range[0~1]
+    *@param  [in] block  0- blocking, 1- non-blocking
+    *@param  [out] result  Percentage of input current or voltage value, range [0-100] corresponding to current value [0-20ms] or voltage [0-10V]
+    *@return  Error code
 	 */
-	errno_t GetAI(int id, uint8_t block, float *result);
+	errno_t  GetAI(int id, uint8_t block, float *result);
 
 	/**
-	 * @brief  获取工具模拟量输入
-	 * @param  [in] id  io编号，范围[0]
-	 * @param  [in] block  0-阻塞，1-非阻塞
-	 * @param  [out] result  输入电流或电压值百分比，范围[0~100]对应电压[0~10V]
-	 * @return  错误码
+    *@brief  Get the tool analog input
+    *@param  [in] id  I/O numbers，range[0~1]
+    *@param  [in] block  0- blocking, 1- non-blocking
+    *@param  [out] result  Percentage of input current or voltage value, range [0-100] corresponding to voltage [0-10V]
+    *@return  Error code
 	 */
-	errno_t GetToolAI(int id, uint8_t block, float *result);
+	errno_t  GetToolAI(int id, uint8_t block, float *result);
 
 	/**
-	 * @brief 获取机器人末端点记录按钮状态
-	 * @param [out] state 按钮状态，0-按下，1-松开
-	 * @return 错误码
+	 * @brief Get the robot end point record button status
+	 * @param [out] state button state, 0-pressed, 1-released
+	 * @return Error code
 	 */
-	errno_t GetAxlePointRecordBtnState(uint8_t *state);
+    errno_t  GetAxlePointRecordBtnState(uint8_t *state);
 
 	/**
-	 * @brief 获取机器人末端DO输出状态
-	 * @param [out] do_state DO输出状态，do0~do1对应bit1~bit2,从bit0开始
-	 * @return 错误码
+	 * @brief Get the DO output status at the end of the robot
+	 * @param [out] do_state DO output state, do0~do1 corresponds to bit1~bit2, starting from bit0
+	 * @return Error code
 	 */
-	errno_t GetToolDO(uint8_t *do_state);
+    errno_t  GetToolDO(uint8_t *do_state);
 
 	/**
-	 * @brief 获取机器人控制器DO输出状态
-	 * @param [out] do_state_h DO输出状态，co0~co7对应bit0~bit7
-	 * @param [out] do_state_l DO输出状态，do0~do7对应bit0~bit7
-	 * @return 错误码
+	 * @brief Get the DO output status of the robot controller
+	 * @param [out] do_state_h DO output status, co0~co7 corresponds to bit0~bit7
+	 * @param [out] do_state_l DO output status, do0~do7 correspond to bit0~bit7
+	 * @return Error code
 	 */
-	errno_t GetDO(uint8_t *do_state_h, uint8_t *do_state_l);
+    errno_t  GetDO(uint8_t *do_state_h, uint8_t *do_state_l);
 
 	/**
-	 * @brief 等待控制箱模拟量输入
-	 * @param  [in] id  io编号，范围[0~1]
-	 * @param  [in]  sign 0-大于，1-小于
-	 * @param  [in]  value 输入电流或电压值百分比，范围[0~100]对应电流值[0~20mS]或电压[0~10V]
-	 * @param  [in]  max_time  最大等待时间，单位ms
-	 * @param  [in]  opt  超时后策略，0-程序停止并提示超时，1-忽略超时提示程序继续执行，2-一直等待
-	 * @return  错误码
+    *@brief Wait for control box analog input
+    *@param  [in] id  I/O numbers，range[0~1]
+    *@param  [in]  sign 0-greater than，1-less than
+    *@param  [in]  value Percentage of input current or voltage value, range [0-100] corresponding to current value [0-20ms] or voltage [0-10V]
+    *@param  [in]  max_time Maximum waiting time, expressed in ms
+    *@param  [in]  opt  After timeout policy, 0- program stops and prompts timeout, 1- ignores timeout prompts and continues execution, 2- waits
+    *@return  Error code
 	 */
-	errno_t WaitAI(int id, int sign, float value, int max_time, int opt);
+	errno_t  WaitAI(int id, int sign, float value, int max_time, int opt);
 
 	/**
-	 * @brief 等待工具模拟量输入
-	 * @param  [in] id  io编号，范围[0]
-	 * @param  [in]  sign 0-大于，1-小于
-	 * @param  [in]  value 输入电流或电压值百分比，范围[0~100]对应电压[0~10V]
-	 * @param  [in]  max_time  最大等待时间，单位ms
-	 * @param  [in]  opt  超时后策略，0-程序停止并提示超时，1-忽略超时提示程序继续执行，2-一直等待
-	 * @return  错误码
+    *@brief Wait for tool analog input
+    *@param  [in] id  I/O numbers，range[0~1]
+    *@param  [in]  sign 0-greater than，1-less than
+    *@param  [in]  value Percentage of input current or voltage value, range [0-100] corresponding to voltage [0-10V]
+    *@param  [in]  max_time  Maximum waiting time, expressed in ms
+    *@param  [in]  opt  After timeout policy, 0- program stops and prompts timeout, 1- ignores timeout prompts and continues execution, 2- waits
+    *@return  Error code
 	 */
-	errno_t WaitToolAI(int id, int sign, float value, int max_time, int opt);
+	errno_t  WaitToolAI(int id, int sign, float value, int max_time, int opt);
 
 	/**
-	 * @brief 设置控制箱可配置CI端口功能
-	 * @param [in] config CI0-CI7功能编码；
-	 * 0-无;1-起弧成功;2-焊机准备;3-传送带检测;4-暂停;5-恢复;6-启动;7-停止;
-	 8-暂停/恢复;9-启动/停止;10-脚踏拖动;11-移至作业原点;12-手自动切换;
-	 13-焊丝寻位成功;14-运动中断;15-启动主程序;16-启动倒带;17-启动确认;
-	 18-光电检测信号X;19-光电检测信号Y;20-外部急停输入信号1;21-外部急停输入信号2;
-	 22-一级缩减模式;23-二级缩减模式;24-三级缩减模式(停止);25-恢复焊接;26-终止焊接;
-	 27-辅助拖动开启;28-辅助拖动关闭;29-辅助拖动开启/关闭;30-清除所有错误;
-	 31-手自动切换(高低电平);32-使能;33-去使能;34-使能/去使能(上升下降沿);35-定点跟踪开始/结束
-	 * @return 错误码
+	 * @brief Set configurable CI port functions of the control box
+	 * @param [in] config CI0-CI7 function codes;
+	 * 0-None; 1-Arc started successfully; 2-Welder ready; 3-Conveyor detection; 4-Pause; 5-Resume; 6-Start; 7-Stop;
+	 * 8-Pause/Resume; 9-Start/Stop; 10-Foot pedal dragging; 11-Move to operation origin; 12-Manual/Automatic switching;
+	 * 13-Wire search successful; 14-Motion interrupted; 15-Start main program; 16-Start rewind; 17-Start confirmation;
+	 * 18-Photoelectric detection signal X; 19-Photoelectric detection signal Y; 20-External emergency stop input signal 1; 21-External emergency stop input signal 2;
+	 * 22-Level 1 reduction mode; 23-Level 2 reduction mode; 24-Level 3 reduction mode (stop); 25-Resume welding; 26-Terminate welding;
+	 * 27-Auxiliary dragging enable; 28-Auxiliary dragging disable; 29-Auxiliary dragging enable/disable; 30-Clear all errors;
+	 * 31-Manual/Automatic switching (high/low level); 32-Enable; 33-Disable; 34-Enable/Disable (rising/falling edge); 35-Fixed point tracking start/end
+	 * 36-Enter safe speed movement;37-Current Loop Drag Lock;38-Force sensor assisted locking;
+	 * @return Error code
 	 */
 	errno_t SetDIConfig(int config[8]);
 
 	/**
-	 * @brief 获取控制箱可配置CI端口功能
-	 * @param [in] config CI0-CI7功能编码；
-	 * 0-无;1-起弧成功;2-焊机准备;3-传送带检测;4-暂停;5-恢复;6-启动;7-停止;
-	 8-暂停/恢复;9-启动/停止;10-脚踏拖动;11-移至作业原点;12-手自动切换;
-	 13-焊丝寻位成功;14-运动中断;15-启动主程序;16-启动倒带;17-启动确认;
-	 18-光电检测信号X;19-光电检测信号Y;20-外部急停输入信号1;21-外部急停输入信号2;
-	 22-一级缩减模式;23-二级缩减模式;24-三级缩减模式(停止);25-恢复焊接;26-终止焊接;
-	 27-辅助拖动开启;28-辅助拖动关闭;29-辅助拖动开启/关闭;30-清除所有错误;
-	 31-手自动切换(高低电平);32-使能;33-去使能;34-使能/去使能(上升下降沿);35-定点跟踪开始/结束
-	 * @return 错误码
+	 * @brief Get configurable CI port functions of the control box
+	 * @param [in] config CI0-CI7 function codes;
+	 * 0-None; 1-Arc started successfully; 2-Welder ready; 3-Conveyor detection; 4-Pause; 5-Resume; 6-Start; 7-Stop;
+	 * 8-Pause/Resume; 9-Start/Stop; 10-Foot pedal dragging; 11-Move to operation origin; 12-Manual/Automatic switching;
+	 * 13-Wire search successful; 14-Motion interrupted; 15-Start main program; 16-Start rewind; 17-Start confirmation;
+	 * 18-Photoelectric detection signal X; 19-Photoelectric detection signal Y; 20-External emergency stop input signal 1; 21-External emergency stop input signal 2;
+	 * 22-Level 1 reduction mode; 23-Level 2 reduction mode; 24-Level 3 reduction mode (stop); 25-Resume welding; 26-Terminate welding;
+	 * 27-Auxiliary dragging enable; 28-Auxiliary dragging disable; 29-Auxiliary dragging enable/disable; 30-Clear all errors;
+	 * 31-Manual/Automatic switching (high/low level); 32-Enable; 33-Disable; 34-Enable/Disable (rising/falling edge); 35-Fixed point tracking start/end
+	 * 36-Enter safe speed movement;37-Current Loop Drag Lock;38-Force sensor assisted locking;
+	 * 201‑External E‑stop input signal 1(2Ch); 202‑External E‑stop input signal 2(2Ch); 203‑Level‑1 reduction mode(2Ch); 204‑Level‑2 reduction mode(2Ch); 205‑Level‑3 reduction mode(2Ch);
+	 * 206‑Normal stop(2Ch); 207‑Safety wall 1(2Ch); 208‑Safety wall 2(2Ch); 209‑Safety wall 3(2Ch); 210‑Safety wall 4(2Ch); 211‑Safety wall 5(2Ch); 212‑Safety wall 6(2Ch); 213‑Safety wall 7(2Ch);
+	 * 214‑Safety wall 8(2Ch); 215‑Safety stop reset(2Ch);
+	 * @return Error code
 	 */
 	errno_t GetDIConfig(int config[8]);
 
 	/**
-	 * @brief 设置可配置CO端口功能
-	 * @param [out] config CO0-CO7功能编码；
-	 * 0-无;1-机器人报错;2-机器人运动中;3-喷涂启停;4-喷涂清枪;5-送气信号;6-起弧信号;7-点动送丝;
-		8-反向送丝;9-JOB输入口1;10-JOB输入口2;11-JOB输入口3;12-传送带启停控制;13-机器人暂停中;14-到达作业原点;
-		15-到达干涉区;16-焊丝寻位启停控制;17-机器人启动完成;18-程序启动停止;19-自动手动模式;20-急停输出信号1-安全;
-		21-急停输出信号2-安全;22-LUA脚本程序运行停止;23-安全状态输出-安全;24-保护性停止状态输出-安全;
-		25-机器人运动中-安全;26-机器人缩减模式-安全;27-机器人非缩减模式-安全;28-机器人非停止;29-机器人报错-指令点错误;
-		30-机器人报错-驱动器错误;31-机器人报错-超出软限位错误;32-机器人报错-碰撞错误;33-机器人报错-活动从站数量错误;
-		34-机器人报错-从站错误;35-机器人报错-IO错误;36-机器人报错-夹爪错误;37-机器人报错-文件错误;38-机器人报错-奇异位姿错误;
-		39-机器人报错-驱动器通信错误;40-机器人报错-参数错误;41-机器人报错-外部轴超出软限位错误;42-机器人警告-警告;
-		43-机器人警告-安全门警告;44-机器人警告-运动警告;45-机器人警告-干涉区警告;46-机器人警告-安全墙警告;
-		47-使能状态;48-断线自动抬升中;49-立方体1干涉警告;50-立方体2干涉警告;51-立方体3干涉警告;52-立方体4干涉警告;
-	 * @return 错误码
+	 * @brief Set configurable CO port functions of the control box
+	 * @param [out] config CO0-CO7 function codes;
+	 * 0-None; 1-report errors; 2-motion; 3-Spraying start and stop; 4-Spray gun cleaning; 5-Aspiration; 6-Arcing; 7-Forward wire feeding;
+	 * 8-Reverse wire feeding; 9-JOB input port 1; 10-JOB input port 2; 11-JOB input port 3; 12-Start and stop conveyor belt; 13-suspend; 14-Reach the job origin;
+	 * 15-Entering the interference zone; 16-Start stop control of welding wire positioning; 17-Robot startup completed; 18-Program start stop; 19-Automatic manual mode; 20-Emergency stop output signal1;
+	 * 21-Emergency stop output signal2; 22-LUA script program stop or running; 23-Safety status output; 24-Protective stop status output;
+	 * 25-Robot in motion; 26-Robot reduce mode; 27-Robot non-reduced mode; 28-Reserved; 29-Command point error;
+	 * 30-Driver error; 31-Soft limit exceeded error; 32-Collision error; 33-Wrong number of active slave;
+	 * 34-Slave error; 35-IO error; 36-Gripper error; 37-File error; 38-Strange pose error;
+	 * 39-Driver communication error; 40-Parameter error; 41-External axis exceeded software limit error; 42-Planning and timeout warning;
+	 * 43-Safety door warning; 44-Exercise warning; 45-Interference zone warning; 46-Security wall warning;
+	 * 47-Robot Enable; 48-Auto-lifting in disconnection; 49-Cube Interference Zone Trigger 1; 50-Cube Interference Zone Trigger 2; 51-Cube Interference Zone Trigger 3; 52-Cube Interference Zone Trigger 4;
+	 * 53-Gripper workpiece drop error;
+	 * @return Error code
 	 */
 	errno_t SetDOConfig(int config[8]);
 
 	/**
-	 * @brief 获取可配置CO端口功能
-	 * @param [out] config CO0-CO7功能编码；
-	 * 0-无;1-机器人报错;2-机器人运动中;3-喷涂启停;4-喷涂清枪;5-送气信号;6-起弧信号;7-点动送丝;
-		8-反向送丝;9-JOB输入口1;10-JOB输入口2;11-JOB输入口3;12-传送带启停控制;13-机器人暂停中;14-到达作业原点;
-		15-到达干涉区;16-焊丝寻位启停控制;17-机器人启动完成;18-程序启动停止;19-自动手动模式;20-急停输出信号1-安全;
-		21-急停输出信号2-安全;22-LUA脚本程序运行停止;23-安全状态输出-安全;24-保护性停止状态输出-安全;
-		25-机器人运动中-安全;26-机器人缩减模式-安全;27-机器人非缩减模式-安全;28-机器人非停止;29-机器人报错-指令点错误;
-		30-机器人报错-驱动器错误;31-机器人报错-超出软限位错误;32-机器人报错-碰撞错误;33-机器人报错-活动从站数量错误;
-		34-机器人报错-从站错误;35-机器人报错-IO错误;36-机器人报错-夹爪错误;37-机器人报错-文件错误;38-机器人报错-奇异位姿错误;
-		39-机器人报错-驱动器通信错误;40-机器人报错-参数错误;41-机器人报错-外部轴超出软限位错误;42-机器人警告-警告;
-		43-机器人警告-安全门警告;44-机器人警告-运动警告;45-机器人警告-干涉区警告;46-机器人警告-安全墙警告;
-		47-使能状态;48-断线自动抬升中;49-立方体1干涉警告;50-立方体2干涉警告;51-立方体3干涉警告;52-立方体4干涉警告;
-	 * @return 错误码
+	 * @brief Get configurable CO port functions of the control box
+	 * @param [out] config CO0-CO7 function codes;
+	 * 0-None; 1-report errors; 2-motion; 3-Spraying start and stop; 4-Spray gun cleaning; 5-Aspiration; 6-Arcing; 7-Forward wire feeding;
+	 * 8-Reverse wire feeding; 9-JOB input port 1; 10-JOB input port 2; 11-JOB input port 3; 12-Start and stop conveyor belt; 13-suspend; 14-Reach the job origin;
+	 * 15-Entering the interference zone; 16-Start stop control of welding wire positioning; 17-Robot startup completed; 18-Program start stop; 19-Automatic manual mode; 20-Emergency stop output signal1;
+	 * 21-Emergency stop output signal2; 22-LUA script program stop or running; 23-Safety status output; 24-Protective stop status output;
+	 * 25-Robot in motion; 26-Robot reduce mode; 27-Robot non-reduced mode; 28-Reserved; 29-Command point error;
+	 * 30-Driver error; 31-Soft limit exceeded error; 32-Collision error; 33-Wrong number of active slave;
+	 * 34-Slave error; 35-IO error; 36-Gripper error; 37-File error; 38-Strange pose error;
+	 * 39-Driver communication error; 40-Parameter error; 41-External axis exceeded software limit error; 42-Planning and timeout warning;
+	 * 43-Safety door warning; 44-Exercise warning; 45-Interference zone warning; 46-Security wall warning;
+	 * 47-Robot Enable; 48-Auto-lifting in disconnection; 49-Cube Interference Zone Trigger 1; 50-Cube Interference Zone Trigger 2; 51-Cube Interference Zone Trigger 3; 52-Cube Interference Zone Trigger 4;
+	 * 53-Gripper workpiece drop error;
+	 * 201‑E‑stop output signal 1(2Ch); 202‑E‑stop output signal 2(2Ch); 203‑Safety status output(2Ch); 204‑Protective stop status output(2Ch); 205‑Robot in motion(2Ch);
+	 * 206‑Robot reduction mode(2Ch); 207‑Robot non‑reduction mode(2Ch);
+	 * @return Error code
 	 */
 	errno_t GetDOConfig(int config[8]);
 
 	/**
-	 * @brief 设置末端可配置End-CI端口功能
-	 * @param [in] config End CI0-CI1功能编码；
-	 * 0-无;1-拖动示教工具开关;2-点记录信号;3-手自动切换（脉冲信号）;4-TPD记录启动/停止;5-暂停运动;
-		6-恢复运动;7-启动;8-停止;9-暂停/恢复;10-启动/停止;11-力传感器辅助拖动开启;12-力传感器辅助拖动关闭;
-		13-力传感器辅助拖动开启/关闭;14-激光检测信号X;15-激光检测信号Y;16-PTP运动至作业原点;17-运动中断，根据信号停止当前运动;
-		18-启动主程序;19-启动倒带;20-启动确认;21-恢复焊接;22-终止焊接;23-清除错误;24-手自动切换（高低电平）
-		25-使能;26-去使能;27-使能/去使能;28-激光伺服跟踪启停信号;
-	 * @return 错误码
+	 * @brief Set configurable End-CI port functions
+	 * @param [in] config End CI0-CI1 function codes;
+	 * 0-None; 1-Drag teaching tool switch; 2-Point recording signal; 3-Manual/Automatic switching (pulse signal); 4-TPD recording start/stop; 5-Pause motion;
+	 * 6-Resume motion; 7-Start; 8-Stop; 9-Pause/Resume; 10-Start/Stop; 11-Force sensor auxiliary dragging enable; 12-Force sensor auxiliary dragging disable;
+	 * 13-Force sensor auxiliary dragging enable/disable; 14-Laser detection signal X; 15-Laser detection signal Y; 16-PTP move to operation origin; 17-Motion interrupt, stop current motion based on signal;
+	 * 18-Start main program; 19-Start rewind; 20-Start confirmation; 21-Resume welding; 22-Terminate welding; 23-Clear errors; 24-Manual/Automatic switching (high/low level);
+	 * 25-Enable; 26-Disable; 27-Enable/Disable; 28-Laser servo tracking start/stop signal;
+	 * @return Error code
 	 */
 	errno_t SetToolDIConfig(int config[2]);
 
 	/**
-	 * @brief 获取末端可配置End-CI端口功能
-	 * @param [out] config End CI0-CI1功能编码；
-	 * 0-无;1-拖动示教工具开关;2-点记录信号;3-手自动切换（脉冲信号）;4-TPD记录启动/停止;5-暂停运动;
-		6-恢复运动;7-启动;8-停止;9-暂停/恢复;10-启动/停止;11-力传感器辅助拖动开启;12-力传感器辅助拖动关闭;
-		13-力传感器辅助拖动开启/关闭;14-激光检测信号X;15-激光检测信号Y;16-PTP运动至作业原点;17-运动中断，根据信号停止当前运动;
-		18-启动主程序;19-启动倒带;20-启动确认;21-恢复焊接;22-终止焊接;23-清除错误;24-手自动切换（高低电平）
-		25-使能;26-去使能;27-使能/去使能;28-激光伺服跟踪启停信号;
-	 * @return 错误码
+	 * @brief Get configurable End-CI port functions
+	 * @param [out] config End CI0-CI1 function codes;
+	 * 0-None; 1-Drag teaching tool switch; 2-Point recording signal; 3-Manual/Automatic switching (pulse signal); 4-TPD recording start/stop; 5-Pause motion;
+	 * 6-Resume motion; 7-Start; 8-Stop; 9-Pause/Resume; 10-Start/Stop; 11-Force sensor auxiliary dragging enable; 12-Force sensor auxiliary dragging disable;
+	 * 13-Force sensor auxiliary dragging enable/disable; 14-Laser detection signal X; 15-Laser detection signal Y; 16-PTP move to operation origin; 17-Motion interrupt, stop current motion based on signal;
+	 * 18-Start main program; 19-Start rewind; 20-Start confirmation; 21-Resume welding; 22-Terminate welding; 23-Clear errors; 24-Manual/Automatic switching (high/low level);
+	 * 25-Enable; 26-Disable; 27-Enable/Disable; 28-Laser servo tracking start/stop signal;
+	 * @return Error code
 	 */
 	errno_t GetToolDIConfig(int config[2]);
 
-	///**
-	// * @brief 设置末端可配置End-DO端口功能
-	// * @param [in] config End DO0-DO1功能编码；
-	// * @return 错误码
-	// */
-	//errno_t SetToolDOConfig(int config[2]);
-
-	///**
-	// * @brief 获取末端可配置End-DO端口功能
-	// * @param [out] config End DO0-DO1功能编码；
-	// * @return 错误码
-	// */
-	//errno_t GetToolDOConfig(int config[2]);
-
 	/**
-	 * @brief 设置控制箱可配置CI有效状态
-	 * @param [in] config CI0-CI7端口有效状态；0-高电平有效；1-低电平有效
-	 * @return 错误码
+	 * @brief Set configurable CI active states of the control box
+	 * @param [in] config CI0-CI7 port active states; 0-Active high; 1-Active low
+	 * @return Error code
 	 */
 	errno_t SetDIConfigLevel(int config[8]);
 
 	/**
-	 * @brief 获取控制箱可配置CI有效状态
-	 * @param [out] config CI0-CI7端口有效状态；0-高电平有效；1-低电平有效
-	 * @return 错误码
+	 * @brief Get configurable CI active states of the control box
+	 * @param [out] config CI0-CI7 port active states; 0-Active high; 1-Active low
+	 * @return Error code
 	 */
 	errno_t GetDIConfigLevel(int config[8]);
 
 	/**
-	 * @brief 设置控制箱可配置CO有效状态
-	 * @param [in] config CO0-CO7端口有效状态；0-高电平有效；1-低电平有效
-	 * @return 错误码
+	 * @brief Set configurable CO active states of the control box
+	 * @param [in] config CO0-CO7 port active states; 0-Active high; 1-Active low
+	 * @return Error code
 	 */
 	errno_t SetDOConfigLevel(int config[8]);
 
 	/**
-	 * @brief 获取控制箱可配置CO有效状态
-	 * @param [out] config CO0-CO7端口有效状态；0-高电平有效；1-低电平有效
-	 * @return 错误码
+	 * @brief Get configurable CO active states of the control box
+	 * @param [out] config CO0-CO7 port active states; 0-Active high; 1-Active low
+	 * @return Error code
 	 */
 	errno_t GetDOConfigLevel(int config[8]);
 
 	/**
-	 * @brief 设置末端可配置CI有效状态
-	 * @param [in] config CI0-CI1端口有效状态；0-高电平有效；1-低电平有效
-	 * @return 错误码
+	 * @brief Set configurable CI active states of the end tool
+	 * @param [in] config CI0-CI1 port active states; 0-Active high; 1-Active low
+	 * @return Error code
 	 */
 	errno_t SetToolDIConfigLevel(int config[2]);
 
 	/**
-	 * @brief 获取末端可配置CI有效状态
-	 * @param [out] config CI0-CI1端口有效状态；0-高电平有效；1-低电平有效
-	 * @return 错误码
+	 * @brief Get configurable CI active states of the end tool
+	 * @param [out] config CI0-CI1 port active states; 0-Active high; 1-Active low
+	 * @return Error code
 	 */
 	errno_t GetToolDIConfigLevel(int config[2]);
 
-	///**
-	// * @brief 设置末端可配置CO有效状态
-	// * @param [in] config CO0-CO1端口有效状态；0-高电平有效；1-低电平有效
-	// * @return 错误码
-	// */
-	//errno_t SetToolDOConfigLevel(int config[2]);
-
-	///**
-	// * @brief 获取末端可配置CO有效状态
-	// * @param [out] config CO0-CO7端口有效状态；0-高电平有效；1-低电平有效
-	// * @return 错误码
-	// */
-	//errno_t GetToolDOConfigLevel(int config[2]);
-
 	/**
-	 * @brief 设置控制箱标准DI有效状态
-	 * @param [in] config DI0-DI7端口有效状态；0-高电平有效；1-低电平有效
-	 * @return 错误码
+	 * @brief Set standard DI active states of the control box
+	 * @param [in] config DI0-DI7 port active states; 0-Active high; 1-Active low
+	 * @return Error code
 	 */
 	errno_t SetStandardDILevel(int config[8]);
 
 	/**
-	 * @brief 获取控制箱标准DI有效状态
-	 * @param [out] config DI0-DI7端口有效状态；0-高电平有效；1-低电平有效
-	 * @return 错误码
+	 * @brief Get standard DI active states of the control box
+	 * @param [out] config DI0-DI7 port active states; 0-Active high; 1-Active low
+	 * @return Error code
 	 */
 	errno_t GetStandardDILevel(int config[8]);
 
 	/**
-	 * @brief 设置控制箱标准DO有效状态
-	 * @param [in] config DO0-DO7端口有效状态；0-高电平有效；1-低电平有效
-	 * @return 错误码
+	 * @brief Set standard DO active states of the control box
+	 * @param [in] config DO0-DO7 port active states; 0-Active high; 1-Active low
+	 * @return Error code
 	 */
 	errno_t SetStandardDOLevel(int config[8]);
 
 	/**
-	 * @brief 获取控制箱标准DO有效状态
-	 * @param [out] config DO0-DO7端口有效状态；0-高电平有效；1-低电平有效
-	 * @return 错误码
+	 * @brief Get standard DO active states of the control box
+	 * @param [out] config DO0-DO7 port active states; 0-Active high; 1-Active low
+	 * @return Error code
 	 */
 	errno_t GetStandardDOLevel(int config[8]);
 
-	/**
-	 * @brief  设置全局速度
-	 * @param  [in]  vel  速度百分比，范围[0~100]
-	 * @return  错误码
+    /**
+    *@brief  Set global speed
+    *@param  [in]  vel  Percentage of velocity, range[0~100]
+    *@return  Error code
 	 */
-	errno_t SetSpeed(int vel);
+	errno_t  SetSpeed(int vel);
 
 	/**
-	 * @brief  设置系统变量值
-	 * @param  [in]  id  变量编号，范围[1~20]
-	 * @param  [in]  value 变量值
-	 * @return  错误码
+	 * @brief Instantly sets the global speed.
+	 * @param [in] vel Speed percentage value, ranging from 0 to 100.
+	 * @return Returns 0 on success, or an error code on failure.
 	 */
-	errno_t SetSysVarValue(int id, float value);
+	errno_t SetSpeedInstant(int vel);
 
 	/**
-	 * @brief 设置工具参考点-六点法
-	 * @param [in] point_num 点编号,范围[1~6]
-	 * @return 错误码
+    *@brief  Set the value of a system variable
+    *@param  [in]  id  Variable number, range[1~20]
+    *@param  [in]  value Variable value
+    *@return  Error code
+	 */
+	errno_t  SetSysVarValue(int id, float value);
+
+	/**
+	 * @brief Setting tool reference points - six-point method
+	 * @param [in] point_num point number, range [1~6]
+	 * @return Error code
 	 */
 	errno_t SetToolPoint(int point_num);
 
 	/**
-	 * @brief  计算工具坐标系
-	 * @param [out] tcp_pose 工具坐标系
-	 * @return 错误码
+	 * @brief  Calculation tool coordinate system
+	 * @param [out] tcp_pose tool coordinate system
+	 * @return Error code
 	 */
-	errno_t ComputeTool(DescPose *tcp_pose);
+    errno_t ComputeTool(DescPose *tcp_pose);
 
 	/**
-	 * @brief 设置工具参考点-四点法
-	 * @param [in] point_num 点编号,范围[1~4]
-	 * @return 错误码
+	 * @brief Setting tool reference points - four-point method
+	 * @param [in] point_num point number, range [1~4]
+	 * @return Error code
 	 */
 	errno_t SetTcp4RefPoint(int point_num);
 
 	/**
-	 * @brief  计算工具坐标系
-	 * @param [out] tcp_pose 工具坐标系
-	 * @return 错误码
+	 * @brief  Calculation tool coordinate system
+	 * @param [out] tcp_pose tool coordinate system
+	 * @return Error code
 	 */
 	errno_t ComputeTcp4(DescPose *tcp_pose);
 
-	/**
-	 * @brief  设置工具坐标系
-	 * @param  [in] id 坐标系编号，范围[0~14]
-	 * @param  [in] coord  工具中心点相对于末端法兰中心位姿
-	 * @param  [in] type  0-工具坐标系，1-传感器坐标系
-	 * @param  [in] install 安装位置，0-机器人末端，1-机器人外部
-	 * @param  [in] toolID 工具ID
-	 * @param  [in] loadNum 负载编号
-	 * @return  错误码
-	 */
-	errno_t SetToolCoord(int id, DescPose *coord, int type, int install, int toolID, int loadNum);
 
 	/**
-	 * @brief  设置工具坐标系列表
-	 * @param  [in] id 坐标系编号，范围[0~14]
-	 * @param  [in] coord  工具中心点相对于末端法兰中心位姿
-	 * @param  [in] type  0-工具坐标系，1-传感器坐标系
-	 * @param  [in] install 安装位置，0-机器人末端，1-机器人外部
-	 * @param  [in] loadNum 负载编号
-	 * @return  错误码
+	 * @brief  Set tool coordinate system
+	 * @param  [in] id Frame number, range[0~14]
+	 * @param  [in] coord  Tool center position relative to end flange center position
+	 * @param  [in] type  0- tool coordinates, 1- sensor coordinates
+	 * @param  [in] install Installation position, 0- robot end, 1- robot outside
+	 * @param  [in] toolID tool ID
+	 * @param  [in] loadNum loadNum
+	 * @return  Error code
 	 */
-	errno_t SetToolList(int id, DescPose *coord, int type, int install, int loadNum);
+	errno_t  SetToolCoord(int id, DescPose* coord, int type, int install, int toolID, int loadNum);
 
 	/**
-	 * @brief 设置外部工具参考点-六点法
-	 * @param [in] point_num 点编号,范围[1~4]
-	 * @return 错误码
+    *@brief  Set the tool coordinate list
+    *@param  [in] id Frame number, range[0~14]
+    *@param  [in] coord  Tool center position relative to end flange center position
+    *@param  [in] type  0- tool coordinates, 1- sensor coordinates
+    *@param  [in] install Installation position, 0- robot end, 1- robot outside
+	*@param  [in] loadNum Load number
+    *@return  Error code
+	 */
+	errno_t  SetToolList(int id, DescPose* coord, int type, int install, int loadNum);
+
+
+	/**
+	 * @brief Setting External Tool Reference Points - Four-Point Method
+	 * @param [in] point_num point number, range [1~4]
+	 * @return Error code
 	 */
 	errno_t SetExTCPPoint(int point_num);
 
 	/**
-	 * @brief  计算外部工具坐标系
-	 * @param [out] tcp_pose 外部工具坐标系
-	 * @return 错误码
+	 * @brief  Calculate external tool coordinate system
+	 * @param [out] tcp_pose External tool coordinate system
+	 * @return Error code
 	 */
 	errno_t ComputeExTCF(DescPose *tcp_pose);
 
 	/**
-	 * @brief  设置外部工具坐标系
-	 * @param  [in] id 坐标系编号，范围[0~14]
-	 * @param  [in] etcp  工具中心点相对末端法兰中心位姿
-	 * @param  [in] etool  待定
-	 * @return  错误码
+	 * @brief Set the external tool coordinate system
+	 * @param [in] id Frame number, Numbers 20 to 39 correspond to external tool coordinate systems 0 to 19
+	 * @param [in] etcp TCP pose from base to external fixed tool
+	 * @param [in] etool Workpiece coordinate frame pose mounted on robot end-effector
+	 * @return Error code
 	 */
-	errno_t SetExToolCoord(int id, DescPose *etcp, DescPose *etool);
+	errno_t  SetExToolCoord(int id, DescPose *etcp, DescPose *etool);
 
 	/**
-	 * @brief  设置外部工具坐标系列表
-	 * @param  [in] id 坐标系编号，范围[0~14]
-	 * @param  [in] etcp  工具中心点相对末端法兰中心位姿
-	 * @param  [in] etool  待定
-	 * @return  错误码
+    *@brief Set the list of external tool coordinate systems
+    *@param [in] id Frame number, Numbers 20 to 39 correspond to external tool coordinate systems 0 to 19
+    *@param [in] etcp TCP pose from base to external fixed tool
+    *@param [in] etool Workpiece coordinate frame pose mounted on robot end-effector
+    *@return Error code
 	 */
-	errno_t SetExToolList(int id, DescPose *etcp, DescPose *etool);
+	errno_t  SetExToolList(int id, DescPose *etcp, DescPose *etool);
 
 	/**
-	 * @brief 设置工件参考点-三点法
-	 * @param [in] point_num 点编号,范围[1~3]
-	 * @return 错误码
+	 * @brief Set the workpiece reference point - three-point method
+	 * @param [in] point_num point number, range [1~3]
+	 * @return Error code
 	 */
 	errno_t SetWObjCoordPoint(int point_num);
 
 	/**
-	 * @brief  计算工件坐标系
-	 * @param [in] method 计算方法 0：原点-x轴-z轴  1：原点-x轴-xy平面
-	 * @param [in] refFrame 参考坐标系
-	 * @param [out] wobj_pose 工件坐标系
-	 * @return 错误码
+	 * @brief  Calculate workpiece coordinate system
+	 * @param [in] Calculation method 0: origin-x axis-z axis 1: origin-x axis-xy plane
+	 * @param [in] refFrame ref frame num
+	 * @param [out] wobj_pose Workpiece coordinate system
+	 * @return Error code
 	 */
-	errno_t ComputeWObjCoord(int method, int refFrame, DescPose *wobj_pose);
+	errno_t ComputeWObjCoord(int method, int refFrame, DescPose* wobj_pose);
 
 	/**
-	 * @brief  设置工件坐标系
-	 * @param  [in] id 坐标系编号，范围[0~14]
-	 * @param  [in] coord  工件坐标系相对于末端法兰中心位姿
-	 * @param  [in] refFrame 参考坐标系
-	 * @return  错误码
-	 */
-	errno_t SetWObjCoord(int id, DescPose *coord, int refFrame);
+	 * @brief  Set workpiece coordinate system
+	 * @param  [in] id Coordinate system number, range [0~14]
+	 * @param  [in] coord  The workpiece coordinate system relative to the end flange center pose
+	 * @param  [in] refFrame Reference coordinate system
+	 * @return  Error code
+     */
+	errno_t  SetWObjCoord(int id, DescPose* coord, int refFrame);
 
 	/**
-	 * @brief  设置工件坐标系列表
-	 * @param  [in] id 坐标系编号，范围[0~14]
-	 * @param  [in] coord  工件坐标系相对于末端法兰中心位姿
-	 * @param  [in] refFrame 参考坐标系
-	 * @return  错误码
-	 */
-	errno_t SetWObjList(int id, DescPose *coord, int refFrame);
+    *@brief  Set the list of work coordinate systems
+    *@param  [in] id Frame number, range[0~14]
+    *@param  [in] coord  Tool center position relative to end flange center position
+	*@param  [in] refFrame Reference coordinate system
+    *@return  Error code
+     */
+	errno_t  SetWObjList(int id, DescPose* coord, int refFrame);
 
 	/**
-	 * @brief  设置末端负载重量
-	 * @param  [in] loadNum 负载编号
-	 * @param  [in] weight  负载重量，单位kg
-	 * @return  错误码
+    *@brief  Set the end load weight
+	*@param  [in] loadNum load Num
+    *@param  [in] weight  Load weight, unit: kg
+    *@return  Error code
 	 */
-	errno_t SetLoadWeight(int loadNum, float weight);
+	errno_t  SetLoadWeight(int loadNum, float weight);
 
 	/**
-	 * @brief  设置末端负载质心坐标
-	 * @param  [in] coord 质心坐标，单位mm
-	 * @return  错误码
+    *@brief  Set the end-load centroid coordinates
+    *@param  [in] coord Centroid coordinates, unit: mm
+    *@return  Error code
 	 */
-	errno_t SetLoadCoord(DescTran *coord);
+	errno_t  SetLoadCoord(DescTran *coord);
 
 	/**
-	 * @brief  设置末端负载质心坐标
-	 * @param  [in] loadNum 负载编号
-	 * @param  [in] coord 质心坐标，单位mm
-	 * @return  错误码
+	 * @brief  Set the end-load centroid coordinates
+	 * @param  [in] loadNum load Num
+	 * @param  [in] coord Centroid coordinates, unit: mm
+	 * @return  Error code
 	 */
 	errno_t SetLoadCoord(int loadNum, DescTran* coord);
 
 	/**
-	 * @brief  设置机器人安装方式
-	 * @param  [in] install  安装方式，0-正装，1-侧装，2-倒装
-	 * @return  错误码
+    *@brief  Set the robot installation mode
+    *@param  [in] install  Installation mode: 0- formal installation, 1- side installation, 2- inverted installation
+    *@return  Error code
 	 */
-	errno_t SetRobotInstallPos(uint8_t install);
+	errno_t  SetRobotInstallPos(uint8_t install);
 
 	/**
-	 * @brief  设置机器人安装角度，自由安装
-	 * @param  [in] yangle  倾斜角
-	 * @param  [in] zangle  旋转角
-	 * @return  错误码
+    *@brief  Set the robot installation Angle, free installation
+    *@param  [in] yangle  Angle of inclination
+    *@param  [in] zangle  Angle of rotation
+    *@return  Error code
 	 */
-	errno_t SetRobotInstallAngle(double yangle, double zangle);
+	errno_t  SetRobotInstallAngle(double yangle, double zangle);
 
 	/**
-	 * @brief  等待指定时间
-	 * @param  [in]  t_ms  单位ms
-	 * @return  错误码
+    *@brief  Wait for the specified time
+    *@param  [in]  t_ms  unit: ms
+    *@return  Error code
 	 */
-	errno_t WaitMs(int t_ms);
+	errno_t  WaitMs(int t_ms);
 
 	/**
-	 * @brief 设置碰撞等级
-	 * @param  [in]  mode  0-等级，1-百分比
-	 * @param  [in]  level 碰撞阈值，等级对应范围[1-10],百分比对应范围[0~1]
-	 * @param  [in]  config 0-不更新配置文件，1-更新配置文件
-	 * @return  错误码
+    *@brief Set collision level
+    *@param  [in]  mode  0- grade, 1- percentage
+    *@param  [in]  level Collision threshold, grade range [1-10], percentage range [0~1]
+    *@param  [in]  config 0- Do not update the configuration file. 1- Update the configuration file
+    *@return  Error code
 	 */
-	errno_t SetAnticollision(int mode, float level[6], int config);
+	errno_t  SetAnticollision(int mode, float level[6], int config);
 
 	/**
-	 * @brief  设置碰撞后策略
-	 * @param  [in] strategy  0-报错停止，1-继续运行
-	 * @param  [in] safeTime  安全停止时间[1000 - 2000]ms
-	 * @param  [in] safeDistance  安全停止距离[1-150]mm
-	 * @param  [in] safeVel 安全速度[50-250] mm/s
-	 * @param  [in] safetyMargin  j1-j6安全系数[1-10]
-	 * @return  错误码
+	* @brief  Set the post-collision policy
+	* @param  [in] strategy  0- Error stop, 1- Continue running
+	* @param  [in] safeTime  Safe stop time[1000 - 2000]ms
+	* @param  [in] safeDistance  Safe stopping distance[1-150]mm
+	* @param  [in] safeVel safety velocity[50-250] mm/s
+	* @param  [in] safetyMargin  j1-j6 Safety factor[1-10]
+	* @return  Error code
 	 */
-	errno_t SetCollisionStrategy(int strategy, int safeTime, int safeDistance, int safeVel, int safetyMargin[]);
+	errno_t  SetCollisionStrategy(int strategy, int safeTime, int safeDistance, int safeVel, int safetyMargin[]);
 
 	/**
-	 * @brief  设置正限位
-	 * @param  [in] limit 六个关节位置，单位deg
-	 * @return  错误码
+    *@brief  Set the positive limit
+    *@param  [in] limit Six joint positions, unit: deg
+    *@return  Error code
 	 */
-	errno_t SetLimitPositive(float limit[6]);
+	errno_t  SetLimitPositive(float limit[6]);
 
 	/**
-	 * @brief  设置负限位
-	 * @param  [in] limit 六个关节位置，单位deg
-	 * @return  错误码
+    *@brief  Set the negative limit
+    *@param  [in] limit Six joint positions, unit: deg
+    *@return  Error code
 	 */
-	errno_t SetLimitNegative(float limit[6]);
+	errno_t  SetLimitNegative(float limit[6]);
 
 	/**
-	 * @brief  错误状态清除
-	 * @return  错误码
+    *@brief  Error status clearing
+    *@return  Error code
 	 */
-	errno_t ResetAllError();
+	errno_t  ResetAllError();
 
 	/**
-	 * @brief  关节摩擦力补偿开关
-	 * @param  [in]  state  0-关，1-开
-	 * @return  错误码
+    *@brief  Joint friction compensation switch
+    *@param  [in]  state  0- off, 1- on
+    *@return  Error code
 	 */
-	errno_t FrictionCompensationOnOff(uint8_t state);
+	errno_t  FrictionCompensationOnOff(uint8_t state);
 
 	/**
-	 * @brief  设置关节摩擦力补偿系数-正装
-	 * @param  [in]  coeff 六个关节补偿系数，范围[0~1]
-	 * @return  错误码
+    *@brief  Set joint friction compensation coefficient - formal
+    *@param  [in]  coeff Six joint compensation coefficients, range [0~1]
+    *@return  Error code
 	 */
-	errno_t SetFrictionValue_level(float coeff[6]);
+	errno_t  SetFrictionValue_level(float coeff[6]);
 
 	/**
-	 * @brief  设置关节摩擦力补偿系数-侧装
-	 * @param  [in]  coeff 六个关节补偿系数，范围[0~1]
-	 * @return  错误码
+    *@brief  Set joint friction compensation coefficient - side mount
+    *@param  [in]  coeff Six joint compensation coefficients, range [0~1]
+    *@return  Error code
 	 */
-	errno_t SetFrictionValue_wall(float coeff[6]);
+	errno_t  SetFrictionValue_wall(float coeff[6]);
 
 	/**
-	 * @brief  设置关节摩擦力补偿系数-倒装
-	 * @param  [in]  coeff 六个关节补偿系数，范围[0~1]
-	 * @return  错误码
+    *@brief  Set joint friction compensation coefficient - inverted
+    *@param  [in]  coeff Six joint compensation coefficients, range [0~1]
+    *@return  Error code
 	 */
-	errno_t SetFrictionValue_ceiling(float coeff[6]);
+	errno_t  SetFrictionValue_ceiling(float coeff[6]);
 
 	/**
-	 * @brief  设置关节摩擦力补偿系数-自由安装
-	 * @param  [in]  coeff 六个关节补偿系数，范围[0~1]
-	 * @return  错误码
+    *@brief  Set joint friction compensation coefficient - free mount
+    *@param  [in]  coeff Six joint compensation coefficients, range [0~1]
+    *@return  Error code
 	 */
-	errno_t SetFrictionValue_freedom(float coeff[6]);
+	errno_t  SetFrictionValue_freedom(float coeff[6]);
 
 	/**
-	 * @brief  获取机器人安装角度
-	 * @param  [out] yangle 倾斜角
-	 * @param  [out] zangle 旋转角
-	 * @return  错误码
+    *@brief  Obtain robot mounting Angle
+    *@param  [out] yangle Angle of inclination
+    *@param  [out] zangle Angle of rotation
+    *@return  Error code
 	 */
-	errno_t GetRobotInstallAngle(float *yangle, float *zangle);
+	errno_t  GetRobotInstallAngle(float *yangle, float *zangle);
 
 	/**
-	 * @brief  获取系统变量值
-	 * @param  [in] id 系统变量编号，范围[1~20]
-	 * @param  [out] value  系统变量值
-	 * @return  错误码
+    *@brief  Get the system variable value
+    *@param  [in] id System variable number, range[1~20]
+    *@param  [out] value  System variable value
+    *@return  Error code
 	 */
-	errno_t GetSysVarValue(int id, float *value);
+	errno_t  GetSysVarValue(int id, float *value);
 
 	/**
-	 * @brief  获取当前关节位置(角度)
-	 * @param  [in] flag 0-阻塞，1-非阻塞
-	 * @param  [out] jPos 六个关节位置，单位deg
-	 * @return  错误码
+    *@brief  Get the current joint position (Angle)
+    *@param  [in] flag 0- blocking, 1- non-blocking
+    *@param  [out] jPos Six joint positions, unit: deg
+    *@return  Error code
 	 */
-	errno_t GetActualJointPosDegree(uint8_t flag, JointPos *jPos);
+	errno_t  GetActualJointPosDegree(uint8_t flag, JointPos *jPos);
 
 	/**
-	 * @brief  获取关节反馈速度-deg/s
-	 * @param  [in] flag 0-阻塞，1-非阻塞
-	 * @param  [out] speed [x,y,z,rx,ry,rz]速度
-	 * @return  错误码
+	 * @brief  Get joint feedback velocity-deg/s
+	 * @param  [in] flag 0 - blocking, 1 - non-blocking
+	 * @param  [out] speed [j1,j2,j3,j4,j5,j6] speed
+	 * @return  Error code
 	 */
-	errno_t GetActualJointSpeedsDegree(uint8_t flag, float speed[6]);
+	errno_t  GetActualJointSpeedsDegree(uint8_t flag, float speed[6]);
+
 
 	/**
-	 * @brief  获取关节反馈加速度-deg/s^2
-	 * @param  [in] flag 0-阻塞，1-非阻塞
-	 * @param  [out] acc 六个关节加速度
-	 * @return  错误码
+	 * @brief  Get joint feedback acceleration-deg/s^2
+	 * @param  [in] flag 0-blocking, 1-non-blocking
+	 * @param  [out] acc speed Six joint acceleration
+	 * @return  Error code
 	 */
-	errno_t GetActualJointAccDegree(uint8_t flag, float acc[6]);
+    errno_t  GetActualJointAccDegree(uint8_t flag, float acc[6]);
 
 	/**
-	 * @brief  获取TCP指令速度
-	 * @param  [in] flag 0-阻塞，1-非阻塞
-	 * @param  [out] tcp_speed 线性速度
-	 * @param  [out] ori_speed 姿态速度
-	 * @return  错误码
+	 *@brief  Get TCP instruction speed
+	 *@param  [in] flag 0 - blocking, 1 - non-blocking
+	 *@param  [out] tcp_speed linear speed
+	 *@param  [out] ori_speed attitude speed
+	 *@return  Error code
 	 */
-	errno_t GetTargetTCPCompositeSpeed(uint8_t flag, float *tcp_speed, float *ori_speed);
+	errno_t  GetTargetTCPCompositeSpeed(uint8_t flag, float *tcp_speed, float *ori_speed);
 
 	/**
-	 * @brief  获取TCP反馈速度
-	 * @param  [in] flag 0-阻塞，1-非阻塞
-	 * @param  [out] tcp_speed 线性速度
-	 * @param  [out] ori_speed 姿态速度
-	 * @return  错误码
+	 *@brief  Get TCP instruction speed
+	 *@param  [in] flag 0 - blocking, 1 - non-blocking
+	 *@param  [out] tcp_speed linear speed
+	 *@param  [out] ori_speed attitude speed
+	 *@return  Error code
 	 */
-	errno_t GetActualTCPCompositeSpeed(uint8_t flag, float *tcp_speed, float *ori_speed);
+	errno_t  GetActualTCPCompositeSpeed(uint8_t flag, float *tcp_speed, float *ori_speed);
 
 	/**
-	 * @brief  获取TCP指令速度
-	 * @param  [in] flag 0-阻塞，1-非阻塞
-	 * @param  [out] speed [x,y,z,rx,ry,rz]速度
-	 * @return  错误码
+	 *@brief  Get TCP instruction speed
+	 *@param  [in] flag 0 - blocking, 1 - non-blocking
+	 *@param  [out] speed [x,y,z,rx,ry,rz] speed
+	 *@return  Error code
 	 */
-	errno_t GetTargetTCPSpeed(uint8_t flag, float speed[6]);
+	errno_t  GetTargetTCPSpeed(uint8_t flag, float speed[6]);
 
 	/**
-	 * @brief  获取TCP反馈速度
-	 * @param  [in] flag 0-阻塞，1-非阻塞
-	 * @param  [out] speed [x,y,z,rx,ry,rz]速度
-	 * @return  错误码
+	 *@brief  Get TCP Feedback Speed
+	 *@param  [in] flag 0 - blocking, 1 - non-blocking
+	 *@param  [out] speed [x,y,z,rx,ry,rz] speed
+	 *@return  Error code
 	 */
-	errno_t GetActualTCPSpeed(uint8_t flag, float speed[6]);
+	errno_t  GetActualTCPSpeed(uint8_t flag, float speed[6]);
 
 	/**
-	 * @brief  获取当前工具位姿
-	 * @param  [in] flag  0-阻塞，1-非阻塞
-	 * @param  [out] desc_pos  工具位姿
-	 * @return  错误码
+    *@brief  Get the current tool pose
+    *@param  [in] flag  0- blocking, 1- non-blocking
+    *@param  [out] desc_pos  Tool position
+    *@return  Error code
 	 */
-	errno_t GetActualTCPPose(uint8_t flag, DescPose *desc_pos);
+	errno_t  GetActualTCPPose(uint8_t flag, DescPose *desc_pos);
 
 	/**
-	 * @brief  获取当前工具坐标系编号
-	 * @param  [in] flag  0-阻塞，1-非阻塞
-	 * @param  [out] id  工具坐标系编号
-	 * @return  错误码
+    *@brief  Get the current tool coordinate system number
+    *@param  [in] flag  0- blocking, 1- non-blocking
+    *@param  [out] id  Tool coordinate system number
+    *@return  Error code
 	 */
-	errno_t GetActualTCPNum(uint8_t flag, int *id);
+	errno_t  GetActualTCPNum(uint8_t flag, int *id);
 
 	/**
-	 * @brief  获取当前工件坐标系编号
-	 * @param  [in] flag  0-阻塞，1-非阻塞
-	 * @param  [out] id  工件坐标系编号
-	 * @return  错误码
+    *@brief  Get the current workpiece coordinate system number
+    *@param  [in] flag  0- blocking, 1- non-blocking
+    *@param  [out] id  Job coordinate system number
+    *@return  Error code
 	 */
-	errno_t GetActualWObjNum(uint8_t flag, int *id);
+	errno_t  GetActualWObjNum(uint8_t flag, int *id);
 
 	/**
-	 * @brief  获取当前末端法兰位姿
-	 * @param  [in] flag  0-阻塞，1-非阻塞
-	 * @param  [out] desc_pos  法兰位姿
-	 * @return  错误码
+    *@brief  Get the current end flange pose
+    *@param  [in] flag  0- blocking, 1- non-blocking
+    *@param  [out] desc_pos  Flange pose
+    *@return  Error code
 	 */
-	errno_t GetActualToolFlangePose(uint8_t flag, DescPose *desc_pos);
+	errno_t  GetActualToolFlangePose(uint8_t flag, DescPose *desc_pos);
 
 	/**
-	 * @brief  逆运动学求解
-	 * @param  [in] type 0-绝对位姿(基坐标系)，1-增量位姿(基坐标系)，2-增量位姿(工具坐标系)
-	 * @param  [in] desc_pos 笛卡尔位姿
-	 * @param  [in] config 关节空间配置，[-1]-参考当前关节位置解算，[0~7]-依据特定关节空间配置求解
-	 * @param  [out] joint_pos 关节位置
-	 * @return  错误码
+    *@brief  Inverse kinematics solution
+    *@param  [in] type 0- absolute pose (base frame), 1- incremental pose (base frame), 2- incremental pose (tool frame)
+    *@param  [in] desc_pos Cartesian pose
+    *@param  [in] config Joint space configuration, [-1]- based on the current joint position, [0~7]- based on the specific joint space configuration
+    *@param  [out] joint_pos Joint position
+    *@return  Error code
 	 */
-	errno_t GetInverseKin(int type, DescPose *desc_pos, int config, JointPos *joint_pos);
+	errno_t  GetInverseKin(int type, DescPose *desc_pos, int config, JointPos *joint_pos);
 
 	/**
-	 * @brief  逆运动学求解，参考指定关节位置求解
-	 * @param  [in] type 0-绝对位姿(基坐标系)，1-增量位姿(基坐标系)，2-增量位姿(工具坐标系)
-	 * @param  [in] desc_pos 笛卡尔位姿
-	 * @param  [in] joint_pos_ref 参考关节位置
-	 * @param  [out] joint_pos 关节位置
-	 * @return  错误码
+    *@brief  Inverse kinematics is solved by referring to the specified joint position
+    *@param  [in] desc_pos Cartesian pose
+	*@param  [in] type 0-absolute pose (base coordinate system), 1-incremental pose (base coordinate system), 2-incremental pose (tool coordinate system)
+    *@param  [in] joint_pos_ref Reference joint position
+    *@param  [out] joint_pos Joint position
+    *@return  Error code
 	 */
 	errno_t GetInverseKinRef(int type, DescPose *desc_pos, JointPos *joint_pos_ref, JointPos *joint_pos);
 
 	/**
-	 * @brief  逆运动学求解，参考指定关节位置判断是否有解
-	 * @param  [in] posMode 0 绝对位姿，1 相对位姿-基坐标系，2 相对位姿-工具坐标系
-	 * @param  [in] desc_pos 笛卡尔位姿
-	 * @param  [in] joint_pos_ref 参考关节位置
-	 * @param  [out] result 0-无解，1-有解
-	 * @return  错误码
+	 *@brief  Inverse kinematics is solved by referring to the specified joint position
+    *@param  [in] desc_pos Cartesian pose
+    *@param  [in] joint_pos_ref Reference joint position
+    *@param  [out] result 0- no solution, 1-solution
+    *@return  Error code
 	 */
-	errno_t GetInverseKinHasSolution(int type, DescPose *desc_pos, JointPos *joint_pos_ref, uint8_t *result);
+	errno_t  GetInverseKinHasSolution(int type, DescPose *desc_pos, JointPos *joint_pos_ref, uint8_t *result);
 
 	/**
-	 * @brief 逆运动学求解，笛卡尔空间包含扩展轴位置
-	 * @param [in] type 0-绝对位姿(基坐标系)，1-增量位姿(基坐标系)，2-增量位姿(工具坐标系)
-	 * @param [in] desc_pos 笛卡尔位姿
-	 * @param [in] exaxis 扩展轴位置
-	 * @param [in] tool 工具号
-	 * @param [in] workPiece 工件号
-	 * @param [out] joint_pos 关节位置
-	 * @return 错误码
+	 * @brief Inverse kinematics solution, Cartesian space includes extended axis position
+	 * @param [in] type 0- absolute pose (base frame), 1- incremental pose (base frame), 2- incremental pose (tool frame)
+     * @param [in] desc_pos Cartesian pose
+	 * @param [in] exaxis Extended axis position
+	 * @param [in] tool Tool number
+	 * @param [in] workPiece Workpiece number
+	 * @param [out] joint_pos Joint position
+	 * @param [in] config Joint space configuration, [-1]- based on the current joint position, [0~7]- based on the specific joint space configuration
+	 * @return Error code
 	 */
-	errno_t GetInverseKinExaxis(int type, DescPose desc_pos, ExaxisPos exaxis, int tool, int workPiece, JointPos& joint_pos);
+	errno_t GetInverseKinExaxis(int type, DescPose desc_pos, ExaxisPos exaxis, int tool, int workPiece, JointPos& joint_pos, int config = -1);
 
 	/**
-	 * @brief  正运动学求解
-	 * @param  [in] joint_pos 关节位置
-	 * @param  [out] desc_pos 笛卡尔位姿
-	 * @return  错误码
+	 * @brief Solve inverse kinematics and obtain 8 sets of inverse solutions
+	 * @param [in] tcfPose Cartesian pose
+	 * @param [in] tool Tool coordinate system
+	 * @param [in] workpiece Workpiece coordinate system
+	 * @param [in] exPos External axis position
+	 * @param [out] jointPos Output 8 sets of joint angles
+	 * @return Error code
 	 */
-	errno_t GetForwardKin(JointPos *joint_pos, DescPose *desc_pos);
+	errno_t TCFToAllJoint(DescPose tcfPose, int tool, int workpiece, ExaxisPos exPos, std::vector<JointPos>& jointPos);
+
+    /**
+    *@brief  Forward kinematics solution
+    *@param  [in] joint_pos Joint position
+    *@param  [out] desc_pos Cartesian pose
+    *@return  Error code
+	 */
+    errno_t  GetForwardKin(JointPos *joint_pos, DescPose *desc_pos);
 
 	/**
-	 * @brief 获取当前关节转矩
-	 * @param  [in] flag 0-阻塞，1-非阻塞
-	 * @param  [out] torques 关节转矩
-	 * @return  错误码
+    *@brief Obtain the current joint torque
+    *@param  [in] flag 0- blocking, 1- non-blocking
+    *@param  [out] torques Joint torque
+    *@return  Error code
 	 */
 	errno_t GetJointTorques(uint8_t flag, float torques[6]);
 
 	/**
-	 * @brief  获取当前负载的重量
-	 * @param  [in] flag 0-阻塞，1-非阻塞
-	 * @param  [out] weight 负载重量，单位kg
-	 * @return  错误码
+    *@brief  Gets the weight of the current load
+    *@param  [in] flag 0- blocking, 1- non-blocking
+    *@param  [out] weight Load weight, unit: kg
+    *@return  Error code
 	 */
-	errno_t GetTargetPayload(uint8_t flag, float *weight);
+	errno_t  GetTargetPayload(uint8_t flag, float *weight);
 
 	/**
-	 * @brief  获取当前负载的质心
-	 * @param  [in] flag 0-阻塞，1-非阻塞
-	 * @param  [out] cog 负载质心，单位mm
-	 * @return  错误码
+    *@brief  Get the center of mass of the current load
+    *@param  [in] flag 0- blocking, 1- non-blocking
+    *@param  [out] cog Load center of mass, unit: mm
+    *@return  Error code
 	 */
-	errno_t GetTargetPayloadCog(uint8_t flag, DescTran *cog);
+	errno_t  GetTargetPayloadCog(uint8_t flag, DescTran *cog);
 
 	/**
-	 * @brief  获取当前工具坐标系
-	 * @param  [in] flag 0-阻塞，1-非阻塞
-	 * @param  [out] desc_pos 工具坐标系位姿
-	 * @return  错误码
+    *@brief  Get the current tool coordinate system
+    *@param  [in] flag 0- blocking, 1- non-blocking
+    *@param  [out] desc_pos Tool coordinate position
+    *@return  Error code
 	 */
-	errno_t GetTCPOffset(uint8_t flag, DescPose *desc_pos);
+	errno_t  GetTCPOffset(uint8_t flag, DescPose *desc_pos);
 
 	/**
-	 * @brief  获取当前工件坐标系
-	 * @param  [in] flag 0-阻塞，1-非阻塞
-	 * @param  [out] desc_pos 工件坐标系位姿
-	 * @return  错误码
+    *@brief  Get the current work frame
+    *@param  [in] flag 0- blocking, 1- non-blocking
+    *@param  [out] desc_pos Position of workpiece coordinate system
+    *@return  Error code
 	 */
-	errno_t GetWObjOffset(uint8_t flag, DescPose *desc_pos);
+	errno_t  GetWObjOffset(uint8_t flag, DescPose *desc_pos);
 
 	/**
-	 * @brief  获取关节软限位角度
-	 * @param  [in] flag 0-阻塞，1-非阻塞
-	 * @param  [out] negative  负限位角度，单位deg
-	 * @param  [out] positive  正限位角度，单位deg
-	 * @return  错误码
+    *@brief  Obtain joint soft limit Angle
+    *@param  [in] flag 0- blocking, 1- non-blocking
+    *@param  [out] negative  Negative limit Angle, unit: deg
+    *@param  [out] positive  Positive limit Angle, unit: deg
+    *@return  Error code
 	 */
-	errno_t GetJointSoftLimitDeg(uint8_t flag, float negative[6], float positive[6]);
+	errno_t  GetJointSoftLimitDeg(uint8_t flag, float negative[6], float positive[6]);
 
 	/**
-	 * @brief  获取系统时间
-	 * @param  [out] t_ms 单位ms
-	 * @return  错误码
+    *@brief  Get system time
+    *@param  [out] t_ms unit: ms
+    *@return  Error code
 	 */
-	errno_t GetSystemClock(float *t_ms);
+	errno_t  GetSystemClock(float *t_ms);
 
 	/**
-	 * @brief  获取机器人当前关节位置
-	 * @param  [out]  config  关节空间配置，范围[0~7]
-	 * @return  错误码
+    *@brief  Get the current joint configuration of the robot
+    *@param  [out]  config  Joint space configuration, range [0~7]
+    *@return  Error code
 	 */
-	errno_t GetRobotCurJointsConfig(int *config);
+	errno_t  GetRobotCurJointsConfig(int *config);
 
 	/**
-	 * @brief  获取机器人当前速度
-	 * @param  [out]  vel  速度，单位mm/s
-	 * @return  错误码
+    *@brief  Get the robot's current speed
+    *@param  [out]  vel  The unit is mm/s
+    *@return  Error code
 	 */
-	errno_t GetDefaultTransVel(float *vel);
+	errno_t  GetDefaultTransVel(float *vel);
 
 	/**
-	 * @brief  查询机器人运动是否完成
-	 * @param  [out]  state  0-未完成，1-完成
-	 * @return  错误码
+    *@brief  Query whether the robot movement is complete
+    *@param  [out]  state  0- Incomplete, 1- completed
+    *@return  Error code
 	 */
-	errno_t GetRobotMotionDone(uint8_t *state);
+	errno_t  GetRobotMotionDone(uint8_t *state);
 
 	/**
-	 * @brief  查询机器人错误码
-	 * @param  [out]  maincode  主错误码
-	 * @param  [out]  subcode   子错误码
-	 * @return  错误码
+	 * @brief  Query robot error code
+	 * @param  [out]  maincode  main error code
+	 * @param  [out]  subcode   sub main code
+	 * @return  error code
 	 */
-	errno_t GetRobotErrorCode(int *maincode, int *subcode);
+	errno_t  GetRobotErrorCode(int *maincode, int *subcode);
 
 	/**
-	 * @brief  查询机器人示教管理点位数据
-	 * @param  [in]  name  点位名
-	 * @param  [out]  data   点位数据
-	 * @return  错误码
+	 * @brief  Query robot teaching and management point data
+	 * @param  [in]  name  Point name
+	 * @param  [out]  data   point data
+	 * @return  error code
 	 */
-	errno_t GetRobotTeachingPoint(char name[64], float data[20]);
+	errno_t  GetRobotTeachingPoint(char name[64], float data[20]);
+
 
 	/**
-	 * @brief  查询机器人运动队列缓存长度
-	 * @param  [out]  len  缓存长度
-	 * @return  错误码
+	 * @brief  Query the robot motion queue cache length
+	 * @param  [out]  len  cache length
+	 * @return  error code
 	 */
-	errno_t GetMotionQueueLength(int *len);
+	errno_t  GetMotionQueueLength(int *len);
+
 
 	/**
-	 * @brief  设置轨迹记录参数
-	 * @param  [in] type  记录数据类型，1-关节位置
-	 * @param  [in] name  轨迹文件名
-	 * @param  [in] period_ms  数据采样周期，固定值2ms或4ms或8ms
-	 * @param  [in] di_choose  DI选择,bit0~bit7对应控制箱DI0~DI7，bit8~bit9对应末端DI0~DI1，0-不选择，1-选择
-	 * @param  [in] do_choose  DO选择,bit0~bit7对应控制箱DO0~DO7，bit8~bit9对应末端DO0~DO1，0-不选择，1-选择
-	 * @return  错误码
+	 * @brief  Set track recording parameters
+	 * @param  [in] type  Record data type, 1- joint position
+	 * @param  [in] name  Track file name
+	 * @param  [in] period_ms  Data sampling period, fixed value 2ms or 4ms or 8ms
+	 * @param  [in] di_choose  DI Select,bit0 to bit7 corresponds to control box DI0 to DI7, bit8 to bit9 corresponds to end DI0 to DI1, 0- do not select, 1- select
+	 * @param  [in] do_choose  DO select,bit0~bit7 corresponds to control box DO0~DO7, bit8~bit9 corresponds to end DO0~DO1, 0- do not select, 1- select
+	 * @return  Error code
 	 */
-	errno_t SetTPDParam(int type, char name[30], int period_ms, uint16_t di_choose, uint16_t do_choose);
+	errno_t  SetTPDParam(int type, char name[30], int period_ms, uint16_t di_choose, uint16_t do_choose);
 
 	/**
-	 * @brief  开始轨迹记录
-	 * @param  [in] type  记录数据类型，1-关节位置
-	 * @param  [in] name  轨迹文件名
-	 * @param  [in] period_ms  数据采样周期，固定值2ms或4ms或8ms
-	 * @param  [in] di_choose  DI选择,bit0~bit7对应控制箱DI0~DI7，bit8~bit9对应末端DI0~DI1，0-不选择，1-选择
-	 * @param  [in] do_choose  DO选择,bit0~bit7对应控制箱DO0~DO7，bit8~bit9对应末端DO0~DO1，0-不选择，1-选择
-	 * @return  错误码
+    *@brief  Start track recording
+    *@param  [in] type  Record data type, 1- joint position
+    *@param  [in] name  Track file name
+    *@param  [in] period_ms  Data sampling period, fixed value 2ms or 4ms or 8ms
+    *@param  [in] di_choose  DI Select,bit0 to bit7 corresponds to control box DI0 to DI7, bit8 to bit9 corresponds to end DI0 to DI1, 0- do not select, 1- select
+    *@param  [in] do_choose  DO select,bit0~bit7 corresponds to control box DO0~DO7, bit8~bit9 corresponds to end DO0~DO1, 0- do not select, 1- select
+    *@return  Error code
 	 */
-	errno_t SetTPDStart(int type, char name[30], int period_ms, uint16_t di_choose, uint16_t do_choose);
+	errno_t  SetTPDStart(int type, char name[30], int period_ms, uint16_t di_choose, uint16_t do_choose);
 
 	/**
-	 * @brief  停止轨迹记录
-	 * @return  错误码
+    *@brief  Stop track recording
+    *@return  Error code
 	 */
-	errno_t SetWebTPDStop();
+	errno_t  SetWebTPDStop();
 
 	/**
-	 * @brief  删除轨迹记录
-	 * @param  [in] name  轨迹文件名
-	 * @return  错误码
+    *@brief  Delete track record
+    *@param  [in] name  Track file name
+    *@return  Error code
 	 */
-	errno_t SetTPDDelete(char name[30]);
+	errno_t  SetTPDDelete(char name[30]);
 
 	/**
-	 * @brief  轨迹预加载
-	 * @param  [in] name  轨迹文件名
-	 * @return  错误码
+    *@brief  Trajectory preloading
+    *@param  [in] name  Track file name
+    *@return  Error code
 	 */
-	errno_t LoadTPD(char name[30]);
+	errno_t  LoadTPD(char name[30]);
 
 	/**
-	 * @brief  获取轨迹起始位姿
-	 * @param  [in] name 轨迹文件名
-	 * @return  错误码
+	 * @brief  Get the starting pose of the trajectory
+	 * @param  [in] name trajectory file name, file suffix is not required
+	 * @return  error code
 	 */
-	errno_t GetTPDStartPose(char name[30], DescPose *desc_pose);
+    errno_t  GetTPDStartPose(char name[30], DescPose *desc_pose);
 
 	/**
-	 * @brief  轨迹复现
-	 * @param  [in] name  轨迹文件名
-	 * @param  [in] blend 0-不平滑，1-平滑
-	 * @param  [in] ovl  速度缩放百分比，范围[0~100]
-	 * @return  错误码
+    *@brief  Trajectory recurrence
+    *@param  [in] name  Track file name
+    *@param  [in] blend 0- not smooth, 1- smooth
+    *@param  [in] ovl  Speed scaling percentage, range [0~100]
+    *@return  Error code
 	 */
-	errno_t MoveTPD(char name[30], uint8_t blend, float ovl);
+	errno_t  MoveTPD(char name[30], uint8_t blend, float ovl);
 
 	/**
-	 * @brief 运动到TPD轨迹记录起点
-	 * @param [in] name 轨迹文件名
-	 * @param [in] moveType 运动类型；0-PTP; 1-LIN
-	 * @param [in] ovl 速度缩放百分比，范围[0~100]
-	 * @return 错误码
+	 * @brief Move to the starting point of the TPD trajectory record
+	 * @param [in] name Trajectory file name
+	 * @param [in] moveType Motion type; 0-PTP; 1-LIN
+	 * @param [in] ovl Speed scaling percentage, range [0~100]
+	 * @return Error code
 	 */
 	errno_t MoveToTPDStart(char name[30], uint8_t moveType, float ovl);
 
 	/**
-	 * @brief  轨迹预处理
-	 * @param  [in] name  轨迹文件名
-	 * @param  [in] ovl 速度缩放百分比，范围[0~100]
-	 * @param  [in] opt 1-控制点，默认为1
-	 * @return  错误码
+	 * @brief  trajectory preprocessing
+	 * @param  [in] name  trajectory file name
+	 * @param  [in] ovl speed scaling percentage, range [0~100]
+	 * @param  [in] opt 1-control point, default is 1
+	 * @return  error code
 	 */
-	errno_t LoadTrajectoryJ(char name[30], float ovl, int opt);
+	errno_t  LoadTrajectoryJ(char name[30], float ovl, int opt);
 
 	/**
-	 * @brief  轨迹复现
-	 * @return  错误码
+	 * @brief  trajectory recurrence
+	 * @return  error code
 	 */
-	errno_t MoveTrajectoryJ();
+	errno_t  MoveTrajectoryJ();
 
 	/**
-	 * @brief  获取轨迹起始位姿
-	 * @param  [in] name 轨迹文件名
-	 * @return  错误码
+	 * @brief  Get the starting pose of the trajectory
+	 * @param  [in] name trajectory file name
+	 * @return  error code
 	 */
-	errno_t GetTrajectoryStartPose(char name[30], DescPose *desc_pose);
+    errno_t  GetTrajectoryStartPose(char name[30], DescPose *desc_pose);
 
 	/**
-	 * @brief  获取轨迹点编号
-	 * @return  错误码
+	 * @brief  Get the track point number
+	 * @return  error code
 	 */
-	errno_t GetTrajectoryPointNum(int *pnum);
+	errno_t  GetTrajectoryPointNum(int *pnum);
 
 	/**
-	 * @brief  设置轨迹运行中的速度
-	 * @param  [in] ovl 速度百分比
-	 * @return  错误码
+	 * @brief Set the speed during trajectory running
+	 * @param [in] ovl speed percentage
+	 * @param [in] mode Mode; 0 - deceleration mode; 1 - direct switching
+	 * @return error code
 	 */
-	errno_t SetTrajectoryJSpeed(float ovl);
+	errno_t  SetTrajectoryJSpeed(float ovl, int mode = 0);
 
 	/**
-	 * @brief  设置轨迹运行中的力和扭矩
-	 * @param  [in] ft 三个方向的力和扭矩，单位N和Nm
-	 * @return  错误码
+	 * @brief  Set the force and torque during trajectory operation
+	 * @param  [in] ft Force and torque in three directions, units N and Nm
+	 * @return  error code
 	 */
-	errno_t SetTrajectoryJForceTorque(ForceTorque *ft);
+	errno_t  SetTrajectoryJForceTorque(ForceTorque *ft);
 
 	/**
-	 * @brief  设置轨迹运行中的沿x方向的力
-	 * @param  [in] fx 沿x方向的力，单位N
-	 * @return  错误码
+	 * @brief  Set the force along the x direction during trajectory operation
+	 * @param  [in] fx Force along the x direction, unit N
+	 * @return  error code
 	 */
-	errno_t SetTrajectoryJForceFx(double fx);
+	errno_t  SetTrajectoryJForceFx(double fx);
 
 	/**
-	 * @brief  设置轨迹运行中的沿y方向的力
-	 * @param  [in] fy 沿y方向的力，单位N
-	 * @return  错误码
+	 * @brief  Set the force along the y direction during trajectory operation
+	 * @param  [in] fy Force along the y direction, unit N
+	 * @return  error code
 	 */
-	errno_t SetTrajectoryJForceFy(double fy);
+	errno_t  SetTrajectoryJForceFy(double fy);
 
 	/**
-	 * @brief  设置轨迹运行中的沿z方向的力
-	 * @param  [in] fz 沿x方向的力，单位N
-	 * @return  错误码
+	 * @brief  Set the force along the z direction during trajectory operation
+	 * @param  [in] fz Force along the z direction, unit N
+	 * @return  error code
 	 */
-	errno_t SetTrajectoryJForceFz(double fz);
+	errno_t  SetTrajectoryJForceFz(double fz);
 
 	/**
-	 * @brief  设置轨迹运行中的绕x轴的扭矩
-	 * @param  [in] tx 绕x轴的扭矩，单位Nm
-	 * @return  错误码
+	 * @brief  Set the torque around the x-axis during trajectory operation
+	 * @param  [in] tx Torque around the x-axis, unit Nm
+	 * @return  error code
 	 */
-	errno_t SetTrajectoryJTorqueTx(double tx);
+	errno_t  SetTrajectoryJTorqueTx(double tx);
 
 	/**
-	 * @brief  设置轨迹运行中的绕x轴的扭矩
-	 * @param  [in] ty 绕y轴的扭矩，单位Nm
-	 * @return  错误码
+	 * @brief  Set the torque around the y-axis during trajectory operation
+	 * @param  [in] ty Torque around the y-axis, unit Nm
+	 * @return  error code
 	 */
-	errno_t SetTrajectoryJTorqueTy(double ty);
+	errno_t  SetTrajectoryJTorqueTy(double ty);
 
 	/**
-	 * @brief  设置轨迹运行中的绕x轴的扭矩
-	 * @param  [in] tz 绕z轴的扭矩，单位Nm
-	 * @return  错误码
+	 * @brief  Set the torque around the z-axis during trajectory operation
+	 * @param  [in] tz Torque around the z-axis, unit Nm
+	 * @return  error code
 	 */
-	errno_t SetTrajectoryJTorqueTz(double tz);
+	errno_t  SetTrajectoryJTorqueTz(double tz);
 
 	/**
-	 * @brief  设置开机自动加载默认的作业程序
-	 * @param  [in] flag  0-开机不自动加载默认程序，1-开机自动加载默认程序
-	 * @param  [in] program_name 作业程序名及路径，如"/fruser/movej.lua"，其中"/fruser/"为固定路径
-	 * @return  错误码
+	 * @brief  Set the default job program to be automatically loaded upon startup
+	 * @param  [in] flag  0- boot does not automatically load the default program, 1- boot automatically load the default program
+	 * @param  [in] program_name Job program name, for example, movej.lua
+	 * @return  Error code
 	 */
-	errno_t LoadDefaultProgConfig(uint8_t flag, char program_name[64]);
+	errno_t  LoadDefaultProgConfig(uint8_t flag, char program_name[64]);
 
 	/**
-	 * @brief  加载指定的作业程序
-	 * @param  [in] program_name 作业程序名及路径，如"/fruser/movej.lua"，其中"/fruser/"为固定路径
-	 * @return  错误码
+    *@brief  Load the specified job program
+    *@param  [in] program_name Job program name, for example, movej.lua
+    *@return  Error code
 	 */
-	errno_t ProgramLoad(char program_name[64]);
+	errno_t  ProgramLoad(char program_name[64]);
 
 	/**
-	 * @brief  获取已加载的作业程序名
-	 * @param  [out] program_name 作业程序名及路径，如"/fruser/movej.lua"，其中"/fruser/"为固定路径
-	 * @return  错误码
+    *@brief  Get the loaded job program name
+    *@param  [out] program_name Job program name, for example, movej.lua
+    *@return  Error code
 	 */
-	errno_t GetLoadedProgram(char program_name[64]);
+	errno_t  GetLoadedProgram(char program_name[64]);
 
 	/**
-	 * @brief  获取当前机器人作业程序执行的行号
-	 * @param  [out] line  行号
-	 * @return  错误码
+    *@brief  Get the line number of the current robot job program
+    *@param  [out] line  line number
+    *@return  Error code
 	 */
-	errno_t GetCurrentLine(int *line);
+	errno_t  GetCurrentLine(int *line);
 
 	/**
-	 * @brief  运行当前加载的作业程序
-	 * @return  错误码
+    *@brief  Run the currently loaded job program
+    *@return  Error code
 	 */
-	errno_t ProgramRun();
+	errno_t  ProgramRun();
 
 	/**
-	 * @brief  暂停当前运行的作业程序
-	 * @return  错误码
+    *@brief  Pause the current running job program
+    *@return  Error code
 	 */
-	errno_t ProgramPause();
+	errno_t  ProgramPause();
 
 	/**
-	 * @brief  恢复当前暂停的作业程序
-	 * @return  错误码
+    *@brief  Resume the currently suspended job program
+    *@return  Error code
 	 */
-	errno_t ProgramResume();
+	errno_t  ProgramResume();
 
 	/**
-	 * @brief  终止当前运行的作业程序
-	 * @return  错误码
+    *@brief  Terminates the currently running job program
+    *@return  Error code
 	 */
-	errno_t ProgramStop();
+	errno_t  ProgramStop();
 
 	/**
-	 * @brief  获取机器人作业程序执行状态
-	 * @param  [out]  state 1-程序停止或无程序运行，2-程序运行中，3-程序暂停
-	 * @return  错误码
+    *@brief  Get the robot job program execution state
+    *@param  [out]  state 1- program stop or no program running, 2- program running, 3- program pause
+    *@return  Error code
 	 */
-	errno_t GetProgramState(uint8_t *state);
+	errno_t  GetProgramState(uint8_t *state);
 
 	/**
-	 * @brief  配置夹爪
-	 * @param  [in] company  夹爪厂商，1-Robotiq，2-慧灵，3-天机，4-大寰，5-知行
-	 * @param  [in] device  设备号，Robotiq(0-2F-85系列)，慧灵(0-NK系列,1-Z-EFG-100)，天机(0-TEG-110)，大寰(0-PGI-140)，知行(0-CTPM2F20)
-	 * @param  [in] softvesion  软件版本号，暂不使用，默认为0
-	 * @param  [in] bus 设备挂在末端总线位置，暂不使用，默认为0
-	 * @return  错误码
+    *@brief  Configure the gripper
+    *@param  [in] company  Claw manufacturer, to be determined
+    *@param  [in] device  Device number, not used yet. The default value is 0
+    *@param  [in] softvesion  Software version. The value is not used. The default value is 0
+    *@param  [in] bus The device is attached to the terminal bus and is not in use. The default value is 0
+    *@return  Error code
 	 */
-	errno_t SetGripperConfig(int company, int device, int softvesion, int bus);
+	errno_t  SetGripperConfig(int company, int device, int softvesion, int bus);
 
 	/**
-	 *@brief  获取夹爪配置
-	 *@param  [out] company  夹爪厂商，1-Robotiq，2-慧灵，3-天机，4-大寰，5-知行
-	 *@param  [out] device  设备号，Robotiq(0-2F-85系列)，慧灵(0-NK系列,1-Z-EFG-100)，天机(0-TEG-110)，大寰(0-PGI-140)，知行(0-CTPM2F20)
-	 *@param  [out] softvesion  软件版本号，暂不使用，默认为0
-	 *@param  [out] bus 设备挂在末端总线位置，暂不使用，默认为0
-	 *@return  错误码
+    *@brief  Configure the gripper
+    *@param  [in] company  Claw manufacturer, to be determined
+    *@param  [in] device  Device number, not used yet. The default value is 0
+    *@param  [in] softvesion  Software version. The value is not used. The default value is 0
+    *@param  [in] bus The device is attached to the terminal bus and is not in use. The default value is 0
+    *@return  Error code
 	 */
-	errno_t GetGripperConfig(int *company, int *device, int *softvesion, int *bus);
+	errno_t  GetGripperConfig(int *company, int *device, int *softvesion, int *bus);
 
 	/**
-	 * @brief  激活夹爪
-	 * @param  [in] index  夹爪编号
-	 * @param  [in] act  0-复位，1-激活
-	 * @return  错误码
+    *@brief  Activate Activate gripper
+    *@param  [in] index  gripper gripper
+    *@param  [in] act  0- reset, 1- activate
+    *@return  Error code
 	 */
-	errno_t ActGripper(int index, uint8_t act);
+	errno_t  ActGripper(int index, uint8_t act);
 
 	/**
-	 * @brief  控制夹爪
-	 * @param  [in] index  夹爪编号
-	 * @param  [in] pos  位置百分比，范围[0~100]
-	 * @param  [in] vel  速度百分比，范围[0~100]
-	 * @param  [in] force  力矩百分比，范围[0~100]
-	 * @param  [in] max_time  最大等待时间，范围[0~30000]，单位ms
-	 * @param  [in] block  0-阻塞，1-非阻塞
-	 * @param  [in] type 夹爪类型，0-平行夹爪；1-旋转夹爪
-	 * @param  [in] rotNum 旋转圈数
-	 * @param  [in] rotVel 旋转速度百分比[0-100]
-	 * @param  [in] rotTorque 旋转力矩百分比[0-100]
-	 * @return  错误码
+    * @brief  Control gripper
+    * @param  [in] index  gripper number
+    * @param  [in] pos  Percentage of position, range[0~100]
+    * @param  [in] vel  Percentage of velocity, range[0~100]
+    * @param  [in] force  Percentage of torque, range[0~100]
+    * @param  [in] max_time  Maximum wait time, range[0~30000], unit: ms
+    * @param  [in] block  0- blocking, 1- non-blocking
+	* @param  [in] type grippr type, 0-parallel clamp; 1- Rotate the claw
+	* @param  [in] rotNum Number of turns[0-100]
+	* @param  [in] rotVel Percent rotation speed[100]
+	* @param  [in] rotTorque Percentage of rotating torque [0-100]
+    * @return  Error code
 	 */
-	errno_t MoveGripper(int index, int pos, int vel, int force, int max_time, uint8_t block, int type, double rotNum, int rotVel, int rotTorque);
+	errno_t  MoveGripper(int index, int pos, int vel, int force, int max_time, uint8_t block, int type, double rotNum, int rotVel, int rotTorque);
 
 	/**
-	 * @brief  获取夹爪运动状态
-	 * @param  [out] fault  0-无错误，1-有错误
-	 * @param  [out] staus  0-运动未完成，1-运动完成
-	 * @return  错误码
+	 * @brief Get gripper motion status
+	 * @param [out] fault 0‑No error, Other values‑Error occurred
+	 * @param [out] staus 0‑Motion not completed, 1‑Motion completed without object detected, 2‑Motion completed with object detected, 3-Object drop detected after motion completion
+	 * @return Error code
 	 */
-	errno_t GetGripperMotionDone(uint16_t *fault, uint8_t *status);
+    errno_t  GetGripperMotionDone(uint16_t *fault, uint8_t *status);
 
 	/**
-	 * @brief  获取夹爪激活状态
-	 * @param  [out] fault  0-无错误，1-有错误
-	 * @param  [out] status  bit0~bit15对应夹爪编号0~15，bit=0为未激活，bit=1为激活
-	 * @return  错误码
+	 * @brief  Get the gripper activation status
+	 * @param  [out] fault 0-no error, 1-error
+	 * @param  [out] status bit0~bit15 corresponds to the gripper number 0~15, bit=0 is inactive, bit=1 is activated
+	 * @return  Error code
 	 */
-	errno_t GetGripperActivateStatus(uint16_t *fault, uint16_t *status);
+	errno_t  GetGripperActivateStatus(uint16_t *fault, uint16_t *status);
 
 	/**
-	 * @brief  获取夹爪位置
-	 * @param  [out] fault  0-无错误，1-有错误
-	 * @param  [out] position  位置百分比，范围0~100%
-	 * @return  错误码
+	 * @brief  Get the gripper position
+	 * @param  [out] fault 0-no error, 1-error
+	 * @param  [out] position position percentage, range 0~100%
+	 * @return  Error code
 	 */
-	errno_t GetGripperCurPosition(uint16_t *fault, uint8_t *position);
+	errno_t  GetGripperCurPosition(uint16_t *fault, uint8_t *position);
 
 	/**
-	 * @brief  获取夹爪速度
-	 * @param  [out] fault  0-无错误，1-有错误
-	 * @param  [out] speed  速度百分比，范围0~100%
-	 * @return  错误码
+	 * @brief  Get the gripper speed
+	 * @param  [out] fault 0-no error, 1-error
+	 * @param  [out] speed speed percentage, range 0~100%
+	 * @return  Error code
 	 */
-	errno_t GetGripperCurSpeed(uint16_t *fault, int8_t *speed);
+    errno_t  GetGripperCurSpeed(uint16_t *fault, int8_t *speed);
 
 	/**
-	 * @brief  获取夹爪电流
-	 * @param  [out] fault  0-无错误，1-有错误
-	 * @param  [out] current  电流百分比，范围0~100%
-	 * @return  错误码
+	 * @brief  Get the gripper current
+	 * @param  [out] fault 0-no error, 1-error
+	 * @param  [out] current current percentage, range 0~100%
+	 * @return  Error code
 	 */
-	errno_t GetGripperCurCurrent(uint16_t *fault, int8_t *current);
+    errno_t  GetGripperCurCurrent(uint16_t *fault, int8_t *current);
 
 	/**
-	 * @brief  获取夹爪电压
-	 * @param  [out] fault  0-无错误，1-有错误
-	 * @param  [out] voltage  电压,单位0.1V
-	 * @return  错误码
+	 * @brief  Get the gripper voltage
+	 * @param  [out] fault 0-no error, 1-error
+	 * @param  [out] voltage voltage, unit 0.1V
+	 * @return  Error code
 	 */
-	errno_t GetGripperVoltage(uint16_t *fault, int *voltage);
+    errno_t  GetGripperVoltage(uint16_t *fault, int *voltage);
 
 	/**
-	 * @brief  获取夹爪温度
-	 * @param  [out] fault  0-无错误，1-有错误
-	 * @param  [out] temp  温度，单位℃
-	 * @return  错误码
+	 * @brief  Get the gripper temperature
+	 * @param  [out] fault 0-no error, 1-error
+	 * @param  [out] temp temperature, unit °C
+	 * @return  Error code
 	 */
-	errno_t GetGripperTemp(uint16_t *fault, int *temp);
+	errno_t  GetGripperTemp(uint16_t *fault, int *temp);
 
 	/**
-	 * @brief  获取旋转夹爪的旋转圈数
-	 * @param  [out] fault  0-无错误，1-有错误
-	 * @param  [out] num  旋转圈数
-	 * @return  错误码
+	 * @brief  Gets the number of turns of the rotary gripper
+	 * @param  [out] fault 0-no error, 1-error
+	 * @param  [out] num  Number of turns
+	 * @return  Error code
 	 */
 	errno_t GetGripperRotNum(uint16_t* fault, double* num);
 
 	/**
-	 * @brief  获取旋转夹爪的旋转速度
-	 * @param  [out] fault  0-无错误，1-有错误
-	 * @param  [out] speed  旋转速度百分比
-	 * @return  错误码
+	 * @brief  Gets the rotation speed of the rotating gripper
+	 * @param  [out] fault 0-no error, 1-error
+	 * @param  [out] speed  Percent rotation speed
+	 * @return  Error code
 	 */
 	errno_t GetGripperRotSpeed(uint16_t* fault, int* speed);
 
 	/**
-	 * @brief  获取旋转夹爪的旋转力矩
-	 * @param  [out] fault  0-无错误，1-有错误
-	 * @param  [out] torque  旋转力矩百分比
-	 * @return  错误码
+	 * @brief  Obtain the rotating torque of the rotating gripper
+	 * @param  [out] fault 0-no error, 1-error
+	 * @param  [out] torque  Percent torque of rotation
+	 * @return  Error code
 	 */
 	errno_t GetGripperRotTorque(uint16_t* fault, int* torque);
 
 	/**
-	 * @brief  计算预抓取点-视觉
-	 * @param  [in] desc_pos  抓取点笛卡尔位姿
-	 * @param  [in] zlength   z轴偏移量
-	 * @param  [in] zangle    绕z轴旋转偏移量
-	 * @param  [out] pre_pos  预抓取点
-	 * @return  错误码
+	 *@brief  Computing Prefetch Points - Vision
+	 *@param  [in] desc_pos  Grab point Cartesian pose
+	 *@param  [in] zlength   z-axis offset
+	 *@param  [in] zangle    Rotate the offset around the z-axis
+	 *@return  Error code
 	 */
-	errno_t ComputePrePick(DescPose *desc_pos, double zlength, double zangle, DescPose *pre_pos);
+	errno_t  ComputePrePick(DescPose *desc_pos, double zlength, double zangle, DescPose *pre_pos);
 
 	/**
-	 * @brief  计算撤退点-视觉
-	 * @param  [in] desc_pos  抓取点笛卡尔位姿
-	 * @param  [in] zlength   z轴偏移量
-	 * @param  [in] zangle    绕z轴旋转偏移量
-	 * @param  [out] post_pos 撤退点
-	 * @return  错误码
+	 *@brief  Calculating Retreat Points - Visual
+	 *@param  [in] desc_pos  Grab point Cartesian pose
+	 *@param  [in] zlength   z axis offset
+	 *@param  [in] zangle    Rotate the offset around the z-axis
+	 *@return  Error code
 	 */
-	errno_t ComputePostPick(DescPose *desc_pos, double zlength, double zangle, DescPose *post_pos);
+	errno_t  ComputePostPick(DescPose *desc_pos, double zlength, double zangle, DescPose *post_pos);
 
 	/**
-	 * @brief  配置力传感器
-	 * @param  [in] company  力传感器厂商，17-坤维科技，19-航天十一院，20-ATI传感器，21-中科米点，22-伟航敏芯，23-NBIT，24-鑫精诚(XJC)，26-NSR
-	 * @param  [in] device  设备号，坤维(0-KWR75B)，航天十一院(0-MCS6A-200-4)，ATI(0-AXIA80-M8)，中科米点(0-MST2010)，伟航敏芯(0-WHC6L-YB-10A)，NBIT(0-XLH93003ACS)，鑫精诚XJC(0-XJC-6F-D82)，NSR(0-NSR-FTSensorA)
-	 * @param  [in] softvesion  软件版本号，暂不使用，默认为0
-	 * @param  [in] bus 设备挂在末端总线位置，暂不使用，默认为0
-	 * @return  错误码
+    *@brief  Configured force sensor
+    *@param  [in] company  Manufacturer of force sensors, 17-KUNWEI，19-CAAA，20-ATI，21-HKM，22-GZCX，23-NBIT，24-XJC，26-NSR
+    *@param  [in] device  Device number,  KUNWEI(0-KWR75B)，CAAA(0-MCS6A-200-4)，ATI(0-AXIA80-M8)，HKM(0-MST2010)，GZCX(0-WHC6L-YB-10A)，NBIT(0-XLH93003ACS)，XJC(0-XJC-6F-D82)，NSR(0-NSR-FTSensorA)
+    *@param  [in] softvesion  Software version. The value is not used. The default value is 0
+    *@param  [in] bus The device is attached to the terminal bus and is not in use. The default value is 0
+    *@return  Error code
 	 */
-	errno_t FT_SetConfig(int company, int device, int softvesion, int bus);
+	errno_t  FT_SetConfig(int company, int device, int softvesion, int bus);
 
 	/**
-	 * @brief  获取力传感器配置
-	 * @param  [out] company  力传感器厂商，待定
-	 * @param  [out] device  设备号，暂不使用，默认为0
-	 * @param  [out] softvesion  软件版本号，暂不使用，默认为0
-	 * @param  [out] bus 设备挂在末端总线位置，暂不使用，默认为0
-	 * @return  错误码
+    *@brief  Get the force sensor configuration
+    *@param  [in] company  Force sensor manufacturer, to be determined
+    *@param  [in] device  Device number, not used yet. The default value is 0
+    *@param  [in] softvesion  Software version. The value is not used. The default value is 0
+    *@param  [in] bus The device is attached to the terminal bus and is not in use. The default value is 0
+    *@return  Error code
 	 */
-	errno_t FT_GetConfig(int *company, int *device, int *softvesion, int *bus);
+	errno_t  FT_GetConfig(int *company, int *device, int *softvesion, int *bus);
 
 	/**
-	 * @brief  力传感器激活
-	 * @param  [in] act  0-复位，1-激活
-	 * @return  错误码
+    *@brief  Force sensor activation
+    *@param  [in] act  0- reset, 1- activate
+    *@return  Error code
 	 */
-	errno_t FT_Activate(uint8_t act);
+	errno_t  FT_Activate(uint8_t act);
 
 	/**
-	 * @brief  力传感器校零
-	 * @param  [in] act  0-去除零点，1-零点矫正
-	 * @return  错误码
+    *@brief  Force sensor calibration
+    *@param  [in] act  0- zero removal, 1- zero correction
+    *@return  Error code
 	 */
-	errno_t FT_SetZero(uint8_t act);
+	errno_t  FT_SetZero(uint8_t act);
 
 	/**
-	 * @brief  设置力传感器参考坐标系
-	 * @param  [in] ref  0-工具坐标系，1-基坐标系,2-自定义坐标系
-	 * @param  [in] coord  自定义坐标系值
-	 * @return  错误码
+    *@brief  Set the reference coordinate system of the force sensor
+    *@param  [in] ref  0- tool frame, 1- base frame
+    *@return  Error code
 	 */
 	errno_t FT_SetRCS(uint8_t ref, DescPose coord);
 
 	/**
-	 * @brief  负载重量辨识记录
-	 * @param  [in] id  传感器坐标系编号，范围[1~14]
-	 * @return  错误码
+    *@brief  Load weight identification record
+    *@param  [in] id  Sensor coordinate system number, range [1~14]
+    *@return  Error code
 	 */
-	errno_t FT_PdIdenRecord(int id);
+	errno_t  FT_PdIdenRecord(int id);
 
 	/**
-	 * @brief  负载重量辨识计算
-	 * @param  [out] weight  负载重量，单位kg
-	 * @return  错误码
+    *@brief  Load weight identification calculation
+    *@param  [out] weight  Load weight, unit: kg
+    *@return  Error code
 	 */
-	errno_t FT_PdIdenCompute(float *weight);
+	errno_t  FT_PdIdenCompute(float *weight);
 
 	/**
-	 * @brief  负载质心辨识记录
-	 * @param  [in] id  传感器坐标系编号，范围[1~14]
-	 * @param  [in] index 点编号，范围[1~3]
-	 * @return  错误码
+    *@brief  Load centroid identification record
+    *@param  [in] id  Sensor coordinate system number, range [1~14]
+    *@param  [in] index Point number, range [1~3]
+    *@return  Error code
 	 */
-	errno_t FT_PdCogIdenRecord(int id, int index);
+	errno_t  FT_PdCogIdenRecord(int id, int index);
 
 	/**
-	 * @brief  负载质心辨识计算
-	 * @param  [out] cog  负载质心，单位mm
-	 * @return  错误码
+    *@brief  Load centroid identification calculation
+    *@param  [out] cog  Load center of mass, unit: mm
+    *@return  Error code
 	 */
-	errno_t FT_PdCogIdenCompute(DescTran *cog);
+	errno_t  FT_PdCogIdenCompute(DescTran *cog);
 
 	/**
-	 * @brief  获取参考坐标系下力/扭矩数据
-	 * @param  [in] flag 0-阻塞，1-非阻塞
-	 * @param  [out] ft  力/扭矩，fx,fy,fz,tx,ty,tz
-	 * @return  错误码
+	 *@brief  Obtain force/torque data in the reference coordinate system
+	 *@param  [in] flag 0 - blocking, 1 - non-blocking
+	 *@param  [out] ft  Force/torque，fx,fy,fz,tx,ty,tz
+	 *@return  Error code
 	 */
-	errno_t FT_GetForceTorqueRCS(uint8_t flag, ForceTorque *ft);
+	errno_t  FT_GetForceTorqueRCS(uint8_t flag, ForceTorque *ft);
 
 	/**
-	 * @brief  获取力传感器原始力/扭矩数据
-	 * @param  [in] flag 0-阻塞，1-非阻塞
-	 * @param  [out] ft  力/扭矩，fx,fy,fz,tx,ty,tz
-	 * @return  错误码
+	 *@brief  Obtain the raw force/torque data of the force sensor
+	 *@param  [in] flag 0 - blocking, 1 - non-blocking
+    *@param  [out] ft  Force/torque，fx,fy,fz,tx,ty,tz
+    *@return  Error code
 	 */
-	errno_t FT_GetForceTorqueOrigin(uint8_t flag, ForceTorque *ft);
+	errno_t  FT_GetForceTorqueOrigin(uint8_t flag, ForceTorque *ft);
 
 	/**
-	 * @brief  碰撞守护
-	 * @param  [in] flag 0-关闭碰撞守护，1-开启碰撞守护
-	 * @param  [in] sensor_id 力传感器编号
-	 * @param  [in] select  选择六个自由度是否检测碰撞，0-不检测，1-检测
-	 * @param  [in] ft  碰撞力/扭矩，fx,fy,fz,tx,ty,tz
-	 * @param  [in] max_threshold 最大阈值
-	 * @param  [in] min_threshold 最小阈值
-	 * @note   力/扭矩检测范围：(ft-min_threshold, ft+max_threshold)
-	 * @return  错误码
+    *@brief  Collision guard
+    *@param  [in] flag 0- Disable collision guard. 1- Enable collision guard
+    *@param  [in] sensor_id Force sensor number
+    *@param  [in] select  Select the six degrees of freedom whether to detect collision, 0- no detection, 1- detection
+    *@param  [in] ft  Impact force/torque，fx,fy,fz,tx,ty,tz
+    *@param  [in] max_threshold Maximum threshold
+    *@param  [in] min_threshold Minimum threshold
+    *@note   Force/torque detection range：(ft-min_threshold, ft+max_threshold)
+    *@return  Error code
 	 */
-	errno_t FT_Guard(uint8_t flag, int sensor_id, uint8_t select[6], ForceTorque *ft, float max_threshold[6], float min_threshold[6]);
+	errno_t  FT_Guard(uint8_t flag, int sensor_id, uint8_t select[6], ForceTorque *ft, float max_threshold[6], float min_threshold[6]);
 
 	/**
-	 * @brief  恒力控制
-	 * @param  [in] flag 0-关闭恒力控制，1-开启恒力控制
-	 * @param  [in] sensor_id 力传感器编号
-	 * @param  [in] select  选择六个自由度是否检测碰撞，0-不检测，1-检测
-	 * @param  [in] ft  碰撞力/扭矩，fx,fy,fz,tx,ty,tz
-	 * @param  [in] ft_pid 力pid参数，力矩pid参数
-	 * @param  [in] adj_sign 自适应启停控制，0-关闭，1-开启
-	 * @param  [in] ILC_sign ILC启停控制， 0-停止，1-训练，2-实操
-	 * @param  [in] max_dis 最大调整距离，单位mm
-	 * @param  [in] max_ang 最大调整角度，单位deg
-	 * @param  [in] filter_Sign 滤波开启标志 0-关；1-开，默认关闭
-     * @param  [in] posAdapt_sign 姿态顺应开启标志 0-关；1-开，默认关闭
-     * @param  [in] isNoBlock 阻塞标志，0-阻塞；1-非阻塞
-	 * @return  错误码
-	 */
-	errno_t FT_Control(uint8_t flag, int sensor_id, uint8_t select[6], ForceTorque *ft, float ft_pid[6], uint8_t adj_sign, 
-	uint8_t ILC_sign, float max_dis, float max_ang, int filter_Sign = 0, int posAdapt_sign = 0, int isNoBlock = 0);
+    * @brief  Constant force control
+    * @param  [in] flag 0- turn off constant force control, 1- turn on constant force control
+    * @param  [in] sensor_id Force sensor number
+    * @param  [in] select  Select the six degrees of freedom whether to detect collision, 0- no detection, 1- detection
+    * @param  [in] ft  Impact force/torque，fx,fy,fz,tx,ty,tz
+    * @param  [in] ft_pid Force pid parameter, torque pid parameter
+    * @param  [in] adj_sign Adaptive start-stop control, 0- off, 1- on
+    * @param  [in] ILC_sign ILC start stop control, 0- stop, 1- training, 2- operation
+    * @param  [in] max_dis Adjustment distance, unit: mm
+    * @param  [in] max_ang Adjustment Angle, unit: deg
+	* @param  [in] filter_Sign Filter on indicator 0- off; 1- On, off by default
+	* @param  [in] posAdapt_sign The posture conforms to the opening mark 0-off. 1- On, off by default
+	* @param  [in] isNoBlock Block flag, 0- block; 1- Non-blocking
+    * @return  Error code
+	*/
+	errno_t FT_Control(uint8_t flag, int sensor_id, uint8_t select[6], ForceTorque *ft, float ft_pid[6], uint8_t adj_sign,
+		uint8_t ILC_sign, float max_dis, float max_ang, int filter_Sign = 0, int posAdapt_sign = 0, int isNoBlock = 0);
 
 	/**
-	 * @brief  恒力控制
-	 * @param  [in] flag 0-关闭恒力控制，1-开启恒力控制
-	 * @param  [in] sensor_id 力传感器编号
-	 * @param  [in] select  选择六个自由度是否检测碰撞，0-不检测，1-检测
-	 * @param  [in] ft  碰撞力/扭矩，fx,fy,fz,tx,ty,tz
-	 * @param  [in] ft_pid 力pid参数，力矩pid参数
-	 * @param  [in] adj_sign 自适应启停控制，0-关闭，1-开启
-	 * @param  [in] ILC_sign ILC启停控制， 0-停止，1-训练，2-实操
-	 * @param  [in] max_dis 最大调整距离，单位mm
-	 * @param  [in] max_ang 最大调整角度，单位deg
-	 * @param  [in] M rx、ry质量参数[0.1-10],默认2
-	 * @param  [in] B rx、ry阻尼参数[0.1-50],默认8
-	 * @param  [in] polishRadio 打磨半径，单位mm
-	 * @param  [in] filter_Sign 滤波开启标志 0-关；1-开，默认关闭
-	 * @param  [in] posAdapt_sign 姿态顺应开启标志 0-关；1-开，默认关闭
-	 * @param  [in] isNoBlock 阻塞标志，0-阻塞；1-非阻塞
-	 * @return  错误码
-	 */
-	errno_t FT_Control(uint8_t flag, int sensor_id, uint8_t select[6], ForceTorque* ft, float ft_pid[6], uint8_t adj_sign, 
-	uint8_t ILC_sign, float max_dis, float max_ang, double M[2], double B[2], double polishRadio = 0.0, int filter_Sign = 0, int posAdapt_sign = 0,  int isNoBlock = 0);
+	* @brief  Constant force control
+	* @param  [in] flag 0- turn off constant force control, 1- turn on constant force control
+	* @param  [in] sensor_id Force sensor number
+	* @param  [in] select  Select the six degrees of freedom whether to detect collision, 0- no detection, 1- detection
+	* @param  [in] ft  Impact force/torque，fx,fy,fz,tx,ty,tz
+	* @param  [in] ft_pid Force pid parameter, torque pid parameter
+	* @param  [in] adj_sign Adaptive start-stop control, 0- off, 1- on
+	* @param  [in] ILC_sign ILC start stop control, 0- stop, 1- training, 2- operation
+	* @param  [in] max_dis Adjustment distance, unit: mm
+	* @param  [in] max_ang Adjustment Angle, unit: deg
+	* @param  [in] M Quality parameters
+	* @param  [in] B Damping parameter
+	* @param  [in] polishRadio Polish radius, unit: mm
+	* @param  [in] filter_Sign Filter on indicator 0- off; 1- On, off by default
+	* @param  [in] posAdapt_sign The posture conforms to the opening mark 0-off. 1- On, off by default
+	* @param  [in] isNoBlock Block flag, 0- block; 1- Non-blocking
+	* @return  Error code
+	*/
+	errno_t FT_Control(uint8_t flag, int sensor_id, uint8_t select[6], ForceTorque* ft, float ft_pid[6], uint8_t adj_sign,
+		uint8_t ILC_sign, float max_dis, float max_ang, double M[2], double B[2], double polishRadio = 0.0, int filter_Sign = 0, int posAdapt_sign = 0, int isNoBlock = 0);
 
 	/**
-	 * @brief  恒力控制
-	 * @param  [in] flag 0-关闭恒力控制，1-开启恒力控制
-	 * @param  [in] sensor_id 力传感器编号
-	 * @param  [in] select  选择六个自由度是否检测碰撞，0-不检测，1-检测
-	 * @param  [in] ft  碰撞力/扭矩，fx,fy,fz,tx,ty,tz
-	 * @param  [in] ft_pid 力pid参数，力矩pid参数
-	 * @param  [in] adj_sign 自适应启停控制，0-关闭，1-开启
-	 * @param  [in] ILC_sign ILC启停控制， 0-停止，1-训练，2-实操
-	 * @param  [in] max_dis 最大调整距离，单位mm
-	 * @param  [in] max_ang 最大调整角度，单位deg
-	 * @param  [in] M rx、ry质量参数[0.1-10],默认2
-	 * @param  [in] B rx、ry阻尼参数[0.1-50],默认8
-	 * @param  [in] threshold rx、ry启动阈值[0-10],默认0.2
-	 * @param  [in] adjustCoeff rx、ry力矩调节系数[0-1],默认1
-	 * @param  [in] polishRadio 打磨半径，单位mm
-	 * @param  [in] filter_Sign 滤波开启标志 0-关；1-开，默认关闭
-	 * @param  [in] posAdapt_sign 姿态顺应开启标志 0-关；1-开，默认关闭
-	 * @param  [in] isNoBlock 阻塞标志，0-阻塞；1-非阻塞
-	 * @return  错误码
-	 */
-	errno_t FT_Control(uint8_t flag, int sensor_id, uint8_t select[6], ForceTorque* ft, float ft_pid[6], uint8_t adj_sign, 
+	* @brief  Constant force control
+	* @param  [in] flag 0- turn off constant force control, 1- turn on constant force control
+	* @param  [in] sensor_id Force sensor number
+	* @param  [in] select  Select the six degrees of freedom whether to detect collision, 0- no detection, 1- detection
+	* @param  [in] ft  Impact force/torque，fx,fy,fz,tx,ty,tz
+	* @param  [in] ft_pid Force pid parameter, torque pid parameter
+	* @param  [in] adj_sign Adaptive start-stop control, 0- off, 1- on
+	* @param  [in] ILC_sign ILC start stop control, 0- stop, 1- training, 2- operation
+	* @param  [in] max_dis Adjustment distance, unit: mm
+	* @param  [in] max_ang Adjustment Angle, unit: deg
+	* @param  [in] M rx、ry Quality parameters[0.1-10],Default 2
+	* @param  [in] B rx、ry Damping parameter[0.1-50],Default 8
+	* @param  [in] threshold rx、ry Start-up threshold[0-10],Default 0.2
+	* @param  [in] adjustCoeff rx、ry Torque regulation coefficient[0-1],Default 1
+	* @param  [in] polishRadio Polish radius, unit: mm
+	* @param  [in] filter_Sign Filter on indicator 0- off; 1- On, off by default
+	* @param  [in] posAdapt_sign The posture conforms to the opening mark 0-off. 1- On, off by default
+	* @param  [in] isNoBlock Block flag, 0- block; 1- Non-blocking
+	* @return  Error code
+	*/
+	errno_t FT_Control(uint8_t flag, int sensor_id, uint8_t select[6], ForceTorque* ft, float ft_pid[6], uint8_t adj_sign,
 		uint8_t ILC_sign, float max_dis, float max_ang, double M[2], double B[2], double threshold[2], double adjustCoeff[2], double polishRadio = 0.0, int filter_Sign = 0, int posAdapt_sign = 0, int isNoBlock = 0);
 
 
 	/**
-	 * @brief  螺旋线探索
-	 * @param  [in] rcs 参考坐标系，0-工具坐标系，1-基坐标系
-	 * @param  [in] dr 每圈半径进给量
-	 * @param  [in] ft 插入动作触发力，单位N
-	 * @param  [in] max_t_ms 最大探索时间，单位ms
-	 * @param  [in] max_vel 最大线速度，单位mm/s
-	 * @return  错误码
-	 */
-	errno_t FT_SpiralSearch(int rcs, float dr, float ft, float max_t_ms, float max_vel);
+    * @brief Spiral exploration
+    * @param [in] rcs Reference frame, 0- tool frame, 1- base frame
+    * @param [in] dr Feed per circle radius
+    * @param [in] ft Force/torque threshold，fx,fy,fz,tx,ty,tz，range[0~100]
+    * @param [in] max_t_ms Maximum exploration time, unit: ms
+    * @param [in] max_vel Maximum linear velocity, unit: mm/s
+	* @param [in] strategy No detected force/moment processing strategy, 0-Error; 1-Warning and continue movement
+    * @return Error code
+	*/
+    errno_t FT_SpiralSearch(int rcs, float dr, float ft, float max_t_ms, float max_vel, int strategy = 0);
 
 	/**
-	 * @brief 旋转插入
-	 * @param [in] rcs 参考坐标系，0-工具坐标系，1-基坐标系
-	 * @param [in] angVelRot 旋转角速度，单位deg/s
-	 * @param [in] ft  力/扭矩阈值，fx,fy,fz,tx,ty,tz，范围[0~100]
-	 * @param [in] max_angle 最大旋转角度，单位deg
-	 * @param [in] orn 力/扭矩方向，1-沿z轴方向，2-绕z轴方向
-	 * @param [in] max_angAcc 最大旋转加速度，单位deg/s^2，暂不使用，默认为0
-	 * @param [in] rotorn  旋转方向，1-顺时针，2-逆时针
-	 * @param [in] strategy 未检测到力/力矩的处理策略，0-报错；1-警告，继续运动
-	 * @return  错误码
-	 */
-	errno_t FT_RotInsertion(int rcs, float angVelRot, float ft, float max_angle, uint8_t orn, float max_angAcc, uint8_t rotorn, int strategy = 0);
+    * @brief Rotary insertion
+    * @param [in] rcs Reference frame, 0- tool frame, 1- base frame
+    * @param [in] angVelRot Angular velocity of rotation, unit: deg/s
+    * @param [in] ft  Force/torque threshold，fx,fy,fz,tx,ty,tz，range[0~100]
+    * @param [in] max_angle Maximum rotation Angle, unit: deg
+    * @param [in] orn Force/torque direction, 1- along the z axis, 2- around the z axis
+    * @param [in] max_angAcc Maximum rotational acceleration, in deg/s^2, not used yet, default is 0
+    * @param [in] rotorn  Rotation direction, 1- clockwise, 2- counterclockwise
+	* @param [in] strategy No detected force/moment processing strategy, 0-Error; 1-Warning and continue movement.
+    * @return  Error code
+	*/
+    errno_t FT_RotInsertion(int rcs, float angVelRot, float ft, float max_angle, uint8_t orn, float max_angAcc, uint8_t rotorn, int strategy = 0);
 
 	/**
-	 * @brief  直线插入
-	 * @param  [in] rcs 参考坐标系，0-工具坐标系，1-基坐标系
-	 * @param  [in] ft  动作终止力阈值，单位N，范围[0~100]
-	 * @param  [in] lin_v 直线速度，单位mm/s
-	 * @param  [in] lin_a 直线加速度，单位mm/s^2，暂不使用
-	 * @param  [in] max_dis 最大插入距离，单位mm
-	 * @param  [in] linorn  插入方向，0-负方向，1-正方向
-	 * @return  错误码
-	 */
-	errno_t FT_LinInsertion(int rcs, float ft, float lin_v, float lin_a, float max_dis, uint8_t linorn);
+    * @brief Linear insertion
+    * @param [in] rcs Reference frame, 0- tool frame, 1- base frame
+    * @param [in] ft  Force/torque threshold，fx,fy,fz,tx,ty,tz，range[0~100]
+    * @param [in] lin_v Linear velocity, unit: mm/s
+    * @param [in] lin_a Linear acceleration, unit: mm/s^2, not used yet
+    * @param [in] max_dis Maximum insertion distance, unit: mm
+    * @param [in] linorn  Insert direction, 0- negative, 1- positive
+	* @param [in] strategy No detected force/moment processing strategy, 0-Error; 1-Warning and continue movement
+    * @return  Error code
+	*/
+    errno_t FT_LinInsertion(int rcs, float ft, float lin_v, float lin_a, float max_dis, uint8_t linorn, int strategy = 0);
 
 	/**
-	 * @brief  表面定位
-	 * @param  [in] rcs 参考坐标系，0-工具坐标系，1-基坐标系
-	 * @param  [in] dir  移动方向，1-正方向，2-负方向
-	 * @param  [in] axis 移动轴，1-x轴，2-y轴，3-z轴
-	 * @param  [in] lin_v 探索直线速度，单位mm/s
-	 * @param  [in] lin_a 探索直线加速度，单位mm/s^2，暂不使用，默认为0
-	 * @param  [in] max_dis 最大探索距离，单位mm
-	 * @param  [in] ft  动作终止力阈值，单位N
-	 * @return  错误码
-	 */
-	errno_t FT_FindSurface(int rcs, uint8_t dir, uint8_t axis, float lin_v, float lin_a, float max_dis, float ft);
+    * @brief Surface positioning
+    * @param [in] rcs Reference frame, 0- tool frame, 1- base frame
+    * @param [in] dir  The direction of travel, 1- positive, 2- negative
+    * @param [in] axis Axis of movement, 1-x axis, 2-y axis, 3-z axis
+    * @param [in] lin_v Explore the linear velocity in mm/s
+    * @param [in] lin_a Explore linear acceleration, in mm/s^2, not used yet, default to 0
+    * @param [in] max_dis Maximum exploration distance, in mm
+    * @param [in] ft Action termination force/torque threshold，fx,fy,fz,tx,ty,tz
+	* @param [in] strategy No detected force/moment processing strategy, 0-Error; 1-Warning and continue movement
+    * @return Error code
+	*/
+    errno_t FT_FindSurface(int rcs, uint8_t dir, uint8_t axis, float lin_v, float lin_a, float max_dis, float ft, int strategy = 0);
 
 	/**
-	 * @brief  计算中间平面位置开始
-	 * @return  错误码
+    *@brief  Calculation of midplane position starts
+    *@return  Error code
 	 */
-	errno_t FT_CalCenterStart();
+	errno_t  FT_CalCenterStart();
 
 	/**
-	 * @brief  计算中间平面位置结束
-	 * @param  [out] pos 中间平面位姿
-	 * @return  错误码
+    *@brief  Calculation of midplane position ends
+    *@param  [out] pos Intermediate plane position
+    *@return  Error code
 	 */
-	errno_t FT_CalCenterEnd(DescPose *pos);
+	errno_t  FT_CalCenterEnd(DescPose *pos);
 
 	/**
-	 * @brief  柔顺控制开启
-	 * @param  [in] p 位置调节系数或柔顺系数
-	 * @param  [in] force 柔顺开启力阈值，单位N
-	 * @return  错误码
+    *@brief  Compliant control on
+    *@param  [in] p Coefficient of position adjustment or compliance
+    *@param  [in] force Compliant opening force threshold, unit: N
+    *@return  Error code
 	 */
-	errno_t FT_ComplianceStart(float p, float force);
+	errno_t  FT_ComplianceStart(float p, float force);
 
 	/**
-	 * @brief  柔顺控制关闭
-	 * @return  错误码
+    *@brief  Compliant control off
+    *@return  Error code
 	 */
-	errno_t FT_ComplianceStop();
+	errno_t  FT_ComplianceStop();
 
 	/**
-	 * @brief 负载辨识初始化
-	 * @return 错误码
+	 * @brief Load identification initialization
+	 * @return Error code
 	 */
 	errno_t LoadIdentifyDynFilterInit();
 
 	/**
-	 * @brief 负载辨识初始化
-	 * @return 错误码
+	 * @brief Load identification initialization
+	 * @return Error code
 	 */
 	errno_t LoadIdentifyDynVarInit();
 
 	/**
-	 * @brief 负载辨识主程序
-	 * @param [in] joint_torque 关节扭矩
-	 * @param [in] joint_pos 关节位置
-	 * @param [in] t 采样周期
-	 * @return 错误码
+	 * @brief load identification main program
+	 * @param [in] joint_torque joint torque
+	 * @param [in] joint_pos joint position
+	 * @param [in] t sampling period
+	 * @return Error code
 	 */
 	errno_t LoadIdentifyMain(double joint_torque[6], double joint_pos[6], double t);
 
+
 	/**
-	 * @brief 获取负载辨识结果
+	 * @brief Get load identification results
 	 * @param [in] gain
-	 * @param [out] weight 负载重量
-	 * @param [out] cog 负载质心
-	 * @return 错误码
+	 * @param [out] weight load weight
+	 * @param [out] cog cog load center of mass
+	 * @return Error code
 	 */
 	errno_t LoadIdentifyGetResult(double gain[12], double *weight, DescTran *cog);
 
 	/**
-	 * @brief 传动带启动、停止
-	 * @param [in] status 状态，1-启动，0-停止
-	 * @return 错误码
+	 * @brief The transmission belt starts and stops
+	 * @param [in] status status, 1-start, 0-stop
+	 * @return Error code
 	 */
 	errno_t ConveyorStartEnd(uint8_t status);
 
 	/**
-	 * @brief 记录IO检测点
-	 * @return 错误码
+	 * @brief records IO detection points
+	 * @return Error code
 	 */
 	errno_t ConveyorPointIORecord();
 
 	/**
-	 * @brief 记录A点
-	 * @return 错误码
+	 * @brief Record point A
+	 * @return Error code
 	 */
 	errno_t ConveyorPointARecord();
 
 	/**
-	 * @brief 记录参考点
-	 * @return 错误码
+	 * @brief record reference point
+	 * @return Error code
 	 */
 	errno_t ConveyorRefPointRecord();
 
 	/**
-	 * @brief 记录B点
-	 * @return 错误码
+	 * @brief Record point B
+	 * @return Error code
 	 */
 	errno_t ConveyorPointBRecord();
 
 	/**
-	 * @brief 传送带工件IO检测
-	 * @param [in] max_t 最大检测时间，单位ms
-	 * @return 错误码
+	 * @brief Conveyor belt workpiece IO detection
+	 * @param [in] max_t maximum detection time, unit ms
+	 * @return Error code
 	 */
 	errno_t ConveyorIODetect(int max_t);
 
 	/**
-	 * @brief 获取物体当前位置
+	 * @brief Get the current position of the object
 	 * @param [in] mode
-	 * @return 错误码
+	 * @return Error code
 	 */
 	errno_t ConveyorGetTrackData(int mode);
 
 	/**
-	 * @brief 传动带跟踪开始
-	 * @param [in] status 状态，1-启动，0-停止
-	 * @return 错误码
+	 * @brief Belt tracking starts
+	 * @param [in] status status , 1-start, 0-stop
+	 * @return Error code
 	 */
 	errno_t ConveyorTrackStart(uint8_t status);
 
 	/**
-	 * @brief 传动带跟踪停止
-	 * @return 错误码
+	 * @brief Drive belt tracking stopped
+	 * @return Error code
 	 */
 	errno_t ConveyorTrackEnd();
 
 	/**
-	 * @brief 传动带参数配置
-	 * @param [in] para[0] 编码器通道 1~2
-	 * @param [in] para[1] 编码器转一圈的脉冲数
-	 * @param [in] para[2] 编码器转一圈传送带行走距离
-	 * @param [in] para[3] 工件坐标系编号 针对跟踪运动功能选择工件坐标系编号，跟踪抓取、TPD跟踪设为0
-	 * @param [in] para[4] 是否配视觉  0 不配  1 配
-	 * @param [in] para[5] 速度比  针对传送带跟踪抓取选项（1-100）  其他选项默认为1 
-	 * @param [in] followType 跟踪运动类型，0-跟踪运动；1-追检运动
-	 * @param [in] startDis 追检抓取需要设置， 跟踪起始距离， -1：自动计算(工件到达机器人下方后自动追检)，单位mm， 默认值0
-	 * @param [in] endDis 追检抓取需要设置，跟踪终止距离， 单位mm， 默认值100
-	 * @return 错误码
+	 * @brief Drive belt Parameter Configuration
+	 * @param [in] para[0] Encoder channels 1-2
+	 * @param [in] para[1] The number of pulses for one revolution of the encoder
+	 * @param [in] para[2] The distance traveled by the conveyor belt when the encoder rotates one full circle
+	 * @param [in] para[3] Select the workpiece coordinate system number for the tracking motion function, and set the tracking grasping and TPD tracking to 0
+	 * @param [in] para[4] Does it have vision? 0 does not have 1
+	 * @param [in] para[5] Speed ratio for the conveyor belt tracking grasping option (1-100), the default for other options is 1
+	 * @param [in] followType Tracking motion type, 0- tracking motion; 1- Follow-up inspection campaign
+	 * @param [in] startDis Tracking and grasping need to be set. The starting distance for tracking is -1: automatic calculation (automatic tracking and grasping after the workpiece reaches under the robot), unit: mm, default value: 0
+	 * @param [in] endDis tracking and grasping need to be set. The tracking termination distance, in mm, the default value is 100
+	 * @return Error code
 	 */
 	errno_t ConveyorSetParam(float para[6], int followType = 0, int startDis = 0, int endDis = 100);
 
 	/**
-	 * @brief 传动带抓取点补偿
-	 * @param [in] cmp 补偿位置 double[3]{x, y, z}
-	 * @return 错误码
+	 * @brief Configure parameters for stationary conveyor tracking
+	 * @param [in] trackMode Tracking mode: 0-Time based; 1-Distance based; 2-Trigger on either time or distance threshold reached
+	 * @param [in] trackTime Tracking duration, unit: second
+	 * @param [in] trackDis Tracking distance, unit: millimeter
+	 * @return Error code
+	 */
+	int SetStationaryTrackPara(int trackMode, double trackTime, int trackDis);
+
+	/**
+	 * @brief belt grab point compensation
+	 * @param [in] cmp compensation position
+	 * @return Error code
 	 */
 	errno_t ConveyorCatchPointComp(double cmp[3]);
 
 	/**
-	 * @brief 直线运动
-	 * @param [in] status 状态，1-启动，0-停止
-	 * @return 错误码
+	 * @brief linear motion
+	 * @param [in] status status, 1-start, 0-stop
+	 * @return Error code
 	 */
 	errno_t TrackMoveL(char name[32], int tool, int wobj, float vel, float acc, float ovl, float blendR, uint8_t flag, uint8_t type);
 
 	/**
-	 * @brief 获取SSH公钥
-	 * @param [out] keygen 公钥
-	 * @return 错误码
+	 * @brief Get SSH public key
+	 * @param [out] keygen public key
+	 * @return Error code
 	 */
 	errno_t GetSSHKeygen(char keygen[1024]);
 
 	/**
-	 * @brief 下发SCP指令
-	 * @param [in] mode 0-上传（上位机->控制器），1-下载（控制器->上位机）
-	 * @param [in] sshname 上位机用户名
-	 * @param [in] sship 上位机ip地址
-	 * @param [in] usr_file_url 上位机文件路径
-	 * @param [in] robot_file_url 机器人控制器文件路径
-	 * @return 错误码
+	 * @brief issues SCP instructions
+	 * @param [in] mode 0-upload (host computer->controller), 1-download (controller->host computer)
+	 * @param [in] sshname host computer user name
+	 * @param [in] sship host computer ip address
+	 * @param [in] usr_file_url host computer file path
+	 * @param [in] robot_file_url robot controller file path
+	 * @return Error code
 	 */
 	errno_t SetSSHScpCmd(int mode, char sshname[32], char sship[32], char usr_file_url[128], char robot_file_url[128]);
 
 	/**
-	 * @brief 计算指定路径下文件的MD5值
-	 * @param [in] file_path 文件路径包含文件名，默认Traj文件夹路径为:"/fruser/traj/",如"/fruser/traj/trajHelix_aima_1.txt"
-	 * @param [out] md5 文件MD5值
-	 * @return 错误码
+	 * @brief Calculate the MD5 value of the file under the specified path
+	 * @param [in] file_path The file path contains the file name. The default Traj folder path is: "/fruser/traj/", such as "/fruser/traj/trajHelix_aima_1.txt"
+	 * @param [out] md5 file MD5 value
+	 * @return Error code
 	 */
-	errno_t ComputeFileMD5(char file_path[256], char md5[256]);
+    errno_t ComputeFileMD5(char file_path[256], char md5[256]);
 
 	/**
-	 * @brief 获取机器人急停状态
-	 * @param [out] state 急停状态，0-非急停，1-急停
-	 * @return 错误码
+	 * @brief Get the emergency stop status of the robot
+	 * @param [out] state emergency stop status, 0-non-emergency stop, 1-emergency stop
+	 * @return Error code
 	 */
-	errno_t GetRobotEmergencyStopState(uint8_t *state);
+    errno_t GetRobotEmergencyStopState(uint8_t *state);
 
 	/**
-	 * @brief 获取SDK与机器人的通讯状态
-	 * @param [out]  state 通讯状态，0-通讯正常，1-通讯异常
+	 * @brief Get the communication status between SDK and robot
+	 * @param [out]  state communication status, 0-communication is normal, 1-communication disconnected，2-in reconnecting
+	 * @return Error code
 	 */
-	errno_t GetSDKComState(int *state);
+    errno_t GetSDKComState(int *state);
+
 
 	/**
-	 * @brief 获取安全停止信号
-	 * @param [out]  si0_state 安全停止信号SI0
-	 * @param [out]  si1_state 安全停止信号SI1
+	 * @brief Get the safe stop signal
+	 * @param [out]  si0_state safety stop signal SI0, 0-invalid, 1-valid
+	 * @param [out]  si1_state safety stop signal SI1, 0-invalid, 1-valid
+	 * @return Error code
 	 */
 	errno_t GetSafetyStopState(uint8_t *si0_state, uint8_t *si1_state);
 
 	/**
-	 * @brief 获取机器人软件版本
-	 * @param[out]	robotModel 机器人型号
-	 * @param[out]	webversion web版本
-	 * @param[out]	controllerVersion 控制器版本
-	 * @return 错误码
-	 */
+	 * @brief Get robot software version
+	 * @param[out]	robotModel Robot model
+	 * @param[out]	webversion web version
+	 * @param[out]	controllerVersion controller version
+	 * @return Error code
+	*/
 	errno_t GetSoftwareVersion(char robotModel[64], char webVersion[64], char controllerVersion[64]);
 
 	/**
-	 * @brief 获取机器人硬件版本
-	 * @param[out] ctrlBoxBoardversion 控制箱载板硬件版本
-	 * @param[out] driver1version 驱动器1硬件版本
-	 * @param[out] driver2version 驱动器2硬件版本
-	 * @param[out] driver3version 驱动器3硬件版本
-	 * @param[out] driver4version 驱动器4硬件版本
-	 * @param[out] driver5version 驱动器5硬件版本
-	 * @param[out] driver6version 驱动器6硬件版本
-	 * @param[out] endBoardversion 未端版硬件版本
-	 */
+	 * @brief Get the robot hardware version
+	 * @param[out] ctrlBoxBoardversion Control box carrier board hardware version
+	 * @param[out] driver1version Drive 1 Hardware Version
+	 * @param[out] driver2version Drive 2 Hardware Version
+	 * @param[out] driver3version Drive 3 Hardware Version
+	 * @param[out] driver4version Drive 4 Hardware Version
+	 * @param[out] driver5version Drive 5 Hardware Version
+	 * @param[out] driver6version Drive 6 Hardware Version
+	 * @param[out] endBoardversion End version hardware version
+	 * @return Error code
+	*/
 	errno_t GetHardwareVersion(char ctrlBoxBoardversion[128], char driver1version[128], char driver2version[128],
-							   char driver3version[128], char driver4version[128], char driver5version[128],
-							   char driver6version[128], char endBoardversion[128]);
+							char driver3version[128], char driver4version[128], char driver5version[128],
+							char driver6version[128], char endBoardversion[128]);
 
 	/**
-	 * @brief 获取机器人固件版本
-	 * @param[out] ctrlBoxBoardversion 控制箱载板固件版本
-	 * @param[out] driver1version 驱动器1固件版本
-	 * @param[out] driver2version 驱动器2固件版本
-	 * @param[out] driver3version 驱动器3固件版本
-	 * @param[out] driver4version 驱动器4固件版本
-	 * @param[out] driver5version 驱动器5固件版本
-	 * @param[out] driver6version 驱动器6固件版本
-	 * @param[out] endBoardversion 未端版固件版本
+	 * @brief Get the robot firmware version
+	 * @param[out] ctrlBoxBoardversion Control box carrier board firmware version
+	 * @param[out] driver1version Drive 1 firmware version
+	 * @param[out] driver2version Drive 2 firmware version
+	 * @param[out] driver3version Drive 3 firmware version
+	 * @param[out] driver4version Drive 4 firmware version
+	 * @param[out] driver5version Drive 5 firmware version
+	 * @param[out] driver6version Drive 6 firmware version
+	 * @param[out] endBoardversion End version firmware version
+	 * @return Error code
 	 */
 	errno_t GetFirmwareVersion(char ctrlBoxBoardversion[128], char driver1version[128], char driver2version[128],
-							   char driver3version[128], char driver4version[128], char driver5version[128],
-							   char driver6version[128], char endBoardversion[128]);
+							char driver3version[128], char driver4version[128], char driver5version[128],
+							char driver6version[128], char endBoardversion[128]);
 
 	/**
-	 * @brief 获取机器人DH参数补偿值
-	 * @param [out] dhCompensation 机器人DH参数补偿值(mm) [cmpstD1,cmpstA2,cmpstA3,cmpstD4,cmpstD5,cmpstD6]
-	 * @return 错误码
+	 * @brief Obtain the compensation value of the DH parameter of the robot
+	 * @param [out] dhCompensation Robot DH parameter compensation value (mm) [cmpstD1,cmpstA2,cmpstA3,cmpstD4,cmpstD5,cmpstD6]
+	 * @return Error code
 	 */
 	errno_t GetDHCompensation(double dhCompensation[6]);
 
 	/**
-	 * @brief 点位表切换
-	 * @param [in] pointTableName 要切换的点位表名称    pointTable1.db
-	 * @return 错误码
+	 * @brief Switch point tables and apply
+	 * @param [in] pointTableName pointTableName Name of the point table to switch to   "pointTable1.db"
+	 * @return error code
 	 */
 	errno_t PointTableSwitch(const std::string pointTableName);
 
 	/**
-	 * @brief 下载点位表数据库
-	 * @param [in] pointTableName 要下载的点位表名称    pointTable1.db
-	 * @param [in] saveFilePath 下载点位表的存储路径   C://test/
-	 * @return 错误码
+	 * @brief Download the point table database
+	 * @param [in] pointTableName The name of the point table to be downloaded   pointTable1.db
+	 * @param [in] saveFilePath the storage path of the point table  C://test/
+	 * @return Error code
 	 */
 	errno_t PointTableDownLoad(const std::string &pointTableName, const std::string &saveFilePath);
 
 	/**
-	 * @brief 上传点位表数据库
-	 * @param [in] pointTableFilePath 上传点位表的全路径名   C://test/pointTable1.db
-	 * @return 错误码
+	 * @brief Upload the point table database
+	 * @param [in] pointTableFilePath the full pathname of the point table    C://test/pointTable1.db
+	 * @return Error code
 	 */
 	errno_t PointTableUpLoad(const std::string &pointTableFilePath);
 
 	/**
-	 * @brief 点位表更新lua文件
-	 * @param [in] pointTableName 要切换的点位表名称   "pointTable1.db",当点位表为空，即""时，表示将lua程序更新为未应用点位表的初始程序
-	 * @param [in] luaFileName 要更新的lua文件名称   "testPointTable.lua"
-	 * @param [out] errorStr 切换点位表错误信息
-	 * @return 错误码
+	 * @brief Update the LUA file for the point table
+	 * @param [in] pointTableName The name of the point table to be switched
+	 * @param [in] luaFileName name of lua file to be updated   "testPointTable.lua"
+	 * @return Error code
 	 */
 	errno_t PointTableUpdateLua(const std::string &pointTableName, const std::string &luaFileName);
 
 	/**
-	 * @brief 焊接开始
-	 * @param [in] ioType io类型 0-控制器IO； 1-数字通信协议UDP；2-数字通信协议ModbusTCP
-	 * @param [in] arcNum 焊机配置文件编号
-	 * @param [in] timeout 起弧超时时间
-	 * @return 错误码
+	 * @brief Welding starts
+	 * @param [in] IO Type 0 - Controller IO; 1 - Extended IO
+	 * @param [in] arcNum welder profile number
+	 * @param [in] timeout time limit
+	 * @return Error code
 	 */
 	errno_t ARCStart(int ioType, int arcNum, int timeout);
 
 	/**
-	 * @brief 焊接结束
-	 * @param [in] ioType io类型 0-控制器IO； 1-扩展IO
-	 * @param [in] arcNum 焊机配置文件编号
-	 * @param [in] timeout 熄弧超时时间
-	 * @return 错误码
+	 * @brief Welding ended
+	 * @param [in] ioType IO Type 0 - Controller IO; 1 - Extended IO
+	 * @param [in] arcNum welder profile number
+	 * @param [in] timeout arc extinguishing timeout
+	 * @return Error code
 	 */
 	errno_t ARCEnd(int ioType, int arcNum, int timeout);
 
 	/**
-	 * @brief 设置焊接电流与输出模拟量对应关系
-	 * @param [in] currentMin 焊接电流-模拟量输出线性关系左侧点电流值(A)
-	 * @param [in] currentMax 焊接电流-模拟量输出线性关系右侧点电流值(A)
-	 * @param [in] outputVoltageMin 焊接电流-模拟量输出线性关系左侧点模拟量输出电压值(V)
-	 * @param [in] outputVoltageMax 焊接电流-模拟量输出线性关系右侧点模拟量输出电压值(V)
-	 * @param [in] AOIndex 焊接电流模拟量输出端口
-	 * @return 错误码
+	 * @brief Set the corresponding relationship between welding current and output analog quantity
+	 * @param [in] currentMin current value at the left point of the linear relationship between welding current and analog output (A)
+	 * @param [in] currentMax current value at the right point of the linear relationship between welding current and analog output (A)
+	 * @param [in] outputVoltageMin Analog output voltage value (V) of the left point of the linear relationship between welding current and analog output
+	 * @param [in] outputVoltageMax The analog output voltage value (V) of the right point of the linear relationship between welding current and analog output
+	 * @return Error code
 	 */
 	errno_t WeldingSetCurrentRelation(double currentMin, double currentMax, double outputVoltageMin, double outputVoltageMax, int AOIndex = 0);
 
 	/**
-	 * @brief 设置焊接电压与输出模拟量对应关系
-	 * @param [in] weldVoltageMin 焊接电压-模拟量输出线性关系左侧点焊接电压值(A)
-	 * @param [in] weldVoltageMax 焊接电压-模拟量输出线性关系右侧点焊接电压值(A)
-	 * @param [in] outputVoltageMin 焊接电压-模拟量输出线性关系左侧点模拟量输出电压值(V)
-	 * @param [in] outputVoltageMax 焊接电压-模拟量输出线性关系右侧点模拟量输出电压值(V)
-	 * @param [in] AOIndex 焊接电压模拟量输出端口
-	 * @return 错误码
+	 * @brief Set the corresponding relationship between welding voltage and output analog quantity
+	 * @param [in] weldVoltageMin eldVoltageMin Welding voltage value (A) at the left point of the linear relationship between welding voltage and analog output
+	 * @param [in] weldVoltageMax Welding voltage-analog output linear relationship right point welding voltage value (A)
+	 * @param [in] outputVoltageMin Analog output voltage value (V) of the left point of the linear relationship between welding voltage and analog output
+	 * @param [in] outputVoltageMax The analog output voltage value (V) of the right point of the linear relationship between welding voltage and analog output
+	 * @return Error code
 	 */
 	errno_t WeldingSetVoltageRelation(double weldVoltageMin, double weldVoltageMax, double outputVoltageMin, double outputVoltageMax, int AOIndex = 1);
 
 	/**
-	 * @brief 获取焊接电流与输出模拟量对应关系
-	 * @param [out] currentMin 焊接电流-模拟量输出线性关系左侧点电流值(A)
-	 * @param [out] currentMax 焊接电流-模拟量输出线性关系右侧点电流值(A)
-	 * @param [out] outputVoltageMin 焊接电流-模拟量输出线性关系左侧点模拟量输出电压值(V)
-	 * @param [out] outputVoltageMax 焊接电流-模拟量输出线性关系右侧点模拟量输出电压值(V)
-	 * @param [out] AOIndex 焊接电流模拟量输出端口
-	 * @return 错误码
+	 * @brief Get the corresponding relationship between welding current and output analog quantity
+	 * @param [out] currentMin current value at the left point of the linear relationship between welding current and analog output (A)
+	 * @param [out] currentMax welding current and analog output (A)
+	 * @param [out] outputVoltageMin Analog output voltage value (V) of the left point of the linear relationship between welding current and analog output
+	 * @param [out] outputVoltageMax The analog output voltage value (V) of the right point of the linear relationship between welding current and analog output
+	 * @return Error code
 	 */
 	errno_t WeldingGetCurrentRelation(double *currentMin, double *currentMax, double *outputVoltageMin, double *outputVoltageMax, int* AOIndex);
 
 	/**
-	 * @brief 获取焊接电压与输出模拟量对应关系
-	 * @param [out] weldVoltageMin 焊接电压-模拟量输出线性关系左侧点焊接电压值(A)
-	 * @param [out] weldVoltageMax 焊接电压-模拟量输出线性关系右侧点焊接电压值(A)
-	 * @param [out] outputVoltageMin 焊接电压-模拟量输出线性关系左侧点模拟量输出电压值(V)
-	 * @param [out] outputVoltageMax 焊接电压-模拟量输出线性关系右侧点模拟量输出电压值(V)
-	 * @param [out] AOIndex 焊接电压模拟量输出端口
-	 * @return 错误码
+	 * @brief Get the corresponding relationship between welding voltage and output analog quantity
+	 * @param [out] weldVoltageMin Welding voltage value (A) at the left point of the linear relationship between welding voltage and analog output
+	 * @param [out] weldVoltageMax Welding voltage-analog output linear relationship right point welding voltage value (A)
+	 * @param [out] outputVoltageMin Analog output voltage value (V) of the left point of the linear relationship between welding voltage and analog output
+	 * @param [out] outputVoltageMax The analog output voltage value (V) of the right point of the linear relationship between welding voltage and analog output
+	 * @return Error code
 	 */
 	errno_t WeldingGetVoltageRelation(double *weldVoltageMin, double *weldVoltageMax, double *outputVoltageMin, double *outputVoltageMax, int* AOIndex);
 
 	/**
-	 * @brief 设置焊接电流
-	 * @param [in] ioType 控制IO类型 0-控制箱IO；1-扩展IO
-	 * @param [in] current 焊接电流值(A)
-	 * @param [in] AOIndex 焊接电流控制箱模拟量输出端口(0-1)
-	 * @param [in] blend 是否平滑 0-不平滑；1-平滑
-	 * @return 错误码
+	 * @brief Set welding current
+	 * @param [in] ioType 0-control box IO； 1-extend IO
+	 * @param [in] current welding current(A)
+	 * @param [in] AOIndexWelding current control box analog output port(0-1)
+	 * @return Error code
 	 */
 	errno_t WeldingSetCurrent(int ioType, double current, int AOIndex, int blend);
 
 	/**
-	 * @brief 设置焊接电压
-	 * @param [in] ioType 控制IO类型 0-控制箱IO；1-扩展IO
-	 * @param [in] voltage 焊接电压值(A)
-	 * @param [in] AOIndex 焊接电压控制箱模拟量输出端口(0-1)
-	 * @param [in] blend 是否平滑 0-不平滑；1-平滑
-	 * @return 错误码
+	 * @brief Set welding voltage
+	 * @param [in] ioType 0-control box IO； 1-extend IO
+	 * @param [in] voltage welding voltage(V)
+	 * @param [in] AOIndex Welding voltage control box analog output port(0-1)
+	 * @return Error code
 	 */
 	errno_t WeldingSetVoltage(int ioType, double voltage, int AOIndex, int blend);
 
 	/**
-	 * @brief 设置摆动参数
-	 * @param [in] weaveNum 摆焊参数配置编号
-	 * @param [in] weaveType 摆动类型 0-三角波摆动(LIN/ARC/Circle)；1-垂直L型三角波摆动(LIN/ARC/Circle)；2-圆形摆动-顺时针(LIN)；3-圆形摆动-逆时针(LIN)；4-正弦波摆动(LIN/ARC/Circle)；5-垂直L型正弦波摆动(LIN/ARC/Circle)；6-立焊三角摆动
-	 * @param [in] weaveFrequency 摆动频率(Hz)
-	 * @param [in] weaveIncStayTime 摆动等待时间 0-周期不包含等待时间；1-周期包含等待时间
-	 * @param [in] weaveRange 摆动幅度(mm)
-	 * @param [in] weaveLeftRange 垂直三角摆动左侧边长度(mm)
-	 * @param [in] weaveRightRange 垂直三角摆动右侧边长度(mm)
-	 * @param [in] additionalStayTime 垂直三角摆动零点停留时间(mm)
-	 * @param [in] weaveLeftStayTime 摆动左停留时间(ms)
-	 * @param [in] weaveRightStayTime 摆动右停留时间(ms)
-	 * @param [in] weaveCircleRadio 圆形摆动-回调比例(0-100%)
-	 * @param [in] weaveStationary 摆动位置等待，0-等待时间内位置继续移动；1-等待时间内位置静止
-	 * @param [in] weaveYawAngle 摆动方向方位角(绕摆动Z轴旋转)，单位°
-	 * @param [in] weaveRotAngle 摆动方向侧倾角(绕摆动X轴偏转)，单位°
-	 * @return 错误码
+	 * @brief Set weave parameters
+	 * @param [in] weaveNum parameters number
+	 * @param [in] weaveType weave type：0- plane triangular weave ; 1- vertical L-shaped triangular weave; 2- clockwise circular weave; 3-counterclockwise circular weave; 4-plane sine weave; 5-vertical L-shaped sine weave; 6- vertical triangular weave;
+	 * @param [in] weaveFrequency weave frequency(Hz)
+	 * @param [in] weaveIncStayTime Wait mode 0- period does not contain wait time; 1- Period contains the wait time
+	 * @param [in] weaveRange weave amplitude(mm)
+	 * @param [in] weaveLeftRange Vertical triangle swing left chord length (mm)
+	 * @param  [in] weaveRightRange Vertical triangle swing right chord length (mm)
+	 * @param  [in] additionalStayTime Vertical triangle swing vertical triangle point stay time (mm)
+	 * @param [in] weaveLeftStayTime weave left residence time(ms)
+	 * @param [in] weaveRightStayTime weave right residence time(ms)
+	 * @param [in] weaveCircleRadio Circular wiggle-pullback ratio(0-100%)
+	 * @param [in] weaveStationary weave position wait, 0- position continue to move within the waiting time; 1- The position is stationary during the waiting time
+	 * @param [in] weaveYawAngle Swing direction azimuth Angle (rotation around the z-axis of swing), unit °
+	 * @param [in] weaveRotAngle Swing direction lateral Angle (deflection around the X-axis of the swing), unit °
+	 * @return Error code
 	 */
-	errno_t WeaveSetPara(int weaveNum, int weaveType, double weaveFrequency, 
-                            int weaveIncStayTime, double weaveRange, double weaveLeftRange, 
-                            double weaveRightRange, int additionalStayTime, int weaveLeftStayTime, 
+	errno_t WeaveSetPara(int weaveNum, int weaveType, double weaveFrequency,
+                            int weaveIncStayTime, double weaveRange, double weaveLeftRange,
+                            double weaveRightRange, int additionalStayTime, int weaveLeftStayTime,
                             int weaveRightStayTime, int weaveCircleRadio, int weaveStationary, double weaveYawAngle, double weaveRotAngle = 0);
 
 	/**
-	 * @brief 即时设置摆动参数
-	 * @param [in] weaveNum 摆焊参数配置编号
-	 * @param [in] weaveType 摆动类型 0-平面三角波摆动；1-垂直L型三角波摆动；2-顺时针圆形摆动；3-逆时针圆形摆动；4-平面正弦波摆动；5-垂直L型正弦波摆动；6-垂直三角波摆动；7-垂直正弦波摆动
-	 * @param [in] weaveFrequency 摆动频率(Hz)
-	 * @param [in] weaveIncStayTime 等待模式 0-周期不包含等待时间；1-周期包含等待时间
-	 * @param [in] weaveRange 摆动幅度(mm)
-	 * @param [in] weaveLeftStayTime 摆动左停留时间(ms)
-	 * @param [in] weaveRightStayTime 摆动右停留时间(ms)
-	 * @param [in] weaveCircleRadio 圆形摆动-回调比率(0-100%)
-	 * @param [in] weaveStationary 摆动位置等待，0-等待时间内位置继续移动；1-等待时间内位置静止
-	 * @return 错误码
+	 * @brief Set weave parameters in real time
+	 * @param [in] weaveNum parameters number
+	 * @param [in] weaveType weave type：0- plane triangular weave ; 1- vertical L-shaped triangular weave; 2- clockwise circular weave; 3-counterclockwise circular weave; 4-plane sine weave; 5-vertical L-shaped sine weave; 6- vertical triangular weave; 7- Vertical sine weave
+	 * @param [in] weaveFrequency weave frequency(Hz)
+	 * @param [in] weaveIncStayTime Wait mode 0- period does not contain wait time; 1- Period contains the wait time
+	 * @param [in] weaveRange weave amplitude(mm)
+	 * @param [in] weaveLeftStayTime weave left residence time(ms)
+	 * @param [in] weaveRightStayTime weave right residence time(ms)
+	 * @param [in] weaveCircleRadio Circular wiggle-pullback ratio(0-100%)
+	 * @param [in] weaveStationary weave position wait, 0- position continue to move within the waiting time; 1- The position is stationary during the waiting time
+	 * @return Error code
 	 */
 	errno_t WeaveOnlineSetPara(int weaveNum, int weaveType, double weaveFrequency, int weaveIncStayTime, double weaveRange, int weaveLeftStayTime, int weaveRightStayTime, int weaveCircleRadio, int weaveStationary);
 
 	/**
-	 * @brief 摆动开始
-	 * @param [in] weaveNum 摆焊参数配置编号
-	 * @return 错误码
+	 * @brief Weave start
+	 * @param [in] weaveNum Weave welding parameter configuration number
+	 * @return Error code
 	 */
 	errno_t WeaveStart(int weaveNum);
 
 	/**
-	 * @brief 摆动结束
-	 * @param [in] weaveNum 摆焊参数配置编号
-	 * @return 错误码
+	 * @brief Weave end
+	 * @param [in] weaveNum Weave welding parameter configuration number
+	 * @return Error code
 	 */
 	errno_t WeaveEnd(int weaveNum);
 
 	/**
-	 * @brief 正向送丝
-	 * @param [in] ioType io类型  0-控制器IO；1-扩展IO
-	 * @param [in] wireFeed 送丝控制  0-停止送丝；1-送丝
-	 * @return 错误码
+	 * @brief Enable return to cycle center after weaving
+	 * @param [in] flag Whether to return to the cycle center point after weaving ends; 0 - do not return, 1 - return
+	 * @return Error code
+	 */
+	errno_t SetWeaveBackCenterConfig(int flag);
+
+	/**
+	 * @brief Get the parameter for return to cycle center after weaving
+	 * @param [out] flag Whether to return to the cycle center point after weaving ends; 0 - do not return, 1 - return
+	 * @return Error code
+	 */
+	errno_t GetWeaveBackCenterConfig(int& flag);
+
+	/**
+	 * @brief Set weave offset in real time
+	 * @param [in] offset Real-time offset value [mm, °]
+	 * @return Error code
+	 */
+	errno_t SetWeaveOffsetRT(DescPose offset);
+
+	/**
+	 * @brief Forward Wire Feed
+	 * @param [in] ioType 0-control box IO； 1-extend IO
+	 * @param [in] wireFeed wire control: 0-stop wire feed ；1-wire feed
+	 * @return Error code
 	 */
 	errno_t SetForwardWireFeed(int ioType, int wireFeed);
 
 	/**
-	 * @brief 反向送丝
-	 * @param [in] ioType io类型  0-控制器IO；1-扩展IO
-	 * @param [in] wireFeed 送丝控制  0-停止送丝；1-送丝
-	 * @return 错误码
+	 * @brief Reverse wire feed
+	 * @param [in] ioType 0-control box IO； 1-extend IO
+	 * @param [in] wireFeed wire control: 0-stop wire feed ；1-wire feed
+	 * @return Error code
 	 */
 	errno_t SetReverseWireFeed(int ioType, int wireFeed);
 
 	/**
-	 * @brief 送气
-	 * @param [in] ioType io类型  0-控制器IO；1-扩展IO
-	 * @param [in] airControl 送气控制  0-停止送气；1-送气
-	 * @return 错误码
+	 * @brief aspirated
+	 * @param [in] ioType  0-control box IO； 1-extend IO
+	 * @param [in] airControl aspirated control: 0-stop aspirated；1-aspirated
+	 * @return Error code
 	 */
 	errno_t SetAspirated(int ioType, int airControl);
 
-	/**
-	 *@brief段焊开始
-	 *@param[in]startDesePos 起始点笛卡尔位置
-	 *@param[in]endDesePos 结束点笛卡尔位姿
-	 *@param[in]startJPos 起始点关节位姿
-	 *@param[in]endJPos 结束点关节位姿
-	 *@param[in]weldLength 焊接段长度(mm)
-	 *@param[in]noWeldLength 非焊接段长度(mm)
-	 *@param[in]weldIOType 焊接IO类型(0-控制箱IO；1-扩展IO)
-	 *@param[in]arcNum 焊机配置文件编号
-	 *@param[in]weldTimeout 起/收弧超时时间
-	 *@param[in]isWeave 是否摆动
-	 *@param[in]weaveNum 摆焊参数配置编号
-	 *@param[in]tool 工具号
-	 *@param[in]user 工件号
-	 *@param[in]vel 速度百分比，范围[0~100]
-	 *@param[in]acc 加速度百分比，范围[0~100],暂不开放
-	 *@param[in]ovl 速度缩放因子，范围[0~100]
-	 *@param[in]blendR [-1.0]-运动到位(阻塞)，[0~1000.0]-平滑半径(非阻塞)，单位mm
-	 *@param[in]epos 扩展轴位置，单位mm
- 	 *@param[in]search 0-不焊丝寻位，1-焊丝寻位
-	 *@param[in]offset_flag 0-不偏移，1-基坐标系/工件坐标系下偏移，2-工具坐标系下偏移
-	 *@param[in]offset_pos 位姿偏移量
-	 *@return 错误码
+/**
+	 *@brief Segment weld start
+	 *@param[in]startDesePos Starting point Cartesian position
+	 *@param[in]endDesePos Ending point Cartesian position
+	 *@param[in]startJPos Starting point joint position
+	 *@param[in]endJPos Ending point joint position
+	 *@param[in]weldLength Weld length(mm)
+	 *@param[in]noWeldLength Length of unwelded section(mm)
+	 *@param[in]weldIOType 0-control box IO； 1-extend IO(0-控制箱IO；1-扩展IO)
+	 *@param[in]arcNum Welder configuration file number
+	 *@param[in]weldTimeout Arcing timeout time
+	 *@param[in]isWeave Weave or not
+	 *@param[in]weaveNum Weave welding parameter configuration number
+	 *@param[in]tool tool number
+	 *@param[in]user Workpiece coordinate number, range [0~14]
+	 *@param[in]vel Percentage of speed [0~100]
+	 *@param[in]acc Acceleration percentage, range[0~100]
+	 *@param[in]ovl Velocity scaling factor, range[0~100]
+	 *@param[in]blendR [-1.0]- movement in place (blocking), [0~1000.0]- Smoothing radius (non-blocking), unit: mm
+	 *@param[in]epos Position of expansion shaft, unit: mm
+	 *@param[in]search 0- no wire seeking, 1- wire seeking
+	 *@param[in]offset_flag 0- no offset, 1- offset in base/job coordinate system, 2- offset in tool coordinate system
+	 *@param[in]offset_pos The pose offset
+	 *@return Error code
 	 */
 	errno_t SegmentWeldStart(DescPose *startDesePos, DescPose *endDesePos, JointPos *startJPos, JointPos *endJPos,
 							 double weldLength, double noWeldLength, int weldIOType, int arcNum, int weldTimeout,
@@ -2386,1531 +2443,1583 @@ public:
 							 ExaxisPos *epos, uint8_t search, uint8_t offset_flag, DescPose *offset_pos);
 
 	/**
-	 * @brief 初始化日志参数;
-	 * @param output_model：输出模式，0-直接输出；1-缓冲输出；2-异步输出;
-	 * @param file_path: 文件保存路径+名称，,长度上限256，名称必须是xxx.log的形式，比如/home/fr/linux/fairino.log;
-	 * @param file_num：滚动存储的文件数量，1~20个.单个文件上限50M;
-	 * @return errno_t 错误码;
+	 * @brief Initialize log parameters;
+	 * @param output_model：Output mode, 0-direct output; 1-buffered output; 2 - asynchronous output;
+	 * @param file_path: File save path + name, the maximum length is 256, and the name must be in the form of xxx.log, such as /home/fr/linux/fairino.log;
+	 * @param file_num：Scroll the number of files stored, 1~20. The maximum size of a single file is 50M;
+	 * @return errno_t Error code;
 	 */
 	errno_t LoggerInit(int output_model = 0, std::string file_path = "", int file_num = 5);
 
-	/**
-	 * @brief 设置日志过滤等级;
-	 * @param lvl: 过滤等级值，值越小输出日志越少，默认值是1. 1-error, 2-warnning, 3-inform, 4-debug;
-	 */
-	void SetLoggerLevel(int lvl = 1);
+    /**
+     * @brief Set the log filtering level;
+     * @param lvl: Filter the level value, the smaller the value, the less the output log, the default value is 1. 1-error, 2-warnning, 3-inform, 4-debug;
+    */
+    void SetLoggerLevel(int lvl = 1);
 
 	/**
-	 * @brief 下载Lua文件
-	 * @param [in] fileName 要下载的lua文件名“test.lua”
-	 * @param [in] savePath 保存文件本地路径“D://Down/”
-	 * @return 错误码
-	 */
+     * @brief Download Lua file
+     * @param [in] fileName The name of the lua file to be downloaded "test.lua"
+     * @param [in] savePath Save the file local path "D://Down/"
+     * @return error code
+     */
 	errno_t LuaDownLoad(std::string fileName, std::string savePath);
 
 	/**
-	 * @brief 上传Lua文件
-	 * @param [in] filePath 本地lua文件路径名
-	 * @return 错误码
+	 * @brief Upload Lua file
+	 * @param [in] filePath local lua file path name
+	 * @return error code
 	 */
 	errno_t LuaUpload(std::string filePath);
 
 	/**
-	 * @brief 上传Lua文件
-	 * @param [in] filePath 本地lua文件路径名
-	 * @param [out] luaFormatErrStr lua文件校验错误信息
-	 * @return 错误码
-	 */
+     * @brief Upload Lua file
+     * @param [in] filePath local lua file path name
+	 * @param [in] luaFormatErrStr lua format error information
+     * @return error code
+     */
 	errno_t LuaUpload(std::string filePath, std::string& luaFormatErrStr);
 
 	/**
-	 * @brief 删除Lua文件
-	 * @param [in] fileName 要删除的lua文件名“test.lua”
-	 * @return 错误码
-	 */
+     * @brief Delete Lua files
+     * @param [in] fileName The name of the lua file to be deleted "test.lua"
+     * @return error code
+     */
 	errno_t LuaDelete(std::string fileName);
 
 	/**
-	 * @brief 获取当前所有lua文件名称
-	 * @param [out] luaNames lua文件名列表
-	 * @return 错误码
-	 */
+     * @brief Get the names of all current lua files
+     * @param [out] luaNames lua file name list
+     * @return error code
+     */
 	errno_t GetLuaList(std::list<std::string>* luaNames);
 
 	/**
-	 * @brief 设置485扩展轴参数
-	 * @param [in] servoId 伺服驱动器ID，范围[1-16],对应从站ID
-	 * @param [in] servoCompany 伺服驱动器厂商，1-戴纳泰克
-	 * @param [in] servoModel 伺服驱动器型号，1-FD100-750C
-	 * @param [in] servoSoftVersion 伺服驱动器软件版本，1-V1.0
-	 * @param [in] servoResolution 编码器分辨率
-	 * @param [in] axisMechTransRatio 机械传动比
-	 * @return 错误码
+	  * @brief Set 485 extended axis parameters
+      * @param [in] servoId servo drive ID, range [1-16], corresponding slave ID
+      * @param [in] servoCompany Servo drive manufacturer, 1-Dynatec
+      * @param [in] servoModel servo drive model, 1-FD100-750C
+      * @param [in] servoSoftVersion servo driver software version, 1-V1.0
+      * @param [in] servoResolution encoder resolution
+      * @param [in] axisMechTransRatio mechanical transmission ratio
+      * @return error code
 	 */
 	errno_t AuxServoSetParam(int servoId, int servoCompany, int servoModel,
 							 int servoSoftVersion, int servoResolution, double axisMechTransRatio);
 	/**
-	 * @brief 获取485扩展轴配置参数
-	 * @param [in] servoId 伺服驱动器ID，范围[1-16],对应从站ID
-	 * @param [out] servoCompany 伺服驱动器厂商，1-戴纳泰克
-	 * @param [out] servoModel 伺服驱动器型号，1-FD100-750C
-	 * @param [out] servoSoftVersion 伺服驱动器软件版本，1-V1.0
-	 * @param [out] servoResolution 编码器分辨率
-	 * @param [out] axisMechTransRatio 机械传动比
-	 * @return 错误码
+	 * @brief Get 485 extended axis configuration parameters
+      * @param [in] servoId servo drive ID, range [1-16], corresponding slave ID
+      * @param [out] servoCompany Servo drive manufacturer, 1-Dynatec
+      * @param [out] servoModel Servo drive model, 1-FD100-750C
+      * @param [out] servoSoftVersion servo driver software version, 1-V1.0
+      * @param [out] servoResolution encoder resolution
+      * @param [out] axisMechTransRatio mechanical transmission ratio
+      * @return error code
 	 */
 	errno_t AuxServoGetParam(int servoId, int* servoCompany, int* servoModel,
                                   int* servoSoftVersion, int* servoResolution, double* axisMechTransRatio);
 
 	/**
-	 * @brief 设置485扩展轴使能/去使能
-	 * @param [in] servoId 伺服驱动器ID，范围[1-16],对应从站ID
-	 * @param [in] status 使能状态，0-去使能， 1-使能
-	 * @return 错误码
+	 * @brief Set 485 expansion axis enable/disable
+      * @param [in] servoId servo drive ID, range [1-16], corresponding slave ID
+      * @param [in] status enable status, 0-disabled, 1-enabled
+      * @return error code
 	 */
 	errno_t AuxServoEnable(int servoId, int status);
 
 	/**
-	 * @brief 设置485扩展轴控制模式
-	 * @param [in] servoId 伺服驱动器ID，范围[1-16],对应从站ID
-	 * @param [in] mode 控制模式，0-位置模式，1-速度模式
-	 * @return 错误码
+	 * @brief Set 485 extended axis control mode
+      * @param [in] servoId servo drive ID, range [1-16], corresponding slave ID
+      * @param [in] mode control mode, 0-position mode, 1-speed mode
+      * @return error code
 	 */
 	errno_t AuxServoSetControlMode(int servoId, int mode);
 	/**
-	 * @brief 设置485扩展轴目标位置(位置模式)
-	 * @param [in] servoId 伺服驱动器ID，范围[1-16],对应从站ID
-	 * @param [in] pos 目标位置，mm或°
-	 * @param [in] speed 目标速度，mm/s或°/s
-	 * @param [in] acc 加速度百分比[0-100]
-	 * @return 错误码
+	 * @brief Set the 485 extended axis target position (position mode)
+      * @param [in] servoId servo drive ID, range [1-16], corresponding slave ID
+      * @param [in] pos target position, mm or °
+      * @param [in] speed target speed, mm/s or °/s
+      * @return error code
 	 */
 	errno_t AuxServoSetTargetPos(int servoId, double pos, double speed, double acc = 100.0);
 
 	/**
-	 * @brief 设置485扩展轴目标速度(速度模式)
-	 * @param [in] servoId 伺服驱动器ID，范围[1-16],对应从站ID
-	 * @param [in] speed 目标速度，mm/s或°/s
-	 * @param [in] acc 加速度百分比[0-100]
-	 * @return 错误码
+	 * @brief Set the 485 extended axis target speed (speed mode)
+      * @param [in] servoId servo drive ID, range [1-16], corresponding slave ID
+      * @param [in] speed target speed, mm/s or °/s
+      * @return error code
 	 */
 	errno_t AuxServoSetTargetSpeed(int servoId, double speed, double acc = 100.0);
 
 	/**
-	 * @brief 设置485扩展轴目标转矩(力矩模式)
-	 * @param [in] servoId 伺服驱动器ID，范围[1-16],对应从站ID
-	 * @param [in] torque 目标力矩，Nm
-	 * @return 错误码
+	 * @brief Set 485 extended axis target torque (torque mode)
+      * @param [in] servoId servo drive ID, range [1-16], corresponding slave ID
+      * @param [in] torque target torque, Nm
+      * @return error code
 	 */
 	errno_t AuxServoSetTargetTorque(int servoId, double torque);
-
 	/**
-	 * @brief 设置485扩展轴回零
-	 * @param [in] servoId 伺服驱动器ID，范围[1-16],对应从站ID
-	 * @param [in] mode 回零模式，0-当前位置回零；1-限位回零
-	 * @param [in] searchVel 回零速度，mm/s或°/s
-	 * @param [in] latchVel 箍位速度，mm/s或°/s
-	 * @param [in] acc 加速度百分比[0-100]
-	 * @return 错误码
+	 * @brief Set 485 extended axis zero return
+      * @param [in] servoId servo drive ID, range [1-16], corresponding slave ID
+      * @param [in] mode zero return mode, 0-current position return to zero; 1-limit return to zero
+      * @param [in] searchVel zero return speed, mm/s or °/s
+      * @param [in] latchVel hoop speed, mm/s or °/s
+      * @return error code
 	 */
 	errno_t AuxServoHoming(int servoId, int mode, double searchVel, double latchVel, double acc = 100.0);
 
 	/**
-	 * @brief 清除485扩展轴错误信息
-	 * @param [in] servoId 伺服驱动器ID，范围[1-16],对应从站ID
-	 * @return 错误码
+	 * @brief Clear 485 extended axis error message
+      * @param [in] servoId servo drive ID, range [1-16], corresponding slave ID
+      * @return error code
 	 */
 	errno_t AuxServoClearError(int servoId);
-
 	/**
-	 * @brief 获取485扩展轴伺服状态
-	 * @param [in] servoId 伺服驱动器ID，范围[1-16],对应从站ID
-	 * @param [out] servoErrCode 伺服驱动器故障码
-	 * @param [out] servoState 伺服驱动器状态[十进制数转为二进制，bit0-bit5：伺服使能-伺服运行-正限位触发-负限位触发-定位完成-回零完成]
-	 * @param [out] servoPos 伺服当前位置 mm或°
-	 * @param [out] servoSpeed 伺服当前速度 mm/s或°/s
-	 * @param [out] servoTorque 伺服当前转矩Nm
-	 * @return 错误码
+	 * @brief Get 485 extended axis servo status
+      * @param [in] servoId servo drive ID, range [1-16], corresponding slave ID
+      * @param [out] servoErrCode servo drive fault code
+      * @param [out] servoState servo drive status [decimal number converted to binary, bit0-bit5: servo enable-servo running-positive limit trigger-negative limit trigger-positioning completed-zero return completed]
+      * @param [out] servoPos servo current position mm or °
+      * @param [out] servoSpeed Servo current speed mm/s or °/s
+      * @param [out] servoTorque Servo current torque Nm
+      * @return error code
 	 */
 	errno_t AuxServoGetStatus(int servoId, int* servoErrCode, int* servoState, double* servoPos,
                                    double* servoSpeed, double* servoTorque);
-
 	/**
-	 * @brief 设置状态反馈中485扩展轴数据轴号
-	 * @param [in] servoId 伺服驱动器ID，范围[1-16],对应从站ID
-	 * @return 错误码
+	  * @brief Set the 485 extended axis data axis number in status feedback
+      * @param [in] servoId servo drive ID, range [1-16], corresponding slave ID
+      * @return error code
 	 */
 	errno_t AuxServosetStatusID(int servoId);
-
 	/**
-	 * @brief 获取机器人实时状态结构体
-	 * @param [out] pkg 机器人实时状态结构体
-	 * @return 错误码
+	 * @brief Get the real-time status structure of the robot
+      * @param [out] pkg robot real-time status structure
+      * @return error code
 	 */
 	errno_t GetRobotRealTimeState(ROBOT_STATE_PKG *pkg);
 	/**
-	 * @brief 设置机器人外设协议
-	 * @param [out] protocol 机器人外设协议号 4096-扩展轴控制卡；4097-ModbusSlave；4098-ModbusMaster
-	 * @return 错误码
+	* @brief Get the robot peripheral protocol
+      * @param [out] protocol Robot peripheral protocol number 4096-Extended axis control card; 4097-ModbusSlave; 4098-ModbusMaster
+      * @return error code
 	 */
 	errno_t GetExDevProtocol(int *protocol);
 
 	/**
-	 * @brief 获取机器人外设协议
-	 * @param [in] protocol 机器人外设协议号 4096-扩展轴控制卡；4097-ModbusSlave；4098-ModbusMaster
-	 * @return 错误码
+	  * @brief Set the robot peripheral protocol
+      * @param [in] protocol Robot peripheral protocol number 4096-Extended axis control card; 4097-ModbusSlave; 4098-ModbusMaster
+      * @return error code
 	 */
 	errno_t SetExDevProtocol(int protocol);
 
 	/**
-	 * @brief 设置机器人加速度
-	 * @param [in] acc 机器人加速度百分比
-	 * @return 错误码
+	 * @brief set robot acceleration
+	 * @param [in] acc acceleration
+	 * @return error code
 	 */
 	errno_t SetOaccScale(double acc);
 
 	/**
-	 * @brief 控制箱AO飞拍开始
-	 * @param [in] AONum 控制箱AO编号
-	 * @param [in] maxTCPSpeed 最大TCP速度值[1-5000mm/s]，默认1000
-	 * @param [in] maxAOPercent 最大TCP速度值对应的AO百分比，默认100%
-	 * @param [in] zeroZoneCmp 死区补偿值AO百分比，整形，默认为20%，范围[0-100]
-	 * @return 错误码
-	 */
+	* @brief Set control box AO when the robot moves Start
+	* @param [in] AONum Control box AO num
+	* @param [in] maxTCPSpeed the maximum TCP speed[1-5000mm/s]，default 1000
+	* @param [in] maxAOPercent the AO percentage corresponding to the maximum TCP speed, default 100%
+	* @param [in] zeroZoneCmp dead zone compensation value AO percentage, integer, default is 20, range [0-100]
+	* @return error code
+	*/
 	errno_t MoveAOStart(int AONum, int maxTCPSpeed, int maxAOPercent, int zeroZoneCmp);
 
 	/**
-	 * @brief 控制箱AO飞拍停止
-	 * @return 错误码
-	 */
+	* @brief Set control box AO when the robot moves stop
+	* @return error code
+	*/
 	errno_t MoveAOStop();
 
 	/**
-	 * @brief 末端AO飞拍开始
-	 * @param [in] AONum 末端AO编号
-	 * @param [in] maxTCPSpeed 最大TCP速度值[1-5000mm/s]，默认1000
-	 * @param [in] maxAOPercent 最大TCP速度值对应的AO百分比，默认100%
-	 * @param [in] zeroZoneCmp 死区补偿值AO百分比，整形，默认为20%，范围[0-100]
-	 * @return 错误码
-	 */
+	* @brief Set tool AO when the robot moves start
+	* @param [in] AONum tool AO num
+	* @param [in] maxTCPSpeed the maximum TCP speed[1-5000mm/s]，default 1000
+	* @param [in] maxAOPercent the AO percentage corresponding to the maximum TCP speed, default 100%
+	* @param [in] zeroZoneCmp dead zone compensation value AO percentage, integer, default is 20, range [0-100]
+	* @return error code
+	*/
 	errno_t MoveToolAOStart(int AONum, int maxTCPSpeed, int maxAOPercent, int zeroZoneCmp);
 
 	/**
-	 * @brief 末端AO飞拍停止
-	 * @return 错误码
-	 */
+	* @brief Set tool AO when the robot moves stop
+	* @return error code
+	*/
 	errno_t MoveToolAOStop();
 
 	/**
-	* @brief UDP扩展轴通讯参数配置
-	* @param [in] ip PLC IP地址
-	* @param [in] port	端口号
-	* @param [in] period	通讯周期(ms，默认为2，请勿修改此参数)
-	* @param [in] lossPkgTime	丢包检测时间(ms)
-	* @param [in] lossPkgNum	丢包次数
-	* @param [in] disconnectTime	通讯断开确认时长
-	* @param [in] reconnectEnable	通讯断开自动重连使能 0-不使能 1-使能
-	* @param [in] reconnectPeriod	重连周期间隔(ms)
-	* @param [in] reconnectNum	重连次数
-	* @param [in] selfConnect 断电重启是否自动建立连接；0-不建立连接；1-建立连接
-	* @return 错误码
+	* @brief Configure UDP extension axis communication parameters
+	* @param [in] ip PLC IP address
+	* @param [in] port	 port num
+	* @param [in] period	Communication period(ms，default 2ms)
+	* @param [in] lossPkgTime	Packet loss detection time(ms)
+	* @param [in] lossPkgNum	the number of packet loss times
+	* @param [in] disconnectTime	the duration of communication disconnection confirmation
+	* @param [in] reconnectEnable	 Automatic reconnection when communication is disconnected Enable;0-Disable, 1-Enable
+	* @param [in] reconnectPeriod	 Reconnection period(ms)
+	* @param [in] reconnectNum Reconnection times
+	* @param [in] selfConnect Whether the connection is automatically established after restarting the robot
+	* @return error code
 	*/
 	errno_t ExtDevSetUDPComParam(std::string ip, int port, int period, int lossPkgTime, int lossPkgNum, int disconnectTime, int reconnectEnable, int reconnectPeriod, int reconnectNum, int selfConnect = 1);
 
 	/**
-	 * @brief 获取UDP扩展轴通讯参数
-	 * @param [out] ip PLC IP地址
-	 * @param [out] port	端口号
-	 * @param [out] period	通讯周期(ms，默认为2，请勿修改此参数)
-	 * @param [out] lossPkgTime	丢包检测时间(ms)
-	 * @param [out] lossPkgNum	丢包次数
-	 * @param [out] disconnectTime	通讯断开确认时长
-	 * @param [out] reconnectEnable	通讯断开自动重连使能 0-不使能 1-使能
-	 * @param [out] reconnectPeriod	重连周期间隔(ms)
-	 * @param [out] reconnectNum	重连次数
-	 * @param [out] selfStart 重启控制箱后是否自动重连；0-不重连；1-重连
-	 * @return 错误码
+	 * @brief Get UDP external axis communication parameters
+	 * @param [out] ip PLC IP address
+	 * @param [out] port Port number
+	 * @param [out] period Communication cycle (ms, default is 2, do not modify this parameter)
+	 * @param [out] lossPkgTime Packet loss detection time (ms)
+	 * @param [out] lossPkgNum Packet loss count
+	 * @param [out] disconnectTime Communication disconnection confirmation duration
+	 * @param [out] reconnectEnable Automatic reconnection after communication disconnection enable 0-Disable 1-Enable
+	 * @param [out] reconnectPeriod Reconnection cycle interval (ms)
+	 * @param [out] reconnectNum Reconnection attempts
+	 * @param [out] selfStart Whether to automatically reconnect after control box restart; 0-No reconnection; 1-Reconnection
+	 * @return Error code
 	 */
 	errno_t ExtDevGetUDPComParam(std::string& ip, int& port, int& period, int& lossPkgTime, int& lossPkgNum, int& disconnectTime, int& reconnectEnable, int& reconnectPeriod, int& reconnectNum, int& selfConnect);
 
 	/**
-	* @brief 加载UDP通信
-	* @return 错误码
+	* @brief Load the UDP communication connection
+	* @return error code
 	*/
 	errno_t ExtDevLoadUDPDriver();
 
 	/**
-	 * @brief 卸载UDP通信
-	 * @return 错误码
-	 */
+	* @brief Unload the UDP communication connection
+	* @return error code
+	*/
 	errno_t ExtDevUnloadUDPDriver();
 
 	/**
-	 * @brief UDP扩展轴回零
-	 * @param [in] axisID 轴号[1-4]
-	 * @param [in] mode 回零方式
-	 * @param [in] searchVel 寻零速度(mm/s)
-	 * @param [in] latchVel 寻零箍位速度(mm/s)
-	 * @return 错误码
-	 */
+	* @brief Set the UDP extension axis homing
+	* @param [in] axisID Axis number[1-4]
+	* @param [in] mode homing mode; 0-Current position homing, 1-negative limit homing, 2-positive limit homing
+	* @param [in] searchVel homing velocity(mm/s)
+	* @param [in] latchVel homing latch velocity(mm/s)
+	* @return error code
+	*/
 	errno_t ExtAxisSetHoming(int axisID, int mode, double searchVel, double latchVel);
 
 	/**
-	 * @brief UDP扩展轴点动开始
-	 * @param [in] axisID 轴号[1-4]
-	 * @param [in] direction 转动方向 0-反向；1-正向
-	 * @param [in] vel 速度(mm/s)
-	 * @param [in] acc (加速度 mm/s2)
-	 * @param [in] maxDistance 最大点动距离
-	 * @return 错误码
-	 */
+	* @brief UDP extension axis jog start
+	* @param [in] axisID Axis number[1-4]
+	* @param [in] direction Rotation direction 0- reverse; 1-forward
+	* @param [in] vel velocity(mm/s)
+	* @param [in] acc Acceleration  (mm/s2)
+	* @param [in] maxDistance maximum jog distance(mm)
+	* @return error code
+	*/
 	errno_t ExtAxisStartJog(int axisID, int direction, double vel, double acc, double maxDistance);
 
 	/**
-	 * @brief UDP扩展轴点动停止
-	 * @param [in] axisID 轴号[1-4]
-	 * @return 错误码
-	 */
+	* @brief UDP extension axis jog stop
+	* @param [in] axisID Axis number[1-4]
+	* @return error code
+	*/
 	errno_t ExtAxisStopJog(int axisID);
 
 	/**
-	 * @brief UDP扩展轴使能
-	 * @param [in] axisID 轴号[1-4]
-	 * @param [in] status 0-去使能；1-使能
-	 * @return 错误码
-	 */
+	* @brief Enable the UDP extension axis
+	* @param [in] axisID Axis number [1-4]
+	* @param [in] status 0-Disable, 1-Enable
+	* @return error code
+	*/
 	errno_t ExtAxisServoOn(int axisID, int status);
 
 	/**
-	 * @brief UDP扩展轴运动
-	 * @param [in] pos 目标位置
-	 * @param [in] ovl 速度百分比
-	 * @param [in] blend 平滑参数(mm或ms)
-	 * @return 错误码
-	 */
+	* @brief UDP extension axis movement
+	* @param [in] pos target position
+	* @param [in] ovl Speed percentage
+	* @param [in] blend Smooth parameter (mm or ms)
+	* @return error code
+	*/
 	errno_t ExtAxisMove(ExaxisPos pos, double ovl, double blend = -1);
 
 	/**
-	 * @brief 设置扩展DO
-	 * @param [in] DONum DO编号
-	 * @param [in] bOpen 开关 true-开；false-关
-	 * @param [in] smooth 是否平滑
-	 * @param [in] block 是否阻塞
-	 * @return 错误码
-	 */
+	* @brief Set extended DO
+	* @param [in] DONum DO number
+	* @param [in] bOpen True- on,False- off
+	* @param [in] smooth whether it is smooth; True-Yes, False-no
+	* @param [in] block True-block, False-no block
+	* @return error code
+	*/
 	errno_t SetAuxDO(int DONum, bool bOpen, bool smooth, bool block);
 
 	/**
-	 * @brief 设置扩展AO
-	 * @param [in] AONum AO编号
-	 * @param [in] value 模拟量值百分比
-	 * @param [in] block 是否阻塞
-	 * @return 错误码
-	 */
+	* @brief Set extended AO
+	* @param [in] AONum AO number
+	* @param [in] value analog quantity value [0-4095]
+	* @param [in] block True-block, False-no block
+	* @return error code
+	*/
 	errno_t SetAuxAO(int AONum, double value, bool block);
 
 	/**
-	 * @brief 设置扩展DI输入滤波时间
-	 * @param [in] filterTime 滤波时间(ms)
-	 * @return 错误码
-	 */
+	* @brief Set the extended DI input filtering time
+	* @param [in] filterTime DI input filtering time(ms)
+	* @return error code
+	*/
 	errno_t SetAuxDIFilterTime(int filterTime);
 
 	/**
-	 * @brief 设置扩展AI输入滤波时间
-	 * @param [in] AONum AO编号
-	 * @param [in] filterTime 滤波时间(ms)
-	 * @return 错误码
-	 */
+	* @brief Set the extended AI input filtering time
+	* @param [in] filterTime AI input filtering time(ms)
+	* @return error code
+	*/
 	errno_t SetAuxAIFilterTime(int AONum, int filterTime);
 
 	/**
-	 * @brief 等待扩展DI输入
-	 * @param [in] DINum DI编号
-	 * @param [in] bOpen 开关 0-关；1-开
-	 * @param [in] time 最大等待时间(ms)
-	 * @param [in] errorAlarm 是否继续运动
-	 * @return 错误码
-	 */
+	* @brief Wait for the extended DI input
+	* @param [in] DINum DI number
+	* @param [in] bOpen True- on,False- off
+	* @param [in] time Maximum waiting time(ms)
+	* @param [in] errorAlarm Whether to continue a motion. True- Yes,False- no
+	* @return error code
+	*/
 	errno_t WaitAuxDI(int DINum, bool bOpen, int time, bool errorAlarm);
 
 	/**
-	 * @brief 等待扩展AI输入
-	 * @param [in] AINum AI编号
-	 * @param [in] sign 0-大于；1-小于
-	 * @param [in] value AI值
-	 * @param [in] time 最大等待时间(ms)
-	 * @param [in] errorAlarm 是否继续运动
-	 * @return 错误码
-	 */
+	* @brief Wait for the extended AI input
+	* @param [in] AINum AI number
+	* @param [in] sign 0-greater than, 1-less than
+	* @param [in] value AI value
+	* @param [in] time Maximum waiting time(ms)
+	* @param [in] errorAlarm Whether to continue a motion. True- Yes,False- no
+	* @return error code
+	*/
 	errno_t WaitAuxAI(int AINum, int sign, int value, int time, bool errorAlarm);
 
 	/**
-	 * @brief 获取扩展DI值
-	 * @param [in] DINum DI编号
-	 * @param [in] isNoBlock 是否阻塞
-	 * @param [out] isOpen 0-关；1-开
-	 * @return 错误码
-	 */
-	errno_t GetAuxDI(int DINum, bool isNoBlock, bool &isOpen);
+	* @brief Gets the extended DI value
+	* @param [in] DINum DI number
+	* @param [in] isNoBlock True-block, False-no block
+	* @param [out] isOpen True- on,False- off
+	* @return error code
+	*/
+	errno_t GetAuxDI(int DINum, bool isNoBlock, bool& isOpen);
 
 	/**
-	 * @brief 获取扩展AI值
-	 * @param [in] AINum AI编号
-	 * @param [in] isNoBlock 是否阻塞
-	 * @param [in] value 输入值
-	 * @return 错误码
-	 */
-	errno_t GetAuxAI(int AINum, bool isNoBlock, int &value);
+	* @brief Gets the extended AI value
+	* @param [in] AINum AI number
+	* @param [in] isNoBlock True-block, False-no block
+	* @param [in] value input value
+	* @return error code
+	*/
+	errno_t GetAuxAI(int AINum, bool isNoBlock, int& value);
 
 	/**
-	 * @brief UDP扩展轴通信异常断开后恢复连接
-	 * @return 错误码
-	 */
+	* @brief Reconnect UDP communication after abnormal disconnected
+	* @return error code
+	*/
 	errno_t ExtDevUDPClientComReset();
 
 	/**
-	 * @brief UDP扩展轴通信异常断开后关闭通讯
-	 * @return 错误码
-	 */
+	* @brief Close UDP communication after abnormal disconnected
+	* @return error code
+	*/
 	errno_t ExtDevUDPClientComClose();
 
 	/**
-	 * @brief UDP扩展轴参数配置
-	 * @param [in] axisID 扩展轴号[1-4]
-	 * @param [in] axisType 扩展轴类型 0-平移；1-旋转
-	 * @param [in] axisDirection 扩展轴方向 0-正向；1-方向
-	 * @param [in] axisMax 扩展轴最大位置 mm
-	 * @param [in] axisMin 扩展轴最小位置 mm
-	 * @param [in] axisVel 速度mm/s
-	 * @param [in] axisAcc 加速度mm/s2
-	 * @param [in] axisLead 导程mm
-	 * @param [in] encResolution 编码器分辨率
-	 * @param [in] axisOffect焊缝起始点扩展轴偏移量
-	 * @param [in] axisCompany 驱动器厂家 1-禾川；2-汇川；3-松下
-	 * @param [in] axisModel 驱动器型号 1-禾川-SV-XD3EA040L-E，2-禾川-SV-X2EA150A-A，1-汇川-SV620PT5R4I，1-松下-MADLN15SG，2-松下-MSDLN25SG，3-松下-MCDLN35SG
-	 * @param [in] axisEncType 编码器类型  0-增量；1-绝对值
-	 * @return 错误码
-	 */
+	* @brief Configure UDP extension axis parameters
+	* @param [in] axisID Axis number [1-4]
+	* @param [in] axisType Extended axis type; 0-translation, 1-rotation
+	* @param [in] axisDirection Axis direction; 0-forward; 1-reverse
+	* @param [in] axisMax The maximum position of the extension axis(mm)
+	* @param [in] axisMin Minimum position of the extension axis (mm)
+	* @param [in] axisVel Speed mm/s
+	* @param [in] axisAcc Acceleration mm/s2
+	* @param [in] axisLead Lead mm
+	* @param [in] encResolution Encoder resolution
+	* @param [in] axisOffect The start point of the weld extension axis offset
+	* @param [in] axisCompany Driver manufacturer 1-Hechuan; 2- Huichuan; 3- Panasonic
+	* @param [in] axisModel Driver models 1-Hechuan SV-XD3EA040L-E, 2-Hechuan SV-X2EA150A-A, 1-Huichuan SV620PT5R4I, 1-Matsushita MADLN15SG, 2-Matsushita MSDLN25SG, 3-Matsushita MCDLN35SG
+	* @param [in] axisEncType Encoder type 0-increments; 1- absolute value
+	* @return error code
+	*/
 	errno_t ExtAxisParamConfig(int axisID, int axisType, int axisDirection, double axisMax, double axisMin, double axisVel, double axisAcc, double axisLead, int encResolution, double axisOffect, int axisCompany, int axisModel, int axisEncType);
 
 	/**
-	 * @brief 获取扩展轴驱动器配置信息  -- 接口失效，暂时注释 2024.06.05
-	 * @param [in] axisId 轴号[1-4]
-	 * @param [out] axisCompany 驱动器厂家 1-禾川；2-汇川；3-松下
-	 * @param [out] axisModel 驱动器型号 1-禾川-SV-XD3EA040L-E，2-禾川-SV-X2EA150A-A，1-汇川-SV620PT5R4I，1-松下-MADLN15SG，2-松下-MSDLN25SG，3-松下-MCDLN35SG
-	 * @param [out] axisEncType 编码器类型  0-增量；1-绝对值
-	 * @return 错误码
+	 * @brief Get UDP extended axis parameters
+	 * @param [in] axisID Extended axis number [1-4]
+	 * @param [out] axisType Extended axis type 0-Linear; 1-Rotary
+	 * @param [out] axisDirection Extended axis direction 0-Forward; 1-Reverse
+	 * @param [out] axisMax Extended axis maximum position (mm)
+	 * @param [out] axisMin Extended axis minimum position (mm)
+	 * @param [out] axisVel Speed (mm/s)
+	 * @param [out] axisAcc Acceleration (mm/s²)
+	 * @param [out] axisLead Lead screw pitch (mm)
+	 * @param [out] encResolution Encoder resolution
+	 * @param [out] axisOffect Weld start point extended axis offset
+	 * @param [out] axisCompany Drive manufacturer 1-Hekun; 2-Inovance; 3-Panasonic
+	 * @param [out] axisModel Drive model 1-Hekun-SV-XD3EA040L-E, 2-Hekun-SV-X2EA150A-A, 1-Inovance-SV620PT5R4I, 1-Panasonic-MADLN15SG, 2-Panasonic-MSDLN25SG, 3-Panasonic-MCDLN35SG
+	 * @param [out] axisEncType Encoder type 0-Incremental; 1-Absolute
+	 * @return Error code
 	 */
-	 //errno_t GetExAxisDriverConfig(int axisId, int &axisCompany, int &axisModel, int &axisEncType);
+	errno_t ExtAxisGetParamConfig(int axisID, int& axisType, int& axisDirection, double& axisMax, double& axisMin, double& axisVel, double& axisAcc, double& axisLead, int& encResolution, double& axisOffect, int& axisCompany, int& axisModel, int& axisEncType);
 
 	/**
-	 * @brief 设置扩展机器人相对扩展轴位置
-	 * @param [in] installType 0-机器人安装在外部轴上，1-机器人安装在外部轴外
-	 * @return 错误码
-	 */
-	 errno_t SetRobotPosToAxis(int installType);
+	* @brief Set the installation position of the expansion shaft
+	* @param [in] installType  0-The robot is installed on the external axis, 1-the robot is installed outside the external axis
+	* @return error code
+	*/
+	errno_t SetRobotPosToAxis(int installType);
 
 	/**
-	 * @brief 设置扩展轴系统DH参数配置
-	 * @param [in]  axisConfig 外部轴构型，0-单自由度直线滑轨，1-两自由度L型变位机，2-三自由度，3-四自由度，4-单自由度变位机
-	 * @param [in]  axisDHd1 外部轴DH参数d1 mm
-	 * @param [in]  axisDHd2 外部轴DH参数d2 mm
-	 * @param [in]  axisDHd3 外部轴DH参数d3 mm
-	 * @param [in]  axisDHd4 外部轴DH参数d4 mm
-	 * @param [in]  axisDHa1 外部轴DH参数11 mm
-	 * @param [in]  axisDHa2 外部轴DH参数a2 mm
-	 * @param [in]  axisDHa3 外部轴DH参数a3 mm
-	 * @param [in]  axisDHa4 外部轴DH参数a4 mm
-	 * @return 错误码
-	 */
-	 errno_t SetAxisDHParaConfig(int axisConfig, double axisDHd1, double axisDHd2, double axisDHd3, double axisDHd4, double axisDHa1, double axisDHa2, double axisDHa3, double axisDHa4);
+	* @brief Set the extended shaft system DH parameters
+	* @param [in] axisConfig 0-single DOF linear slide, 1-2 DOF L-type positioner, 2-3 DOF, 3-4 DOF, 4-single DOF positioner
+	* @param [in] axisDHd1 External axisDH parameter d1 mm
+	* @param [in] axisDHd2 External axisDH parameter d2 mm
+	* @param [in] axisDHd3 External axisDH parameter d3 mm
+	* @param [in] axisDHd4 External axisDH parameter d4 mm
+	* @param [in] axisDHa1 External axisDH parameter 11 mm
+	* @param [in] axisDHa2 External axisDH parameter a2 mm
+	* @param [in] axisDHa3 External axisDH parameter a3 mm
+	* @param [in] axisDHa4 External axisDH parameter a4 mm
+	* @return error code
+	*/
+	errno_t SetAxisDHParaConfig(int axisConfig, double axisDHd1, double axisDHd2, double axisDHd3, double axisDHd4, double axisDHa1, double axisDHa2, double axisDHa3, double axisDHa4);
 
 	/**
-	 * @brief 设置扩展轴坐标系参考点-四点法
-	 * @param [in]  pointNum 点编号[1-4]
-	 * @return 错误码
-	 */
-	 errno_t ExtAxisSetRefPoint(int pointNum);
+	* @brief Set the reference point of the extended axis coordinate system - four-point method
+	* @param [in] pointNum Point number [1-4]
+	* @return error code
+	*/
+	errno_t ExtAxisSetRefPoint(int pointNum);
 
 	/**
-	 * @brief 计算扩展轴坐标系-四点法
-	 * @param [out]  coord 坐标系值
-	 * @return 错误码
-	 */
-	 errno_t ExtAxisComputeECoordSys(DescPose& coord);
+	* @brief Calculation of extended axis coordinate system - four-point method
+	* @param [out] coord coordinate values
+	* @return error code
+	*/
+	errno_t ExtAxisComputeECoordSys(DescPose& coord);
 
 	/**
-	 * @brief 应用扩展轴坐标系
-	 * @param [in]  axisCoordNum 坐标系编号
-	 * @param [in]  toolNum 工具号
-	 * @param [in]  coord 坐标系值
-	 * @param [in]  calibFlag 标定标志 0-否，1-是
-	 * @return 错误码
+	 * @brief Apply extended axis coordinate system
+	 * @param [in] axisCoordNum Extended axis number; bit0-bit3 correspond to extended axis 1-4;
+	 *            e.g., to apply extended axes [1,2], axisCoordNum value is 3
+	 * @param [in] toolNum Extended axis coordinate system number
+	 * @param [in] coord Coordinate system values
+	 * @param [in] calibFlag Calibration flag 0-No, 1-Yes
+	 * @return error code
 	 */
-	 errno_t ExtAxisActiveECoordSys(int axisCoordNum, int toolNum, DescPose coord, int calibFlag);
-
-	 /**
-	 * @brief 设置标定参考点在变位机末端坐标系下位姿
-	 * @param [in] pos 位姿值
-	 * @return 错误码
-	 */
-	 errno_t SetRefPointInExAxisEnd(DescPose pos);
-
-	 /**
-	 * @brief 变位机坐标系参考点设置
-	 * @param [in]  pointNum 点编号[1-4]
-	 * @return 错误码
-	 */
-	 errno_t PositionorSetRefPoint(int pointNum);
-
-	 /**
-	 * @brief 变位机坐标系计算-四点法
-	 * @param [out]  coord 坐标系值
-	 * @return 错误码
-	 */
-	 errno_t PositionorComputeECoordSys(DescPose& coord);
+	errno_t ExtAxisActiveECoordSys(int axisCoordNum, int toolNum, DescPose coord, int calibFlag);
 
 	/**
-	 * @brief  UDP扩展轴与机器人关节运动同步运动
-	 * @param  [in] joint_pos  目标关节位置,单位deg
-	 * @param  [in] desc_pos   目标笛卡尔位姿
-	 * @param  [in] tool  工具坐标号，范围[0~14]
-	 * @param  [in] user  工件坐标号，范围[0~14]
-	 * @param  [in] vel  速度百分比，范围[0~100]
-	 * @param  [in] acc  加速度百分比，范围[0~100],暂不开放
-	 * @param  [in] ovl  速度缩放因子，范围[0~100]
-	 * @param  [in] epos  扩展轴位置，单位mm
-	 * @param  [in] blendT [-1.0]-运动到位(阻塞)，[0~500.0]-平滑时间(非阻塞)，单位ms
-	 * @param  [in] offset_flag  0-不偏移，1-基坐标系/工件坐标系下偏移，2-工具坐标系下偏移
-	 * @param  [in] offset_pos  位姿偏移量
-	 * @return  错误码
-	 */
-	 errno_t ExtAxisSyncMoveJ(JointPos joint_pos, DescPose desc_pos, int tool, int user, float vel, float acc, float ovl, ExaxisPos epos, float blendT, uint8_t offset_flag, DescPose offset_pos);
-
-	 /**
-	 * @brief  UDP扩展轴与机器人关节运动同步运动 (重载函数 不需要输入笛卡尔位置)
-	 * @param  [in] joint_pos  目标关节位置,单位deg
-	 * @param  [in] tool  工具坐标号，范围[0~14]
-	 * @param  [in] user  工件坐标号，范围[0~14]
-	 * @param  [in] vel  速度百分比，范围[0~100]
-	 * @param  [in] acc  加速度百分比，范围[0~100],暂不开放
-	 * @param  [in] ovl  速度缩放因子，范围[0~100]
-	 * @param  [in] epos  扩展轴位置，单位mm
-	 * @param  [in] blendT [-1.0]-运动到位(阻塞)，[0~500.0]-平滑时间(非阻塞)，单位ms
-	 * @param  [in] offset_flag  0-不偏移，1-基坐标系/工件坐标系下偏移，2-工具坐标系下偏移
-	 * @param  [in] offset_pos  位姿偏移量
-	 * @return  错误码
-	 */
-	 errno_t ExtAxisSyncMoveJ(JointPos joint_pos, int tool, int user, float vel, float acc, float ovl, ExaxisPos epos, float blendT, uint8_t offset_flag, DescPose offset_pos);
+	* @brief Set the pose of the calibration reference point in the end coordinate system of the positioner
+	* @param [in] pos Position value
+	* @return error code
+	*/
+	errno_t SetRefPointInExAxisEnd(DescPose pos);
 
 	/**
-	 * @brief  UDP扩展轴与机器人直线运动同步运动
-	 * @param  [in] joint_pos  目标关节位置,单位deg
-	 * @param  [in] desc_pos   目标笛卡尔位姿
-	 * @param  [in] tool  工具坐标号，范围[0~14]
-	 * @param  [in] user  工件坐标号，范围[0~14]
-	 * @param  [in] vel  速度百分比，范围[0~100]
-	 * @param  [in] acc  加速度百分比，范围[0~100],暂不开放
-	 * @param  [in] ovl  速度缩放因子，范围[0~100]
-	 * @param  [in] blendR [-1.0]-运动到位(阻塞)，[0~1000.0]-平滑半径(非阻塞)，单位mm
-	 * @param  [in] epos  扩展轴位置，单位mm
-	 * @param  [in] offset_flag  0-不偏移，1-基坐标系/工件坐标系下偏移，2-工具坐标系下偏移
-	 * @param  [in] offset_pos  位姿偏移量
-	 * @return  错误码
-	 */
-	 errno_t ExtAxisSyncMoveL(JointPos joint_pos, DescPose desc_pos, int tool, int user, float vel, float acc, float ovl, float blendR, ExaxisPos epos, uint8_t offset_flag, DescPose offset_pos);
-
-	 /**
-	  * @brief  UDP扩展轴与机器人直线运动同步运动 (重载函数 不需要输入关节位置)
-	  * @param  [in] desc_pos   目标笛卡尔位姿
-	  * @param  [in] tool  工具坐标号，范围[0~14]
-	  * @param  [in] user  工件坐标号，范围[0~14]
-	  * @param  [in] vel  速度百分比，范围[0~100]
-	  * @param  [in] acc  加速度百分比，范围[0~100],暂不开放
-	  * @param  [in] ovl  速度缩放因子，范围[0~100]
-	  * @param  [in] blendR [-1.0]-运动到位(阻塞)，[0~1000.0]-平滑半径(非阻塞)，单位mm
-	  * @param  [in] epos  扩展轴位置，单位mm
-	  * @param  [in] offset_flag  0-不偏移，1-基坐标系/工件坐标系下偏移，2-工具坐标系下偏移
-	  * @param  [in] offset_pos  位姿偏移量
-	  * @param  [in] config 逆解关节空间配置，[-1]-参考当前关节位置解算，[0~7]-依据特定关节空间配置求解
-	  * @return  错误码
-	  */
-	 errno_t ExtAxisSyncMoveL(DescPose desc_pos, int tool, int user, float vel, float acc, float ovl, float blendR, ExaxisPos epos, uint8_t offset_flag, DescPose offset_pos, int config = -1);
-
-	 /**
-	  * @brief  UDP扩展轴与机器人圆弧运动同步运动
-	  * @param  [in] joint_pos_p  路径点关节位置,单位deg
-	  * @param  [in] desc_pos_p   路径点笛卡尔位姿
-	  * @param  [in] ptool  工具坐标号，范围[0~14]
-	  * @param  [in] puser  工件坐标号，范围[0~14]
-	  * @param  [in] pvel  速度百分比，范围[0~100]
-	  * @param  [in] pacc  加速度百分比，范围[0~100],暂不开放
-	  * @param  [in] epos_p  扩展轴位置，单位mm
-	  * @param  [in] poffset_flag  0-不偏移，1-基坐标系/工件坐标系下偏移，2-工具坐标系下偏移
-	  * @param  [in] offset_pos_p  位姿偏移量
-	  * @param  [in] joint_pos_t  目标点关节位置,单位deg
-	  * @param  [in] desc_pos_t   目标点笛卡尔位姿
-	  * @param  [in] ttool  工具坐标号，范围[0~14]
-	  * @param  [in] tuser  工件坐标号，范围[0~14]
-	  * @param  [in] tvel  速度百分比，范围[0~100]
-	  * @param  [in] tacc  加速度百分比，范围[0~100],暂不开放
-	  * @param  [in] epos_t  扩展轴位置，单位mm
-	  * @param  [in] toffset_flag  0-不偏移，1-基坐标系/工件坐标系下偏移，2-工具坐标系下偏移
-	  * @param  [in] offset_pos_t  位姿偏移量
-	  * @param  [in] ovl  速度缩放因子，范围[0~100]
-	  * @param  [in] blendR [-1.0]-运动到位(阻塞)，[0~1000.0]-平滑半径(非阻塞)，单位mm
-	  * @return  错误码
-	  */
-	 errno_t ExtAxisSyncMoveC(JointPos joint_pos_p, DescPose desc_pos_p, int ptool, int puser, float pvel, float pacc, ExaxisPos epos_p, uint8_t poffset_flag, DescPose offset_pos_p, JointPos joint_pos_t, DescPose desc_pos_t, int ttool, int tuser, float tvel, float tacc, ExaxisPos epos_t, uint8_t toffset_flag, DescPose offset_pos_t, float ovl, float blendR);
-	
-	 /**
-	 * @brief  UDP扩展轴与机器人圆弧运动同步运动 (重载函数 不需要输入关节位置)
-	 * @param  [in] desc_pos_p   路径点笛卡尔位姿
-	 * @param  [in] ptool  工具坐标号，范围[0~14]
-	 * @param  [in] puser  工件坐标号，范围[0~14]
-	 * @param  [in] pvel  速度百分比，范围[0~100]
-	 * @param  [in] pacc  加速度百分比，范围[0~100],暂不开放
-	 * @param  [in] epos_p  扩展轴位置，单位mm
-	 * @param  [in] poffset_flag  0-不偏移，1-基坐标系/工件坐标系下偏移，2-工具坐标系下偏移
-	 * @param  [in] offset_pos_p  位姿偏移量
-	 * @param  [in] desc_pos_t   目标点笛卡尔位姿
-	 * @param  [in] ttool  工具坐标号，范围[0~14]
-	 * @param  [in] tuser  工件坐标号，范围[0~14]
-	 * @param  [in] tvel  速度百分比，范围[0~100]
-	 * @param  [in] tacc  加速度百分比，范围[0~100],暂不开放
-	 * @param  [in] epos_t  扩展轴位置，单位mm
-	 * @param  [in] toffset_flag  0-不偏移，1-基坐标系/工件坐标系下偏移，2-工具坐标系下偏移
-	 * @param  [in] offset_pos_t  位姿偏移量
-	 * @param  [in] ovl  速度缩放因子，范围[0~100]
-	 * @param  [in] blendR [-1.0]-运动到位(阻塞)，[0~1000.0]-平滑半径(非阻塞)，单位mm
-	 * @param  [in] config 逆解关节空间配置，[-1]-参考当前关节位置解算，[0~7]-依据特定关节空间配置求解
-	 * @return  错误码
-	 */
-	 errno_t ExtAxisSyncMoveC(DescPose desc_pos_p, int ptool, int puser, float pvel, float pacc, ExaxisPos epos_p, uint8_t poffset_flag, DescPose offset_pos_p, DescPose desc_pos_t, int ttool, int tuser, float tvel, float tacc, ExaxisPos epos_t, uint8_t toffset_flag, DescPose offset_pos_t, float ovl, float blendR, int config = -1);
-
+	* @brief Positioner coordinate system reference point setting - four-point method
+	* @param [in] pointNum Point number[1-4]
+	* @return error code
+	*/
+	errno_t PositionorSetRefPoint(int pointNum);
 
 	/**
-	* @brief  焊丝寻位开始
-	* @param  [in] refPos  1-基准点 2-接触点
-	* @param  [in] searchVel   寻位速度 %
-	* @param  [in] searchDis  寻位距离 mm
-	* @param  [in] autoBackFlag 自动返回标志，0-不自动；-自动
-	* @param  [in] autoBackVel  自动返回速度 %
-	* @param  [in] autoBackDis  自动返回距离 mm
-	* @param  [in] offectFlag  1-带偏移量寻位；2-示教点寻位
-	* @return  错误码
+	* @brief Coordinate system calculation of positioner - four-point method
+	* @param [out] coord coordinate values
+	* @return error code
+	*/
+	errno_t PositionorComputeECoordSys(DescPose& coord);
+
+	/**
+	* @brief The UDP expansion axis moves synchronously with the robot joint movement
+	* @param [in] joint_pos Position of the target joint, unit[°]
+	* @param [in] desc_pos target Cartesian pose, unit[mm]
+	* @param [in] tool Tool number [0~14]
+	* @param [in] user workpiece number [0~14]
+	* @param [in] vel Speed percentage [0~100]
+	* @param [in] acc Acceleration percentage[0~100]
+	* @param [in] ovl Speed scaling factor[0~100]
+	* @param [in] epos the external axis position[mm]
+	* @param [in] blendT [1.0] - movement in place (block), [0 ~ 500.0]-smooth time (non-blocking), unit[ms]
+	* @param [in] offset_flag 0-No offset, 1-Offset in the job/base coordinate system, 2-Offset in the tool coordinate system, defaults to 0
+	* @param [in] offset_pos position offset
+	* @return error code
+	*/
+	errno_t ExtAxisSyncMoveJ(JointPos joint_pos, DescPose desc_pos, int tool, int user, float vel, float acc, float ovl, ExaxisPos epos, float blendT, uint8_t offset_flag, DescPose offset_pos);
+
+	/**
+	* @brief The UDP expansion axis moves synchronously with the robot joint movement(Overloaded functions do not require the input of Cartesian positions)
+	* @param [in] joint_pos Position of the target joint, unit[°]
+	* @param [in] tool Tool number [0~14]
+	* @param [in] user workpiece number [0~14]
+	* @param [in] vel Speed percentage [0~100]
+	* @param [in] acc Acceleration percentage[0~100]
+	* @param [in] ovl Speed scaling factor[0~100]
+	* @param [in] epos the external axis position[mm]
+	* @param [in] blendT [1.0] - movement in place (block), [0 ~ 500.0]-smooth time (non-blocking), unit[ms]
+	* @param [in] offset_flag 0-No offset, 1-Offset in the job/base coordinate system, 2-Offset in the tool coordinate system, defaults to 0
+	* @param [in] offset_pos position offset
+	* @return error code
+	*/
+	errno_t ExtAxisSyncMoveJ(JointPos joint_pos, int tool, int user, float vel, float acc, float ovl, ExaxisPos epos, float blendT, uint8_t offset_flag, DescPose offset_pos);
+
+	/**
+	* @brief  The UDP extension axis moves synchronously with the robot’s linear motion
+	* @param [in] joint_pos Position of the target joint, unit[°]
+	* @param [in] desc_pos target Cartesian pose, unit[mm]
+	* @param [in] tool Tool number [0~14]
+	* @param [in] user workpiece number [0~14]
+	* @param [in] vel Speed percentage [0~100]
+	* @param [in] acc Acceleration percentage[0~100]
+	* @param [in] ovl Speed scaling factor[0~100]
+	* @param [in] blendR 1.0-movement in place (block), [0 ~ 1000] - smooth radius (non-blocking), unit (mm) 1.0 by default
+	* @param [in] epos the external axis position[mm]
+	* @param [in] offset_flag  0-No offset, 1-Offset in the job/base coordinate system, 2-Offset in the tool coordinate system, defaults to 0
+	* @param [in] offset_pos position offset
+	* @return error code
+	*/
+	errno_t ExtAxisSyncMoveL(JointPos joint_pos, DescPose desc_pos, int tool, int user, float vel, float acc, float ovl, float blendR, ExaxisPos epos, uint8_t offset_flag, DescPose offset_pos);
+
+	/**
+	* @brief  The UDP extension axis moves synchronously with the robot’s linear motion(Overloaded functions do not require the input of robot joint positions)
+	* @param [in] desc_pos target Cartesian pose, unit[mm]
+	* @param [in] tool Tool number [0~14]
+	* @param [in] user workpiece number [0~14]
+	* @param [in] vel Speed percentage [0~100]
+	* @param [in] acc Acceleration percentage[0~100]
+	* @param [in] ovl Speed scaling factor[0~100]
+	* @param [in] blendR 1.0-movement in place (block), [0 ~ 1000] - smooth radius (non-blocking), unit (mm) 1.0 by default
+	* @param [in] epos the external axis position[mm]
+	* @param [in] offset_flag  0-No offset, 1-Offset in the job/base coordinate system, 2-Offset in the tool coordinate system, defaults to 0
+	* @param [in] offset_pos position offset
+	* @param [in] config Robot inverse kinematics calculation joint configuration, [-1]- calculate based on the current joint position, [0~7]- solve based on the specific joint space configuration
+	* @return error code
+	*/
+	errno_t ExtAxisSyncMoveL(DescPose desc_pos, int tool, int user, float vel, float acc, float ovl, float blendR, ExaxisPos epos, uint8_t offset_flag, DescPose offset_pos, int config = -1);
+
+	/**
+	* @brief The UDP extension axis moves synchronously with the robot arc motion
+	* @param [in] joint_pos_p joint position of a pathpoint [°]
+	* @param [in] desc_pos_p path point Cartesian pose[mm]
+	* @param [in] ptool  path point tool number[0~14]
+	* @param [in] puser  path point workpiece number[0~14]
+	* @param [in] pvel  Speed percentage [0~100]
+	* @param [in] pacc  Acceleration percentage[0~100]
+	* @param [in] epos_p Pathpoint external axis position mm
+	* @param [in] poffset_flag 0-No offset, 1-Offset in the job/base coordinate system, 2-Offset in the tool coordinate system, defaults to 0
+	* @param [in] offset_pos_p  path point position offset
+	* @param [in] joint_pos_t joint position of the target point[°]
+	* @param [in] desc_pos_t Cartesian position of the target point[mm]
+	* @param [in] ttool  target point tool number[0~14]
+	* @param [in] tuser  target point workpiece number[0~14]
+	* @param [in] tvel  Speed percentage[0~100]
+	* @param [in] tacc  Acceleration percentage[0~100]
+	* @param [in] epos_t target point external axis position mm
+	* @param [in] toffset_flag 0-No offset, 1-Offset in the job/base coordinate system, 2-Offset in the tool coordinate system, defaults to 0
+	* @param [in] offset_pos_t target point position offset
+	* @param [in] ovl Speed scaling factor [0~100]
+	* @param [in] blendR [-1.0]- movement in place (blocking), [0~1000.0]- Smoothing radius (non-blocking), unit: mm
+	* @return error code
+	*/
+	errno_t ExtAxisSyncMoveC(JointPos joint_pos_p, DescPose desc_pos_p, int ptool, int puser, float pvel, float pacc, ExaxisPos epos_p, uint8_t poffset_flag, DescPose offset_pos_p, JointPos joint_pos_t, DescPose desc_pos_t, int ttool, int tuser, float tvel, float tacc, ExaxisPos epos_t, uint8_t toffset_flag, DescPose offset_pos_t, float ovl, float blendR);
+
+	/**
+	* @brief The UDP extension axis moves synchronously with the robot arc motion(Overloaded functions do not require the input of robot joint positions)
+	* @param [in] desc_pos_p path point Cartesian pose[mm]
+	* @param [in] ptool  path point tool number[0~14]
+	* @param [in] puser  path point workpiece number[0~14]
+	* @param [in] pvel  Speed percentage [0~100]
+	* @param [in] pacc  Acceleration percentage[0~100]
+	* @param [in] epos_p Pathpoint external axis position mm
+	* @param [in] poffset_flag 0-No offset, 1-Offset in the job/base coordinate system, 2-Offset in the tool coordinate system, defaults to 0
+	* @param [in] offset_pos_p  path point position offset
+	* @param [in] desc_pos_t Cartesian position of the target point[mm]
+	* @param [in] ttool  target point tool number[0~14]
+	* @param [in] tuser  target point workpiece number[0~14]
+	* @param [in] tvel  Speed percentage[0~100]
+	* @param [in] tacc  Acceleration percentage[0~100]
+	* @param [in] epos_t target point external axis position mm
+	* @param [in] toffset_flag 0-No offset, 1-Offset in the job/base coordinate system, 2-Offset in the tool coordinate system, defaults to 0
+	* @param [in] offset_pos_t target point position offset
+	* @param [in] ovl Speed scaling factor [0~100]
+	* @param [in] blendR [-1.0]- movement in place (blocking), [0~1000.0]- Smoothing radius (non-blocking), unit: mm
+	* @param [in] config Robot inverse kinematics calculation joint configuration, [-1]- calculate based on the current joint position, [0~7]- solve based on the specific joint space configuration
+	* @return error code
+	*/
+	errno_t ExtAxisSyncMoveC(DescPose desc_pos_p, int ptool, int puser, float pvel, float pacc, ExaxisPos epos_p, uint8_t poffset_flag, DescPose offset_pos_p, DescPose desc_pos_t, int ttool, int tuser, float tvel, float tacc, ExaxisPos epos_t, uint8_t toffset_flag, DescPose offset_pos_t, float ovl, float blendR, int config = -1);
+
+	/**
+	* @brief  Wire search begins
+	* @param  [in] refPos  1- Reference point 2- contact point
+	* @param  [in] searchVel   Search speed %
+	* @param  [in] searchDis  Seeking distance mm
+	* @param  [in] autoBackFlag Automatic return flag, 0- not automatic; - Auto
+	* @param  [in] autoBackVel  Automatic return speed %
+	* @param  [in] autoBackDis  Automatic return distance mm
+	* @param  [in] offectFlag  1- Find with offset; 2- Find the teaching point
+	* @return  error code
 	*/
 	 errno_t WireSearchStart(int refPos, float searchVel, int searchDis, int autoBackFlag, float autoBackVel, int autoBackDis, int offectFlag);
 
 	 /**
-	  * @brief  焊丝寻位结束
-	  * @param  [in] refPos  1-基准点 2-接触点
-	  * @param  [in] searchVel   寻位速度 %
-	  * @param  [in] searchDis  寻位距离 mm
-	  * @param  [in] autoBackFlag 自动返回标志，0-不自动；-自动
-	  * @param  [in] autoBackVel  自动返回速度 %
-	  * @param  [in] autoBackDis  自动返回距离 mm
-	  * @param  [in] offectFlag  1-带偏移量寻位；2-示教点寻位
-	  * @return  错误码
+	  * @brief  Wire locating is complete
+	  * @param  [in] refPos  1- Reference point 2- contact point
+	  * @param  [in] searchVel   Search speed %
+	  * @param  [in] searchDis  Seeking distance mm
+	  * @param  [in] autoBackFlag Automatic return flag, 0- not automatic; - Auto
+	  * @param  [in] autoBackVel  Automatic return speed %
+	  * @param  [in] autoBackDis  Automatic return distance mm
+	  * @param  [in] offectFlag  1- Find with offset; 2- Find the teaching point
+	  * @return  error code
 	  */
 	 errno_t WireSearchEnd(int refPos, float searchVel, int searchDis, int autoBackFlag, float autoBackVel, int autoBackDis, int offectFlag);
 
 	 /**
-	  * @brief  计算焊丝寻位偏移量
-	  * @param  [in] seamType  焊缝类型
-	  * @param  [in] method   计算方法
-	  * @param  [in] varNameRef 基准点1-6，“#”表示无点变量
-	  * @param  [in] varNameRes 接触点1-6，“#”表示无点变量
-	  * @param  [out] offectFlag 0-偏移量直接叠加到指令点；1-偏移量需要对指令点进行坐标变换
-	  * @param  [out] offect 偏移位姿[x, y, z, a, b, c]
-	  * @return  错误码
+	  * @brief  Calculate the seeking offset of the welding wire
+	  * @param  [in] seamType  Weld type
+	  * @param  [in] method   Calculation method
+	  * @param  [in] varNameRef Reference points 1-6, "#" indicates no point variable
+	  * @param  [in] varNameRes Contact points 1-6, "#" indicates no point variable
+	  * @param  [out] offectFlag 0- offset is superimposed directly to the instruction point; 1- Offset requires a coordinate transformation of the instruction point
+	  * @param  [out] offect Offset pose[x, y, z, a, b, c]
+	  * @return  error code
 	  */
 	 errno_t GetWireSearchOffset(int seamType, int method, std::vector<std::string> varNameRef, std::vector<std::string> varNameRes, int& offectFlag, DescPose& offect);
 
 	 /**
-	  * @brief  等待焊丝寻位完成
-	  * @return  错误码
+	  * @brief  Wait for wire locating to complete
+	  * @return  error code
 	  */
 	 errno_t WireSearchWait(std::string varName);
 
 	 /**
-	  * @brief  焊丝寻位接触点写入数据库
-	  * @param  [in] varName  接触点名称 “RES0” ~ “RES99”
-	  * @param  [in] pos  接触点数据[x, y, x, a, b, c]
-	  * @return  错误码
+	  * @brief  Wire seeking contact is written to the database
+	  * @param  [in] varName  Contact point name: RES0 ~ RES99
+	  * @param  [in] pos  Contact data[x, y, x, a, b, c]
+	  * @return  error code
 	  */
 	 errno_t SetPointToDatabase(std::string varName, DescPose pos);
-	
+
 	 /**
-	  * @brief  电弧跟踪控制
-	  * @param  [in] flag 开关，0-关；1-开
-	  * @param  [in] dalayTime 滞后时间，单位ms
-	  * @param  [in] isLeftRight 左右偏差补偿
-	  * @param  [in] klr 左右调节系数(灵敏度);
-	  * @param  [in] tStartLr 左右开始补偿时间cyc
-	  * @param  [in] stepMaxLr 左右每次最大补偿量 mm
-	  * @param  [in] sumMaxLr 左右总计最大补偿量 mm
-	  * @param  [in] isUpLow 上下偏差补偿
-	  * @param  [in] kud 上下调节系数(灵敏度);
-	  * @param  [in] tStartUd 上下开始补偿时间cyc
-	  * @param  [in] stepMaxUd 上下每次最大补偿量 mm
-	  * @param  [in] sumMaxUd 上下总计最大补偿量
-	  * @param  [in] axisSelect 上下坐标系选择，0-摆动；1-工具；2-基座
-	  * @param  [in] referenceType 上下基准电流设定方式，0-反馈；1-常数
-	  * @param  [in] referSampleStartUd 上下基准电流采样开始计数(反馈);，cyc
-	  * @param  [in] referSampleCountUd 上下基准电流采样循环计数(反馈);，cyc
-	  * @param  [in] referenceCurrent 上下基准电流mA
-	  * @param  [in] offsetType 偏置跟踪类型，0-不偏置；1-采样；2-百分比
-	  * @param  [in] offsetParameter 偏置参数；采样(偏置采样开始时间，默认采一周期)；百分比(偏置百分比(-100 ~ 100))
-	  * @return  错误码
+	  * @brief  Arc tracking control
+	  * @param  [in] flag Switch, 0-off; 1-on
+	  * @param  [in] dalayTime Lag time, in ms
+	  * @param  [in] isLeftRight Left-right deviation compensation
+	  * @param  [in] klr Left-right adjustment coefficient (sensitivity);
+	  * @param  [in] tStartLr Left-right start compensation time around cyc
+	  * @param  [in] stepMaxLr Left-right the maximum compensation amount each time mm
+	  * @param  [in] sumMaxLr Left-right total maximum compensation mm
+	  * @param  [in] isUpLow Up-down compensation
+	  * @param  [in] kud Up-down adjustment factor;
+	  * @param  [in] tStartUd Start Up-down compensation time cyc
+	  * @param  [in] stepMaxUd Maximum compensation amount Up-down each time mm
+	  * @param  [in] sumMaxUd Total maximum compensation Up-down
+	  * @param  [in] axisSelect Up-down coordinate system selection, 0-swing; 1- Tools; 2- Base
+	  * @param  [in] referenceType Up-down reference current setting mode, 0-feedback; 1-constant
+	  * @param  [in] referSampleStartUd Up-down reference current sampling start count (feedback);cyc
+	  * @param  [in] referSampleCountUd Up-down reference current sampling cycle count;cyc
+	  * @param  [in] referenceCurrent Up-down reference current mA
+	  * @param  [in] offsetType Indicates the offset tracking type. 0- no offset. 1- Sampling; 2- percent
+	  * @param  [in] offsetParameter Offset parameter; Sampling (offset sampling start time, default sampling cycle); Percentage (offset percentage (-100 ~ 100))
+	  * @return  error code
 	  */
 	 errno_t ArcWeldTraceControl(int flag, double delaytime, int isLeftRight, double klr, double tStartLr, double stepMaxLr, double sumMaxLr, int isUpLow, double kud, double tStartUd, double stepMaxUd, double sumMaxUd, int axisSelect, int referenceType, double referSampleStartUd, double referSampleCountUd, double referenceCurrent, int offsetType = 0, int offsetParameter = 0);
 
 
 	 /**
-	  * @brief  设置电弧跟踪输入信号端口
-	  * @param  [in] channel 电弧跟踪AI通带选择,[0-3]
-	  * @return  错误码
+	  * @brief  Wire seeking contact is written to the database
+	  * @param  [in] channel Arc tracking AI passband selection,[0-3]
+	  * @return  error code
 	  */
 	 errno_t ArcWeldTraceExtAIChannelConfig(int channel);
 
+
 	 /**
-	  * @brief  力传感器辅助拖动
-	  * @param  [in] status 控制状态，0-关闭；1-开启
-	  * @param  [in] asaptiveFlag 自适应开启标志，0-关闭；1-开启
-	  * @param  [in] interfereDragFlag 干涉区拖动标志，0-关闭；1-开启
-	  * @param  [in] ingularityConstraintsFlag 奇异点策略，0-规避；1-穿越
-	  * @param  [in] M 惯性系数
-	  * @param  [in] B 阻尼系数
-	  * @param  [in] K 刚度系数
-	  * @param  [in] F 拖动六维力阈值
-	  * @param  [in] Fmax 最大拖动力限制
-	  * @param  [in] Vmax 最大关节速度限制
-	  * @return  错误码
+	  * @brief  Force sensor assists drag
+	  * @param  [in] status Control status, 0- off; 1- On
+	  * @param  [in] asaptiveFlag Adaptive on flag, 0- off; 1- On
+	  * @param  [in] interfereDragFlag Interference drag flag, 0- off; 1- On
+	  * @param  [in] ingularityConstraintsFlag Singularity strategy, 0- evade; 1- Crossing
+	  * @param  [in] M Inertia coefficient
+	  * @param  [in] B Damping coefficient
+	  * @param  [in] K Stiffness coefficient
+	  * @param  [in] F Drag the six-dimensional force threshold
+	  * @param  [in] Fmax Maximum towing power limit
+	  * @param  [in] Vmax Maximum joint speed limit
+	  * @return  error code
 	  */
 	 errno_t EndForceDragControl(int status, int asaptiveFlag, int interfereDragFlag, int ingularityConstraintsFlag, std::vector<double> M, std::vector<double> B, std::vector<double> K, std::vector<double> F, double Fmax, double Vmax);
 
 	 /**
-	  * @brief  力传感器辅助拖动
-	  * @param  [in] status 控制状态，0-关闭；1-开启
-	  * @param  [in] asaptiveFlag 自适应开启标志，0-关闭；1-开启
-	  * @param  [in] interfereDragFlag 干涉区拖动标志，0-关闭；1-开启
-	  * @param  [in] ingularityConstraintsFlag 奇异点策略，0-规避；1-穿越
-	  * @param  [in] forceCollisionFlag 辅助拖动时机器人碰撞检测标志；0-关闭；1-开启
-	  * @param  [in] M 惯性系数
-	  * @param  [in] B 阻尼系数
-	  * @param  [in] K 刚度系数
-	  * @param  [in] F 拖动六维力阈值
-	  * @param  [in] Fmax 最大拖动力限制
-	  * @param  [in] Vmax 最大关节速度限制
-	  * @return  错误码
+	  * @brief  Force sensor assists drag
+	  * @param  [in] status Control status, 0- off; 1- On
+	  * @param  [in] asaptiveFlag Adaptive on flag, 0- off; 1- On
+	  * @param  [in] interfereDragFlag Interference drag flag, 0- off; 1- On
+	  * @param  [in] ingularityConstraintsFlag Singularity strategy, 0- evade; 1- Crossing
+	  * @param  [in] forceCollisionFlag Robot collision detection mark during assisted dragging 0- Close 1- Open
+	  * @param  [in] M Inertia coefficient
+	  * @param  [in] B Damping coefficient
+	  * @param  [in] K Stiffness coefficient
+	  * @param  [in] F Drag the six-dimensional force threshold
+	  * @param  [in] Fmax Maximum towing power limit
+	  * @param  [in] Vmax Maximum joint speed limit
+	  * @return  error code
 	  */
 	 errno_t EndForceDragControl(int status, int asaptiveFlag, int interfereDragFlag, int ingularityConstraintsFlag, int forceCollisionFlag, std::vector<double> M, std::vector<double> B, std::vector<double> K, std::vector<double> F, double Fmax, double Vmax);
 
 
 	 /**
-	  * @brief  报错清除后力传感器自动开启
-	  * @param  [in] status 控制状态，0-关闭；1-开启
-	  * @return  错误码
+	  * @brief  The force sensor automatically On after the error is cleared
+	  * @param  [in] status Control status, 0- off; 1- On
+	  * @return  error code
 	  */
 	 errno_t SetForceSensorDragAutoFlag(int status);
 
 
-	 /**
-	  * @brief  设置六维力和关节阻抗混合拖动开关及参数
-	  * @param  [in] status 控制状态，0-关闭；1-开启
-	  * @param  [in] impedanceFlag 阻抗开启标志，0-关闭；1-开启
-	  * @param  [in] lamdeDain 拖动增益
-	  * @param  [in] KGain 刚度增益
-	  * @param  [in] BGain 阻尼增益
-	  * @param  [in] dragMaxTcpVel 拖动末端最大线速度限制
-      * @param  [in] dragMaxTcpOriVel 拖动末端最大角速度限制
-	  * @return  错误码
-	  */
-	 errno_t ForceAndJointImpedanceStartStop(int status, int impedanceFlag, std::vector<double> lamdeDain, std::vector<double> KGain, std::vector<double> BGain, double dragMaxTcpVel, double dragMaxTcpOriVel);
+	/**
+	* @brief sets the hybrid drag switch and parameters of six-dimensional force and joint impedance
+	* @param [in] status Control status, 0- off; 1- Open
+	* @param [in] impedanceFlag Impedanceflag, 0-off; 1- Open
+	* @param [in] lamdeDain Drag gain
+	* @param [in] KGain Stiffness gain
+	* @param [in] BGain Damping gain
+	* @param [in] dragMaxTcpVel Drag the end maximum line speed limit
+	* @param [in] dragMaxTcpOriVel Drag end maximum angular speed limit
+	* @return  error code
+	*/
+	errno_t ForceAndJointImpedanceStartStop(int status, int impedanceFlag, std::vector<double> lamdeDain, std::vector<double> KGain, std::vector<double> BGain, double dragMaxTcpVel, double dragMaxTcpOriVel);
 
-	 /**
-	  * @brief  获取力传感器拖动开关状态
-	  * @param  [out] dragState 力传感器辅助拖动控制状态，0-关闭；1-开启
-	  * @param  [out] sixDimensionalDragState 六维力辅助拖动控制状态，0-关闭；1-开启
-	  * @return  错误码
-	  */
-	 errno_t GetForceAndTorqueDragState(int& dragState, int& sixDimensionalDragState);
+	/**
+	* @brief get the drag switch status of the force sensor
+	* @param [out] dragState Force sensor auxiliary drag control status, 0-off; 1- Open
+	* @param [out] sixDimensionalDragState Control state, 0- off; 1- Open
+	* @return  error code
+	*/
+	errno_t GetForceAndTorqueDragState(int& dragState, int& sixDimensionalDragState);
 
-	 /**
-	  * @brief  设置力传感器下负载重量
-	  * @param  [in] weight 负载重量 kg
-	  * @return  错误码
-	  */
+	/**
+	* @brief Sets the load weight under the force sensor
+	* @param [in] weight Load weight kg
+	* @return  error code
+	*/
 	 errno_t SetForceSensorPayload(double weight);
 
 	 /**
-	  * @brief  设置力传感器下负载质心
-	  * @param  [in] x 负载质心x mm
-	  * @param  [in] y 负载质心y mm
-	  * @param  [in] z 负载质心z mm
-	  * @return  错误码
+	  * @brief sets the load center of mass under the force sensor
+	  * @param [in] x Load centroid x mm
+	  * @param [in] y Load centroid y mm
+	  * @param [in] z Load centroid z mm
+	  * @return  error code
 	  */
 	 errno_t SetForceSensorPayloadCog(double x, double y, double z);
 
 	 /**
-	  * @brief  获取力传感器下负载重量
-	  * @param  [in] weight 负载重量 kg
-	  * @return  错误码
+	  * @brief obtains the load weight under the force sensor
+	  * @param [in] weight Load weight kg
+	  * @return  error code
 	  */
 	 errno_t GetForceSensorPayload(double& weight);
 
 	 /**
-	  * @brief  获取力传感器下负载质心
-	  * @param  [out] x 负载质心x mm
-	  * @param  [out] y 负载质心y mm
-	  * @param  [out] z 负载质心z mm
-	  * @return  错误码
+	  * @brief obtains the load center of mass under the force sensor
+	  * @param [out] x Load centroid x mm
+	  * @param [out] y Load centroid y mm
+	  * @param [out] z Load centroid z mm
+	  * @return  error code
 	  */
 	 errno_t GetForceSensorPayloadCog(double& x, double& y, double& z);
 
 	 /**
-	  * @brief  力传感器自动校零
-	  * @param  [out] weight 传感器质量 kg
-	  * @param  [out] pos 传感器质心 mm
-	  * @return  错误码
+	  * @brief force sensor automatically adjusts to zero
+	  * @param [out] weight Weight of the sensor kg
+	  * @param [out] pos sensor centroid mm
+	  * @return  error code
 	  */
 	 errno_t ForceSensorAutoComputeLoad(double& weight, DescTran& pos);
-	
+
 	 /**
-	  * @brief  传感器自动校零数据记录
-	  * @param  [in] recordCount 记录数据个数 1-3
-	  * @return  错误码
+	  * @brief sensor automatically zero data recording
+	  * @param [in] recordCount Number of recorded data 1-3
+	  * @return  error code
 	  */
 	 errno_t ForceSensorSetSaveDataFlag(int recordCount);
 
-	 /**
-	  * @brief  传感器自动校零计算
-	  * @param  [out] weight 传感器质量 kg
-	  * @param  [out] pos 传感器质心 [x, y, z]
-	  * @return  错误码
-	  */
-	 errno_t ForceSensorComputeLoad(double& weight, DescTran& pos);
-	
-	 /**
-	  * @brief  段焊获取位置和姿态
-	  * @param  [in] startPos 起始点坐标
-	  * @param  [in] endPos 终止点坐标
-	  * @param  [in] startDistance 焊接点至起点的长度
-	  * @param  [out] weldPointDesc 焊接点的笛卡尔坐标信息
-	  * @param  [out] weldPointJoint 焊接点的笛卡尔坐标信息
-	  * @param  [out] tool 工具号
-	  * @param  [out] user 工件号
-	  * @return  错误码
-	  */
-	 errno_t GetSegmentWeldPoint(DescPose startPos, DescPose endPos, double startDistance, DescPose& weldPointDesc, JointPos& weldPointJoint, int& tool, int& user);
-
-	 /**
-	  * @brief  设置焊接工艺曲线参数
-	  * @param  [in] id 焊接工艺编号(1-99)
-	  * @param  [in] startCurrent 起弧电流(A)
-	  * @param  [in] startVoltage 起弧电压(V)
-	  * @param  [in] startTime 起弧时间(ms)
-	  * @param  [in] weldCurrent 焊接电流(A)
-	  * @param  [in] weldVoltage 焊接电压(V)
-	  * @param  [in] endCurrent 收弧电流(A)
-	  * @param  [in] endVoltage 收弧电压(V)
-	  * @param  [in] endTime 收弧时间(ms)
-	  * @return  错误码
-	  */
-	 errno_t WeldingSetProcessParam(int id, double startCurrent, double startVoltage, double startTime, double weldCurrent, double weldVoltage, double endCurrent, double endVoltage, double endTime);
-
-	 /**
-	  * @brief  获取焊接工艺曲线参数
-	  * @param  [in] id 焊接工艺编号(1-99)
-	  * @param  [out] startCurrent 起弧电流(A)
-	  * @param  [out] startVoltage 起弧电压(V)
-	  * @param  [out] startTime 起弧时间(ms)
-	  * @param  [out] weldCurrent 焊接电流(A)
-	  * @param  [out] weldVoltage 焊接电压(V)
-	  * @param  [out] endCurrent 收弧电流(A)
-	  * @param  [out] endVoltage 收弧电压(V)
-	  * @param  [out] endTime 收弧时间(ms)
-	  * @return  错误码
-	  */
-	 errno_t WeldingGetProcessParam(int id, double& startCurrent, double& startVoltage, double& startTime, double& weldCurrent, double& weldVoltage, double& endCurrent, double& endVoltage, double& endTime);
+	/**
+	* @brief sensor automatic zero correction calculation
+	* @param [out] weight Weight of the sensor kg
+	* @param [out] pos sensor centroid [x, y, z]
+	* @return  error code
+	*/
+	errno_t ForceSensorComputeLoad(double& weight, DescTran& pos);
 
 	/**
-	* @brief  末端传感器配置
-	* @param  [in] idCompany 厂商，18-JUNKONG；25-HUIDE
-	* @param  [in] idDevice 类型，0-JUNKONG/RYR6T.V1.0
-	* @param  [in] idSoftware 软件版本，0-J1.0/HuiDe1.0(暂未开放)
-	* @param  [in] idBus 挂载位置，1-末端1号口；2-末端2号口...8-末端8号口(暂未开放)
-	* @return  错误码
+	* @brief segment welding get Position and attitude obtained
+	* @param [in] startPos Coordinates of the start point
+	* @param [in] endPos end point coordinates
+	* @param [in] startDistance Length from welding point to starting point
+	* @param [out] weldPointDesc Cartesian coordinate information of the weld point
+	* @param [out] weldPointJoint Cartesian coordinate information of weldpointjoint
+	* @param [out] tool Indicates the tool number
+	* @param [out] user Job ID
+	* @return  error code
+	*/
+	errno_t GetSegmentWeldPoint(DescPose startPos, DescPose endPos, double startDistance, DescPose& weldPointDesc, JointPos& weldPointJoint, int& tool, int& user);
+
+	/**
+	* @brief Set welding process curve parameters
+	* @param [in] id Welding process number (1-99)
+	* @param [in] startCurrent Arcing current (A)
+	* @param [in] startVoltage Arc voltage (V)
+	* @param [in] startTime Arc starting time (ms)
+	* @param [in] weldCurrent Welding current (A)
+	* @param [in] weldVoltage Welding voltage (V)
+	* @param [in] endCurrent (A)
+	* @param [in] endVoltage (V)
+	* @param [in] endTime Arc recovery time (ms)
+	* @return  error code
+	*/
+	errno_t WeldingSetProcessParam(int id, double startCurrent, double startVoltage, double startTime, double weldCurrent, double weldVoltage, double endCurrent, double endVoltage, double endTime);
+
+	/**
+	* @brief Obtain welding process curve parameters
+	* @param [in] id Welding process number (1-99)
+	* @param [out] startCurrent Arcing current (A)
+	* @param [out] startVoltage Arc voltage (V)
+	* @param [out] startTime Arc starting time (ms)
+	* @param [out] weldCurrent Welding current (A)
+	* @param [out] weldVoltage Welding voltage (V)
+	* @param [out] endCurrent (A)
+	* @param [out] endVoltage Return voltage (V)
+	* @param [out] endTime Arc recovery time (ms)
+	* @return  error code
+	*/
+	errno_t WeldingGetProcessParam(int id, double& startCurrent, double& startVoltage, double& startTime, double& weldCurrent, double& weldVoltage, double& endCurrent, double& endVoltage, double& endTime);
+
+	/**
+	* @brief end sensor configuration
+	* @param [in] idCompany, 18-JUNKONG; 25-HUIDE
+	* @param [in] idDevice type, 0-JUNKONG/RYR6T.V1.0
+	* @param [in] idSoftware Software version, 0-J1.0/HuiDe1.0(not yet available)
+	* @param [in] idBus mount position, 1- end port 1; 2- Terminal port 2... 8- Terminal Port 8 (not yet open)
+	* @return  error code
 	*/
 	errno_t AxleSensorConfig(int idCompany, int idDevice, int idSoftware, int idBus);
 
-	 /**
-	  * @brief  获取末端传感器配置
-	  * @param  [out] idCompany 厂商，18-JUNKONG；25-HUIDE
-	  * @param  [out] idDevice 类型，0-JUNKONG/RYR6T.V1.0
-	  * @return  错误码
-	  */
+	/**
+	* @brief gets the end sensor configuration
+	* @param [out] idCompany, 18-JUNKONG; 25-HUIDE
+	* @param [out] idDevice type, 0-JUNKONG/RYR6T.V1.0
+	* @return  error code
+	*/
 	errno_t AxleSensorConfigGet(int& idCompany, int& idDevice);
 
-	 /**
-	  * @brief  末端传感器激活
-	  * @param  [in] actFlag 0-复位；1-激活
-	  * @return  错误码
-	  */
+	/**
+	* @brief end sensor activation
+	* @param [in] actFlag 0- Reset; 1- Activation
+	* @return  error code
+	*/
 	errno_t AxleSensorActivate(int actFlag);
 
-	 /**
-	  * @brief  末端传感器寄存器写入
-	  * @param  [in] devAddr  设备地址编号 0-255
-	  * @param  [in] regHAddr 寄存器地址高8位
-	  * @param  [in] regLAddr 寄存器地址低8位
-	  * @param  [in] regNum  寄存器个数 0-255
-	  * @param  [in] data1 写入寄存器数值1
-	  * @param  [in] data2 写入寄存器数值2
-	  * @param  [in] isNoBlock 0-阻塞；1-非阻塞
-	  * @return  错误码
-	  */
+	/**
+	* @brief end sensor register write
+	* @param [in] devAddr Indicates the device address number 0-255
+	* @param [in] regHAddr register address high 8 bits
+	* @param [in] regLAddr Lower 8 bits of the register address
+	* @param [in] regNum Number of registers 0-255
+	* @param [in] data1 writes the register value 1
+	* @param [in] data2 writes the register value 2
+	* @param [in] isNoBlock 0- Block; 1- Non-blocking
+	* @return  error code
+	*/
 	errno_t AxleSensorRegWrite(int devAddr, int regHAddr, int regLAddr, int regNum, int data1, int data2, int isNoBlock);
 
 	/**
-	* @brief 设置控制箱DO停止/暂停后输出是否复位
-	* @param [in] resetFlag 0-不复位；1-复位
-	* @param [in] reloadFlag 暂停恢复后是否重加载，0-不加载；1-加载
-	* @return 错误码
+	* @brief sets whether the output is reset after the DO stop/pause of the control box
+	* @param [in] resetFlag 0- no more bits; 1- Reset
+	* @param [in] reloadFlag Whether to reload after resuming the program. 0 - Do not reload; 1 - Load
+	* @return  error code
 	*/
 	errno_t SetOutputResetCtlBoxDO(int resetFlag, int reloadFlag = 0);
 
 	 /**
-	  * @brief 设置控制箱AO停止/暂停后输出是否复位
-	  * @param [in] resetFlag  0-不复位；1-复位
-	  * @param [in] reloadFlag 暂停恢复后是否重加载，0-不加载；1-加载
-	  * @return 错误码
+	  * @brief sets whether the output is reset after the control box AO is stopped/paused
+	  * @param [in] resetFlag 0- no more bits; 1- Reset
+	  * @param [in] reloadFlag Whether to reload after resuming the program. 0 - Do not reload; 1 - Load
+	  * @return  error code
 	  */
 	errno_t SetOutputResetCtlBoxAO(int resetFlag, int reloadFlag = 0);
 
 	 /**
-	  * @brief 设置末端工具DO停止/暂停后输出是否复位
-	  * @param [in] resetFlag  0-不复位；1-复位
-	  * @param [in] reloadFlag 暂停恢复后是否重加载，0-不加载；1-加载
-	  * @return 错误码
+	  * @brief Sets whether the output is reset after the end tool DO is stopped/paused
+	  * @param [in] resetFlag 0- no more bits; 1- Reset
+	  * @param [in] reloadFlag Whether to reload after resuming the program. 0 - Do not reload; 1 - Load
+	  * @return  error code
 	  */
 	errno_t SetOutputResetAxleDO(int resetFlag, int reloadFlag = 0);
-	 
+
 	 /**
-	  * @brief 设置末端工具AO停止/暂停后输出是否复位
-	  * @param [in] resetFlag  0-不复位；1-复位
-	  * @param [in] reloadFlag 暂停恢复后是否重加载，0-不加载；1-加载
-	  * @return  错误码
+	  * @brief sets whether the output is reset after the end tool AO is stopped/paused
+	  * @param [in] resetFlag 0- no more bits; 1- Reset
+	  * @param [in] reloadFlag Whether to reload after resuming the program. 0 - Do not reload; 1 - Load
+	  * @return  error code
 	  */
 	errno_t SetOutputResetAxleAO(int resetFlag, int reloadFlag = 0);
-	
-	 /**
-	  * @brief 设置扩展DO停止/暂停后输出是否复位
-	  * @param [in] resetFlag  0-不复位；1-复位
-	  * @param [in] reloadFlag 暂停恢复后是否重加载，0-不加载；1-加载
-	  * @return  错误码
-	  */
-	 errno_t SetOutputResetExtDO(int resetFlag, int reloadFlag = 0);
 
 	 /**
-	  * @brief 设置扩展AO停止/暂停后输出是否复位
-	  * @param [in] resetFlag  0-不复位；1-复位
-	  * @param [in] reloadFlag 暂停恢复后是否重加载，0-不加载；1-加载
-	  * @return  错误码
+	  * @brief Sets whether the output is reset after the extension DO is stopped/paused
+	  * @param [in] resetFlag 0- no more bits; 1- Reset
+	  * @param [in] reloadFlag Whether to reload after resuming the program. 0 - Do not reload; 1 - Load
+	  * @return  error code
 	  */
-	 errno_t SetOutputResetExtAO(int resetFlag, int reloadFlag = 0);
+	errno_t SetOutputResetExtDO(int resetFlag, int reloadFlag = 0);
 
 	 /**
-	  * @brief 设置SmartTool停止/暂停后输出是否复位
-	  * @param [in] resetFlag  0-不复位；1-复位
-	  * @param [in] reloadFlag 暂停恢复后是否重加载，0-不加载；1-加载
-	  * @return  错误码
+	  * @brief sets whether the output is reset after the extended AO is stopped/paused
+	  * @param [in] resetFlag 0- no more bits; 1- Reset
+	  * @param [in] reloadFlag Whether to reload after resuming the program. 0 - Do not reload; 1 - Load
+	  * @return  error code
 	  */
-	 errno_t SetOutputResetSmartToolDO(int resetFlag, int reloadFlag = 0);
-	
+	errno_t SetOutputResetExtAO(int resetFlag, int reloadFlag = 0);
+
 	 /**
-	  * @brief  仿真摆动开始
-	  * @param  [in] weaveNum  摆动参数编号
-	  * @return  错误码
+	  * @brief sets whether the output is reset after SmartTool stops/pauses
+	  * @param [in] resetFlag 0- no more bits; 1- Reset
+	  * @param [in] reloadFlag Whether to reload after resuming the program. 0 - Do not reload; 1 - Load
+	  * @return  error code
+	  */
+	errno_t SetOutputResetSmartToolDO(int resetFlag, int reloadFlag = 0);
+
+	 /**
+	  * @brief simulation swing starts
+	  * @param [in] weaveNum Swing parameter number
+	  * @return  error code
 	  */
 	errno_t WeaveStartSim(int weaveNum);
 
 	 /**
-	  * @brief  仿真摆动结束
-	  * @param  [in] weaveNum  摆动参数编号
-	  * @return  错误码
+	  * @brief simulation swing is over
+	  * @param [in] weaveNum Swing parameter number
+	  * @return  error code
 	  */
-	errno_t WeaveEndSim(int weaveNum);
+		errno_t WeaveEndSim(int weaveNum);
 
 	 /**
-	  * @brief  开始轨迹检测预警(不运动)
-	  * @param  [in] weaveNum   摆动参数编号
-	  * @return  错误码
+	  * @brief start trajectory detection warning (no movement)
+	  * @param [in] weaveNum Swing parameter number
+	  * @return  error code
 	  */
-	errno_t WeaveInspectStart(int weaveNum);
+		errno_t WeaveInspectStart(int weaveNum);
 
 	 /**
-	  * @brief 结束轨迹检测预警(不运动)
-	  * @param  [in] weaveNum   摆动参数编号
-	  * @return  错误码
+	  * @brief end track detection warning (no movement)
+	  * @param [in] weaveNum Swing parameter number
+	  * @return  error code
 	  */
-	errno_t WeaveInspectEnd(int weaveNum);
+		errno_t WeaveInspectEnd(int weaveNum);
 
 	 /**
-	  * @brief 扩展IO-配置焊机气体检测信号
-	  * @param  [in] DONum  气体检测信号扩展DO编号
-	  * @return  错误码
+	  * @brief Extension IO- Configure welder gas detection signal
+	  * @param [in] DONum Gas detection signal extension DO number
+	  * @return  error code
 	  */
-	errno_t SetAirControlExtDoNum(int DONum);
-	
-	 /**
-	  * @brief 扩展IO-配置焊机起弧信号
-	  * @param  [in] DONum  焊机起弧信号扩展DO编号
-	  * @return  错误码
-	  */
-	errno_t SetArcStartExtDoNum(int DONum);
+		errno_t SetAirControlExtDoNum(int DONum);
 
 	 /**
-	  * @brief 扩展IO-配置焊机反向送丝信号
-	  * @param  [in] DONum  反向送丝信号扩展DO编号
-	  * @return  错误码
+	  * @brief extension IO- Configs the arc signal of the welder
+	  * @param [in] DONum welding machine arc signal extension DO number
+	  * @return  error code
 	  */
-	errno_t SetWireReverseFeedExtDoNum(int DONum);
+		errno_t SetArcStartExtDoNum(int DONum);
 
 	 /**
-	  * @brief 扩展IO-配置焊机正向送丝信号
-	  * @param  [in] DONum  正向送丝信号扩展DO编号
-	  * @return  错误码
+	  * @brief extension IO- Configure the welder reverse wire feed signal
+	  * @param [in] DONum reverse feed signal extension DO number
+	  * @return  error code
+	  */
+		errno_t SetWireReverseFeedExtDoNum(int DONum);
+
+	 /**
+	  * @brief Extension IO- Configure the welder forward wire feed signal
+	  * @param [in] DONum extends the DO number to the forward wire feed signal
+	  * @return  error code
 	  */
 		errno_t SetWireForwardFeedExtDoNum(int DONum);
 
 	 /**
-	  * @brief 扩展IO-配置焊机起弧成功信号
-	  * @param  [in] DINum  起弧成功信号扩展DI编号
-	  * @return  错误码
+	  * @brief extension IO- Configure the welder arc success signal
+	  * @param [in] DINum Indicates the extension DI number of the arc-starting successful signal
+	  * @return  error code
 	  */
 		errno_t SetArcDoneExtDiNum(int DINum);
 
 	 /**
-	  * @brief 扩展IO-配置焊机准备信号
-	  * @param  [in] DINum  焊机准备信号扩展DI编号
-	  * @return  错误码
+	  * @brief Extension IO- Configure the welder ready signal
+	  * @param [in] DINum welder ready signal extension DI number
+	  * @return  error code
 	  */
 		errno_t SetWeldReadyExtDiNum(int DINum);
 
 	 /**
-	  * @brief 扩展IO-配置焊接中断恢复信号
-	  * @param  [in] reWeldDINum  焊接中断后恢复焊接信号扩展DI编号
-	  * @param  [in] abortWeldDINum  焊接中断后退出焊接信号扩展DI编号
-	  * @return  错误码
+	  * @brief Extension IO- Configs the welding interrupt recovery signal
+	  * @param [in] reWeldDINum Resume welding signal extension DI number after welding interruption
+	  * @param [in] abortWeldDINum Indicates the DI number of a welding signal that exits after a welding failure
+	  * @return  error code
 	  */
 	    errno_t SetExtDIWeldBreakOffRecover(int reWeldDINum, int abortWeldDINum);
 
-	 /**
-	  * @brief 设置机器人碰撞检测方法
-	  * @param [in] method 碰撞检测方法：0-电流模式；1-双编码器；2-电流和双编码器同时开启
-	  * @param [in] thresholdMode 碰撞等级阈值方式；0-碰撞等级固定阈值方式；1-自定义碰撞检测阈值
-	  * @return  错误码
-	  */
-	errno_t SetCollisionDetectionMethod(int method, int thresholdMode = 0);
+	/**
+	* @brief Get extended DI function configuration
+	* @param [out] DIConfig Extended DI input configuration; DIConfig[0] - Extended DI port for welder ready signal;
+							DIConfig[1] - Extended DI port for arc ignition success signal;
+							DIConfig[2] - Extended DI port for weld interruption resume signal;
+							DIConfig[3] - Extended DI port for weld interruption exit signal;
+							DIConfig[4] - Extended DI port for wire search completion signal;
+							DIConfig[5] - Extended DI port for laser welder running status;
+							DIConfig[6] - Extended DI port for laser welder fault status;
+							DIConfig[7-15] - Reserved
+	* @return Error code
+	*/
+	errno_t GetExtDIConfig(int DIConfig[16]);
+
+	/**
+	* @brief Get extended DO function configuration
+	* @param [out] DOConfig Extended DO output configuration; DOConfig[0] - Extended DO port for welder arc ignition;
+							DOConfig[1] - Extended DO port for gas detection;
+							DOConfig[2] - Extended DO port for forward wire feeding;
+							DOConfig[3] - Extended DO port for reverse wire feeding;
+							DOConfig[4] - Extended DO port for wire positioning;
+							DOConfig[5] - Extended DO port for welder control mode;
+							DOConfig[6] - Extended DO port for laser welder enable;
+							DOConfig[7] - Extended DO port for laser welder start (laser emission);
+							DOConfig[8] - Extended DO port for laser welder reset;
+							DOConfig[9-15] - Reserved
+	* @return Error code
+	*/
+	errno_t GetExtDOConfig(int DOConfig[16]);
 
 	 /**
-	  * @brief 设置静态下碰撞检测开始关闭
-	  * @param  [in] status 0-关闭；1-开启
-	  * @return  错误码
+	  * @brief sets the collision detection method of the robot
+	  * @param [in] method Collision detection method: 0- current mode; 1- Dual encoder; 2- Current and dual encoder turn on simultaneously
+	  * @param [in] thresholdMode Collision level threshold method 0-Collision level fixed threshold mode 1- Customize collision detection thresholds
+	  * @return  error code
 	  */
-	errno_t SetStaticCollisionOnOff(int status);
+		errno_t SetCollisionDetectionMethod(int method, int thresholdMode = 0);
 
 	 /**
-	  * @brief 关节扭矩功率检测
-	  * @param  [in] status 0-关闭；1-开启
-	  * @param  [in] power 设定最大功率(W);
-	  * @return  错误码
+	  * @brief Indicates that collision detection is disabled in static mode
+	  * @param [in] status 0- Off; 1- Open
+	  * @return  error code
+	  */
+		errno_t SetStaticCollisionOnOff(int status);
+
+	 /**
+	* @brief joint torque power detection
+	* @param [in] status 0- Off; 1- Open
+	* @param [in] power Set maximum power (W);
+	  * @return  error code
 	  */
 	 errno_t SetPowerLimit(int status, double power);
-	
-	/**
-	* @brief 关节扭矩控制开始
-	* @param [in] comType 指令下发类型；0-xmlrpc；1-UDP(对应机器人20007端口)
-	* @return  错误码
-	*/
+
+	 /**
+	  * @brief Start joint torque control
+	  * @param [in] comType Command transmission type; 0-xmlrpc; 1-UDP (corresponds to robot port 20007)
+	  * @return  Error code
+	  */
 	errno_t ServoJTStart(int comType = 0);
 
 	/**
-	* @brief 关节扭矩控制
-	* @param  [in] torque j1~j6关节扭矩，单位Nm
-	* @param  [in] interval 指令周期，单位s，范围[0.001~0.008]
-	* @return  错误码
+	* @brief joint torque control
+	* @param [in] torque j1 to j6 Joint torque, unit: Nm
+	* @param [in] interval Instruction period, unit s, range [0.001~0.016]
+	* @return error code
 	*/
 	errno_t ServoJT(float torque[], double interval);
 
 	/**
-	* @brief 关节扭矩控制
-	* @param [in] torque j1~j6关节扭矩，单位Nm
-	* @param [in] interval 指令周期，单位s，范围[0.001~0.008]
-	* @param [in] checkFlag 检测策略 0-不限制；1-限制功率；2-限制速度；3-功率和速度同时限制
-	* @param [in] jPowerLimit 关节最大功率限制(W)
-	* @param [in] jVelLimit 关节最大速度(°/s)
-	* @param [in] comType 指令下发类型；0-xmlrpc；1-UDP(对应机器人20007端口)
-	* @return 错误码
-	*/
+	 * @brief Joint torque control
+	 * @param [in] torque Joint torque for j1~j6, unit: Nm
+	 * @param [in] interval Command cycle, unit: s, range [0.001~0.008]
+	 * @param [in] checkFlag Detection strategy 0-No restriction; 1-Power limitation; 2-Speed limitation; 3-Both power and speed limitation
+	 * @param [in] jPowerLimit Joint maximum power limit (W)
+	 * @param [in] jVelLimit Joint maximum velocity (°/s)
+	 * @param [in] comType Command transmission type; 0-xmlrpc; 1-UDP (corresponds to robot port 20007)
+	 * @return Error code
+	 */
 	errno_t ServoJT(float torque[], double interval, int checkFlag, double jPowerLimit[6], double jVelLimit[6], int comType = 0);
 
 	/**
-	* @brief 关节扭矩控制结束
-	* @param [in] comType 指令下发类型；0-xmlrpc；1-UDP(对应机器人20007端口)
-	* @return  错误码
-	*/
+	 * @brief End joint torque control
+	 * @param [in] comType Command transmission type; 0-xmlrpc; 1-UDP (corresponds to robot port 20007)
+	 * @return  Error code
+	 */
 	errno_t ServoJTEnd(int comType = 0);
 
 	/**
-	 * @brief 设置机器人 20004 端口反馈周期
-	 * @param [in] period 机器人 20004 端口反馈周期(ms)
-	 * @return  错误码
-	 */
+	* @brief set the robot 20004 port feedback cycle
+	* @param[in] period Robot 20004 Port Feedback Period(ms)
+	* @return  error code
+	*/
 	errno_t SetRobotRealtimeStateSamplePeriod(int period);
 
 	/**
-	 * @brief  获取机器人 20004 端口反馈周期
-	 * @param [out] period 机器人 20004 端口反馈周期(ms)
-	 * @return  错误码
-	 */
+	* @brief obtains feedback cycle of robot 20004 port
+	* @param[out] period Robot 20004 Port Feedback Period(ms)
+	* @return  error code
+	*/
 	errno_t GetRobotRealtimeStateSamplePeriod(int& period);
 
 	/**
-	* @brief 获取机器人关节驱动器温度(℃)
-	* @return 错误码
+	* @brief get robot joint driver temperature(℃)
+	* @return error code
 	*/
 	errno_t GetJointDriverTemperature(double temperature[]);
 
 	/**
-	 * @brief 获取机器人关节驱动器扭矩(Nm)
-	 * @return 错误码
-	 */
+	* @brief get robot joint drive torque(Nm)
+	* @return error code
+	*/
 	errno_t GetJointDriverTorque(double torque[]);
 
 	/**
-	 * @brief 电弧追踪 + 多层多道补偿开启
-	 * @return 错误码
-	 */
+	* @brief Arc tracing + multi - layer compensation open
+	* @return error code
+	*/
 	errno_t ArcWeldTraceReplayStart();
 
 	/**
-	 * @brief 电弧追踪 + 多层多道补偿关闭
-	 * @return 错误码
-	 */
+	* @brief Arc Tracking + multi - layer compensation off
+	* @return error code
+	*/
 	errno_t ArcWeldTraceReplayEnd();
 
 	/**
-	 * @brief 偏移量坐标变化-多层多道焊
-	 * @return 错误码
-	 */
-	errno_t MultilayerOffsetTrsfToBase(DescTran pointO, DescTran pointX, DescTran pointZ, double dx, double dy, double db, DescPose& offset);
+	* @brief offset coordinate change - multipass welding
+	* @return error code
+	*/
+	errno_t MultilayerOffsetTrsfToBase(DescTran pointO, DescTran pointX, DescTran pointZ, double dx, double dy, double db, DescPose & offset);
 
 	/**
-	* @brief 指定姿态速度开启
-	* @param [in] ratio 姿态速度百分比[0-300]
-	* @return  错误码
+	* @brief specifies attitude speed on
+	* @param[in] ratio Attitude velocity percentage[0 - 300]
+	* @return  error code
 	*/
 	errno_t AngularSpeedStart(int ratio);
 
 	/**
-	 * @brief 指定姿态速度关闭
-	 * @return  错误码
-	 */
+	* @brief specifies attitude speed off
+	* @return  error code
+	*/
 	errno_t AngularSpeedEnd();
 
 	/**
-	 * @brief 机器人软件升级
-	 * @param [in] filePath 软件升级包全路径
-	 * @param [in] block 是否阻塞至升级完成 true:阻塞；false:非阻塞
-	 * @return  错误码
-	 */
+	* @brief robot software upgrade
+	* @param[in] filePath Full path of the software upgrade package
+	* @param[in] block Whether to block until the upgrade is complete true: blocks. false : not blocking
+	* @return  error code
+	*/
 	errno_t SoftwareUpgrade(std::string filePath, bool block);
 
 	/**
-	* @brief  获取机器人软件升级状态
-	* @param [out] state 机器人软件包升级状态(0-空闲中或上传升级包中；1~100：升级完成百分比；-1:升级软件失败；-2：校验失败；-3：版本校验失败；-4：解压失败；-5：用户配置升级失败；-6：外设配置升级失败；-7：扩展轴配置升级失败；-8：机器人配置升级失败；-9：DH参数配置升级失败)
-	* @return  错误码
+	* @brief get the robot software upgrade status
+	* @param[out] state Upgrade status of the robot software package(0 - Idle or uploading the upgrade package; 1 to 100: percentage of upgrade completion. - 1 : The software upgrade fails. - 2 : The verification fails. - 3 : Version verification fails. - 4 : The decompression fails. - 5 : The user configuration upgrade fails. - 6 : The peripheral configuration fails to be upgraded. - 7 : The expansion axis configuration fails to be upgraded. - 8 : The robot configuration fails to be upgraded. - 9 : Failed to configure DH parameters.
+	* @return  error code
 	*/
-	errno_t GetSoftwareUpgradeState(int &state);
+	errno_t GetSoftwareUpgradeState(int& state);
 
 	/**
-	 * @brief 设置485扩展轴运动加减速度
-	 * @param [in] acc 485扩展轴运动加速度
-	 * @param [in] dec 485扩展轴运动减速度
-	 * @return  错误码
-	 */
+	* @brief sets the speed of the 485 expansion axis
+	* @param[in] acc 485 expansion axis motion acceleration
+	* @param[in] dec 485 Expansion axis motion deceleration
+	* @return  error code
+	*/
 	errno_t AuxServoSetAcc(double acc, double dec);
 
 	/**
-	 * @brief 设置485扩展轴急停加减速度
-	 * @param [in] acc 485扩展轴急停加速度
-	 * @param [in] dec 485扩展轴急停减速度
-	 * @return  错误码
-	 */
+	* @brief sets the speed of 485 expansion shaft to stop
+	* @param[in] acc 485 expansion axis acceleration
+	* @param[in] dec 485 Expansion shaft stopped and slowed down
+	* @return  error code
+	*/
 	errno_t AuxServoSetEmergencyStopAcc(double acc, double dec);
 
 	/**
-	 * @brief 获取485扩展轴运动加减速度
-	 * @param [out] acc 485扩展轴运动加速度
-	 * @param [out] dec 485扩展轴运动减速度
-	 * @return  错误码
-	 */
+	* @brief gets the speed of the 485 expansion axis movement
+	* @param[out] acc 485 expansion axis acceleration
+	* @param[out] dec 485 expansion axis motion deceleration
+	* @return  error code
+	*/
 	errno_t AuxServoGetAcc(double& acc, double& dec);
 
 	/**
-	 * @brief 获取485扩展轴急停加减速度
-	 * @param [out] acc 485扩展轴急停加速度
-	 * @param [out] dec 485扩展轴急停减速度
-	 * @return  错误码
-	 */
+	* @brief gets the speed of 485 expansion axis
+	* @param[out] acc 485 expansion axis acceleration
+	* @param[out] dec 485 expansion shaft stopped and slowed down
+	* @return  error code
+	*/
 	errno_t AuxServoGetEmergencyStopAcc(double& acc, double& dec);
 
 	/**
-	 * @brief 获取末端通讯参数
-	 * @param param 末端通讯参数
-	 * @return  错误码
+	 * @brief gets the axle communication parameters
+	 * @param param axle communication parameters
+	 * @return  error code
 	 */
 	errno_t GetAxleCommunicationParam(AxleComParam* param);
 
 	/**
-	 * @brief 设置末端通讯参数
-	 * @param param  末端通讯参数
-	 * @return  错误码
+	 * @brief sets the axle communication parameters
+	 * @param param  axle communication parameters
+	 * @return  error code
 	 */
 	errno_t SetAxleCommunicationParam(AxleComParam param);
 
 	/**
-	 * @brief 设置末端文件传输类型
-	 * @param type 1-MCU升级文件；2-LUA文件
-	 * @return  错误码
+	 * @brief Set the end file transfer type
+	 * @param type 1-MCU；2-LUA
+	 * @return  error code
 	 */
 	errno_t SetAxleFileType(int type);
 
 	/**
-	 * @brief 设置启用末端LUA执行
-	 * @param enable 0-不启用；1-启用
-	 * @return  错误码
+	 * @brief Set to enable axle LUA execution
+	 * @param enable 0- Disable; 1- Enable
+	 * @return  error code
 	 */
 	errno_t SetAxleLuaEnable(int enable);
 
 	/**
-	 * @brief 末端LUA文件异常错误恢复
-	 * @param status 0-不恢复；1-恢复
-	 * @return  错误码
-	 */
+	* @brief Axle LUA file error reset
+	* @param status 0- No recovery; 1- Recovery
+	* @return  error code
+	*/
 	errno_t SetRecoverAxleLuaErr(int status);
 
 	/**
-	 * @brief 获取末端LUA执行使能状态
-	 * @param status status[0]: 0-未使能；1-已使能
-	 * @return  错误码
-	 */
+	* @brief Gets the axle LUA execution enable status
+	* @param status status[0]: 0- Is not enabled. 1- Enabled
+	* @return  error code
+	*/
 	errno_t GetAxleLuaEnableStatus(int status[]);
 
 	/**
-	 * @brief 设置末端LUA末端设备启用类型
-	 * @param forceSensorEnable 力传感器启用状态，0-不启用；1-启用
-	 * @param gripperEnable 夹爪启用状态，0-不启用；1-启用
-	 * @param IOEnable IO设备启用状态，0-不启用；1-启用
-	 * @return  错误码
-	 */
-	errno_t SetAxleLuaEnableDeviceType(int forceSensorEnable, int gripperEnable, int IOEnable);
+	* @brief Set End LUA End Device Enable Type
+	* @param forceSensorEnable Force sensor Enabled status, 0- Disable. 1- Enable
+	* @param gripperEnable Specifies whether the gripper is enabled. 0- Disables the gripper. 1- Enable
+	* @param IOEnable IO Indicates whether the device is enabled. 0- Indicates that the device is disabled. 1- Enable
+	* @param dexhandEnable Dexterous Hand enable status, 0 - disabled; 1 - enabled
+	* @return  error code
+	*/
+	errno_t SetAxleLuaEnableDeviceType(int forceSensorEnable, int gripperEnable, int IOEnable, int dexhandEnable);
 
 	/**
-	 * @brief 获取末端LUA末端设备启用类型
-	 * @param enable enable[0]:forceSensorEnable 力传感器启用状态，0-不启用；1-启用
-	 * @param enable enable[1]:gripperEnable 夹爪启用状态，0-不启用；1-启用
-	 * @param enable enable[2]:IOEnable IO设备启用状态，0-不启用；1-启用
-	 * @return  错误码
-	 */
-	errno_t GetAxleLuaEnableDeviceType(int* forceSensorEnable, int* gripperEnable, int* IOEnable);
+	* @brief Get End LUA End Device Enable Type
+	* @param enable enable[0]: indicates whether the forceSensorEnable force sensor is enabled. 0- Indicates whether the forcesenSOrenable force sensor is disabled. 1- Enable
+	* @param enable enable[1]:gripperEnable Indicates whether the gripper is enabled. 0- Disables the gripper. 1- Enable
+	* @param enable enable[2]:IOEnable I/o Indicates whether the device is enabled. 0- Indicates whether the device is disabled. 1- Enable
+	* @param enable enable[3]:dexhandEnable Dexterous Hand enable status, 0 - disabled; 1 - enabled
+	* @return  error code
+	*/
+	errno_t GetAxleLuaEnableDeviceType(int* forceSensorEnable, int* gripperEnable, int* IOEnable, int* dexhandEnable);
 
 	/**
-	 * @brief 获取当前配置的末端设备
-	 * @param forceSensorEnable 力传感器启用设备编号 0-未启用；1-启用
-	 * @param gripperEnable 夹爪启用设备编号，0-不启用；1-启用
-	 * @param IODeviceEnable IO设备启用设备编号，0-不启用；1-启用
-	 * @return  错误码
-	 */
-	errno_t GetAxleLuaEnableDevice(int forceSensorEnable[], int gripperEnable[], int IODeviceEnable[]);
+	@brief Get Currently Configured End Devices
+	@param [out] forceSensorEnable Force sensor enabled device number: 0 - disabled; 1 - enabled
+	@param [out] gripperEnable Gripper enabled device number: 0 - disabled; 1 - enabled
+	@param [out] IODeviceEnable I/O device enabled device number: 0 - disabled; 1 - enabled
+	@param [out] decHandEnable Dexterous hand enabled device number: 0 - disabled; 1 - enabled
+	@return Error code
+	*/
+	errno_t GetAxleLuaEnableDevice(int forceSensorEnable[], int gripperEnable[], int IODeviceEnable[], int decHandEnable[]);
 
 	/**
-	 * @brief 设置启用夹爪动作控制功能
-	 * @param id 夹爪设备编号
-	 * @param func func[0]-夹爪使能；func[1]-夹爪初始化；2-位置设置；3-速度设置；4-力矩设置；6-读夹爪状态；7-读初始化状态；8-读故障码；9-读位置；10-读速度；11-读力矩
-	 * @return  错误码
-	 */
-	errno_t SetAxleLuaGripperFunc(int id, int func[]);
+	* @brief Set Enable Gripper Action Control Function
+	* @param id ID of the gripper device
+	* @param func func[0]-Gripper enable;func[1]-Gripper initialization;func[2]-Position setting;func[3]-Speed setting;func[4]-Torque setting;func[6]-Read gripper status
+        func[7]-Read initialization status;func[8]-Read fault code;func[9]-Read position;func[10]-Read speed;func[11]-Read torque
+        func[12]-Rotating gripper revolution setting;func[13]-Rotating gripper rotation speed setting;func[14]-Rotating gripper rotation torque setting
+        func[15]-Read rotating gripper status;func[16]-Read rotating gripper initialization status;func[17]-Read rotating gripper revolutions
+        func[18]-Read rotating gripper rotation speed;func[19]-Read rotating gripper rotation torque;func[20]-Multi-axis synchronous motion setting
+        func[21]-Fault reset command;func[22]-Single-axis operating status;func[23]-All axes operating status
+	* @return  error code
+	*/
+	errno_t SetAxleLuaGripperFunc(int id, int func[32]);
 
 	/**
-	 * @brief 获取启用夹爪动作控制功能
-	 * @param id 夹爪设备编号
-	 * @param func func[0]-夹爪使能；func[1]-夹爪初始化；2-位置设置；3-速度设置；4-力矩设置；6-读夹爪状态；7-读初始化状态；8-读故障码；9-读位置；10-读速度；11-读力矩
-	 * @return  错误码
-	 */
-	errno_t GetAxleLuaGripperFunc(int id, int func[]);
+	* @brief Get Enable Gripper Action Control Function
+	* @param id ID of the gripper device
+	* @param func func[0]-Gripper enable;func[1]-Gripper initialization;func[2]-Position setting;func[3]-Speed setting;func[4]-Torque setting;func[6]-Read gripper status
+        func[7]-Read initialization status;func[8]-Read fault code;func[9]-Read position;func[10]-Read speed;func[11]-Read torque
+        func[12]-Rotating gripper revolution setting;func[13]-Rotating gripper rotation speed setting;func[14]-Rotating gripper rotation torque setting
+        func[15]-Read rotating gripper status;func[16]-Read rotating gripper initialization status;func[17]-Read rotating gripper revolutions
+        func[18]-Read rotating gripper rotation speed;func[19]-Read rotating gripper rotation torque;func[20]-Multi-axis synchronous motion setting
+        func[21]-Fault reset command;func[22]-Single-axis operating status;func[23]-All axes operating status
+	* @return  error code
+	*/
+	errno_t GetAxleLuaGripperFunc(int id, int func[32]);
 
 	/**
-	 * @brief 设置控制器外设协议LUA文件名
-	 * @param id 协议编号
-	 * @param name lua文件名称 “CTRL_LUA_test.lua”
-	 * @return  错误码
-	 */
+	* @brief Sets the controller peripheral protocol LUA file name
+	* @param id Indicates the protocol ID
+	* @param name lua file name CTRL_LUA_test.lua
+	* @return  error code
+	*/
 	errno_t SetCtrlOpenLUAName(int id, std::string name);
 
 	/**
-	 * @brief 获取当前配置的控制器外设协议LUA文件名
-	 * @param name 4个lua文件名称 “CTRL_LUA_test.lua”
-	 * @return  错误码
-	 */
+	* @brief obtains the LUA file name of the currently configured controller peripheral protocol
+	* @param name Four lua file names CTRL_LUA_test.lua
+	* @return  error code
+	*/
 	errno_t GetCtrlOpenLUAName(std::string name[]);
 
 	/**
-	 * @brief 加载控制器LUA协议
-	 * @param id 控制器LUA协议编号
-	 * @return  错误码
-	 */
+	* @brief loads the controller LUA protocol
+	* @param id Indicates the LUA protocol number of the controller
+	* @return  error code
+	*/
 	errno_t LoadCtrlOpenLUA(int id);
 
 	/**
-	 * @brief 卸载控制器LUA协议
-	 * @param id 控制器LUA协议编号
-	 * @return  错误码
-	 */
+	* @brief Uninstalls the controller LUA protocol
+	* @param id Indicates the LUA protocol number of the controller
+	* @return  error code
+	*/
 	errno_t UnloadCtrlOpenLUA(int id);
 
 	/**
-	 * @brief 设置控制器LUA协议错误码
-	 * @param id 控制器LUA协议编号
-	 * @return  错误码
-	 */
+	* @brief Sets the error code of the controller LUA protocol
+	* @param id Indicates the LUA protocol number of the controller
+	* @return  error code
+	*/
 	errno_t SetCtrlOpenLuaErrCode(int id, int code);
 
 	/**
-	 * @brief 机器人Ethercat从站文件写入
-	 * @param type 从站文件类型，1-升级从站文件；2-升级从站配置文件
-	 * @param slaveID 从站号
-	 * @param fileName 上传文件名
-	 * @return  错误码
-	 */
+	* @brief robot Ethercat writes files from the slave station
+	* @param type Slave file type, 1- Upgrade slave file; 2- Upgrade the slave configuration file
+	* @param slaveID Secondary station ID
+	* @param fileName File name of the upload file
+	* @return  error code
+	*/
 	errno_t SlaveFileWrite(int type, int slaveID, std::string fileName);
 
 	/**
-	 * @brief 上传末端Lua开放协议文件
-	 * @param filePath 本地lua文件路径名 ".../AXLE_LUA_End_DaHuan.lua"
-	 * @return 错误码
-	 */
+	* @brief uploals the axle Lua open protocol file
+	* @param filePath Local lua file pathname "... /AXLE_LUA_End_DaHuan.lua"
+	* @return error code
+	*/
 	errno_t AxleLuaUpload(std::string filePath);
 
 	/**
-	 * @brief 机器人Ethercat从站进入boot模式
-	 * @return  错误码
-	 */
+	* @brief robot Ethercat entered boot mode from the station
+	* @return  error code
+	*/
 	errno_t SetSysServoBootMode();
 
 	/**
-	 * @brief 可移动装置使能
-	 * @param enable false-去使能；true-使能
-	 * @return 错误码
+	 * @brief Movable device enable
+	 * @param enable false-disable；true-enable
+	 * @return error code
 	 */
 	errno_t TractorEnable(bool enable);
 
 	/**
-	 * @brief 可移动装置回零
-	 * @return 错误码
+	 * @brief Movable device homing
+	 * @return error code
 	 */
 	errno_t TractorHoming();
 
 	/**
-	 * @brief 可移动装置直线运动
-	 * @param distance 直线运动距离（mm）
-	 * @param vel 直线运动速度百分比（0-100）
-	 * @return 错误码
+	 * @brief movable device linear motion
+	 * @param distance Linear motion distance (mm)
+	 * @param vel Linear speed percentage (0-100)
+	 * @return error code
 	 */
 	errno_t TractorMoveL(double distance, double vel);
 
 	/**
-	 * @brief 可移动装置圆弧运动
-	 * @param radio 圆弧运动半径（mm）
-	 * @param angle 圆弧运动角度（°）
-	 * @param vel 直线运动速度百分比（0-100）
-	 * @return 错误码
+	 * @brief Circular motion of movable device
+	 * @param radio Circular Motion radius (mm)
+	 * @param angle Angle of arc motion (°)
+	 * @param vel Linear speed percentage (0-100)
+	 * @return error code
 	 */
 	errno_t TractorMoveC(double radio, double angle, double vel);
 
 	/**
-	 * @brief 可移动装置停止运动
-	 * @return 错误码
+	 * @brief The movable device stops moving
+	 * @return error code
 	 */
 	errno_t TractorStop();
 
 	/**
-	 * @brief 设置焊丝寻位扩展IO端口
-	 * @param searchDoneDINum 焊丝寻位成功DO端口(0-127)
-	 * @param searchStartDONum 焊丝寻位启停控制DO端口(0-127)
-	 * @return 错误码
+	 * @brief Sets the solder wire seeking expansion IO port
+	 * @param searchDoneDINum DO port (0-127)
+	 * @param searchStartDONum DO port for wire search start stop control (0-127)
+	 * @return error code
 	 */
 	errno_t SetWireSearchExtDIONum(int searchDoneDINum, int searchStartDONum);
 
 	/**
-	 * @brief 设置焊机控制模式扩展DO端口
-	 * @param DONum 焊机控制模式DO端口(0-127)
-	 * @return 错误码
+	 * @brief Set the welding machine control mode expansion DO port
+	 * @param DONum Welding machine control mode DO port (0-127)
+	 * @return error code
 	 */
 	errno_t SetWeldMachineCtrlModeExtDoNum(int DONum);
 
 	/**
-	* @brief 设置焊机控制模式
-	* @param [in] mode 焊机控制模式;0-直流一元模式；1-脉冲一元模式；2-JOB模式；3-近控模式；4-分别模式；5-CC/CV模式；6-TIG；7-CMT
-	* @param [in] ioType 控制类型；0-控制箱IO;1-数字通信协议(UDP);2-数字通信协议(ModbusTCP)
-	* @return 错误码
-	*/
+	 * @brief Set welder control mode
+	 * @param [in] mode Welder control mode; 0-DC one-knob mode; 1-Pulse one-knob mode; 2-JOB mode; 3-Local control mode; 4-Separate mode; 5-CC/CV mode; 6-TIG; 7-CMT; 8-Panasonic-Pulse mode, 9-Panasonic-No pulse mode
+	 * @param [in] ioType Control type; 0-Control box IO; 1-Digital communication protocol (UDP); 2-Digital communication protocol (ModbusTCP)
+	 * @return Error code
+	 */
 	errno_t SetWeldMachineCtrlMode(int mode, int ioType = 1);
 
 	/**
-	* @brief 开始奇异位姿保护
-	* @param [in] protectMode 奇异保护模式，0：关节模式；1-笛卡尔模式
-	* @param [in] minShoulderPos 肩奇异调整范围(mm), 默认100
-	* @param [in] minElbowPos 肘奇异调整范围(mm), 默认50
-	* @param [in] minWristPos 腕奇异调整范围(°), 默认10
-	* @return 错误码
+	 * @brief Get welder control mode
+	 * @param [out] mode Welder control mode; 0-DC one-knob mode; 1-Pulse one-knob mode; 2-JOB mode; 3-Local control mode; 4-Separate mode; 5-CC/CV mode; 6-TIG; 7-CMT
+	 * @return Error code
+	 */
+	errno_t GetWeldMachineCtrlMode(int& mode);
+
+	/**
+	* @brief Start singular pose protection
+	* @param [in] protectMode Singular protection mode, 0: joint mode; 1- Cartesian model
+	* @param [in] minShoulderPos Shoulder Singular adjustment range (mm), default 100
+	* @param [in] minElbowPos Elbow singular adjustment range (mm), default 50
+	* @param [in] minWristPos Wrist singular adjustment range (°), default 10
+	* @return error code
 	*/
 	errno_t SingularAvoidStart(int protectMode, double minShoulderPos, double minElbowPos, double minWristPos);
 
 	/**
-	* @brief 停止奇异位姿保护
-	* @return 错误码
+	* @brief Stop singular pose protection
+	* @return error code
 	*/
 	errno_t SingularAvoidEnd();
 
 	/**
-	* @brief 开始Ptp运动FIR滤波
-	* @param [in] maxAcc 最大加速度极值(deg/s2)
-	* @param [in] maxJek 统一关节急动度极值(deg/s3)
-	* @return 错误码
+	* @brief Start Ptp motion FIR filtering
+	* @param [in] maxAcc Maximum acceleration(deg/s2)
+	* @param [in] maxJek Unify the extreme values of joint urgency (deg/s3)
+	* @return error code
 	*/
 	errno_t PtpFIRPlanningStart(double maxAcc, double maxJek = 1000);
 
 	/**
-	* @brief 关闭Ptp运动FIR滤波
-	* @return 错误码
+	* @brief Stop Ptp motion FIR filtering
+	* @return error code
 	*/
 	errno_t PtpFIRPlanningEnd();
 
 	/**
-	* @brief 开始LIN、ARC运动FIR滤波
-	* @param [in] maxAccLin 线加速度极值(mm/s2)
-	* @param [in] maxAccDeg 角加速度极值(deg/s2)
-	* @param [in] maxJerkLin 线加加速度极值(mm/s3)
-	* @param [in] maxJerkDeg 角加加速度极值(deg/s3)
-	* @return 错误码
+	* @brief Start LIN, ARC motion FIR filtering
+	* @param [in] maxAccLin Extreme linear acceleration(mm/s2)
+	* @param [in] maxAccDeg Extreme angular acceleration(deg/s2)
+	* @param [in] maxJerkLin Extreme linear plus acceleration(mm/s3)
+	* @param [in] maxJerkDeg Extreme angular plus acceleration(deg/s3)
+	* @return error code
 	*/
 	errno_t LinArcFIRPlanningStart(double maxAccLin, double maxAccDeg, double maxJerkLin, double maxJerkDeg);
 
 	/**
-	* @brief 关闭LIN、ARC运动FIR滤波
-	* @return 错误码
+	* @brief Stop LIN, ARC motion FIR filtering
+	* @return error code
 	*/
 	errno_t LinArcFIRPlanningEnd();
 
 	/**
-	 * @brief 上传轨迹J文件
-	 * @param [in] filePath 上传轨迹文件的全路径名   C://test/testJ.txt
-	 * @return 错误码
+	 * @brief upload TrajectoryJ file
+	 * @param [in] filePath file path   C://test/testJ.txt
+	 * @return error code
 	 */
 	errno_t TrajectoryJUpLoad(const std::string& filePath);
 
 	/**
-	 * @brief 删除轨迹J文件
-	 * @param [in] fileName 文件名称 testJ.txt
-	 * @return 错误码
+	 * @brief delete TrajectoryJ file
+	 * @param [in] fileName file name   testJ.txt
+	 * @return error code
 	 */
 	errno_t TrajectoryJDelete(const std::string& fileName);
 
 	/**
-	 * @brief 根据点位信息计算工具坐标系
-	 * @param [in] method 计算方法；0-四点法；1-六点法
-	 * @param [in] pos 关节位置组，四点法时数组长度为4个，六点法时数组长度为6个
-	 * @param [out] coord 工具坐标系结果
-	 * @return 错误码
+	 * @brief calculates the tool coordinate system based on the point information
+	 * @param [in] method Calculation method; 0-four point method; One - six point method
+	 * @param [in] pos joint position group, the array length is 4 in four-point method and 6 in six-point method
+	 * @param [out] coord tool coordinate results
+	 * @return Error code
 	 */
 	errno_t ComputeToolCoordWithPoints(int method, JointPos pos[], DescPose& coord);
 
 	/**
-	 * @brief 根据点位信息计算工件坐标系
-	 * @param [in] method 计算方法；0：原点-x轴-z轴  1：原点-x轴-xy平面
-	 * @param [in] pos 三个TCP位置组
-	 * @param [in] refFrame 参考坐标系
-	 * @param [out] coord 工具坐标系结果
-	 * @return 错误码
+	 * @brief calculates the workpiece coordinate system based on the point information
+	 * @param [in] method Calculation method; 0: origin - X-axis - Z-axis 1: origin - X-axis -xy plane
+	 * @param [in] pos Three TCP location groups
+	 * @param [in] refFrame Reference coordinate system
+	 * @param [out] coord tool coordinate results
+	 * @return Error code
 	 */
 	errno_t ComputeWObjCoordWithPoints(int method, DescPose pos[], int refFrame, DescPose& coord);
 
 	/**
-	 * @brief 设置机器人焊接电弧意外中断检测参数
-	 * @param [in] checkEnable 是否使能检测；0-不使能；1-使能
-	 * @param [in] arcInterruptTimeLength 电弧中断确认时长(ms)
-	 * @return 错误码
+	 * @brief sets the detection parameters of unexpected interruption of robot welding arc
+	 * @param [in] checkEnable Whether the check is enabled. 0: Indicates that the function is disabled. 1- Enable
+	 * @param [in] arcInterruptTimeLength Duration for confirming arc interruption (ms)
+	 * @return Error code
 	 */
 	errno_t WeldingSetCheckArcInterruptionParam(int checkEnable, int arcInterruptTimeLength);
 
 	/**
-	 * @brief 获取机器人焊接电弧意外中断检测参数
-	 * @param [out] checkEnable 是否使能检测；0-不使能；1-使能
-	 * @param [out] arcInterruptTimeLength 电弧中断确认时长(ms)
-	 * @return 错误码
+	 * @brief get the detection parameters of unexpected interruption of robot welding arc
+	 * @param [out] checkEnable Whether the check is enabled. 0: Indicates that the function is disabled. 1- Enable
+	 * @param [out] arcInterruptTimeLength Duration for confirming arc interruption (ms)
+	 * @return Error code
 	 */
 	errno_t WeldingGetCheckArcInterruptionParam(int* checkEnable, int* arcInterruptTimeLength);
 
 	/**
-	 * @brief 设置机器人焊接中断恢复参数
-	 * @param [in] enable 是否使能焊接中断恢复
-	 * @param [in] length 焊缝重叠距离(mm)
-	 * @param [in] velocity 机器人回到再起弧点速度百分比(0-100)
-	 * @param [in] moveType 机器人运动到再起弧点方式；0-LIN；1-PTP
-	 * @return 错误码
+	 * @brief set the parameters of robot welding interruption recovery
+	 * @param [in] enable Whether to enable welding interrupt recovery
+	 * @param [in] length Weld overlap distance (mm)
+	 * @param [in] velocity Percentage of velocity at which the robot returns to the rearcing point (0-100)
+	 * @param [in] moveType Indicates how the robot moves to the rearcing point. 0-LIN; 1-PTP
+	 * @return Error code
 	 */
 	errno_t WeldingSetReWeldAfterBreakOffParam(int enable, double length, double velocity, int moveType);
 
 	/**
-	 * @brief 获取机器人焊接中断恢复参数
-	 * @param [out] enable 是否使能焊接中断恢复
-	 * @param [out] length 焊缝重叠距离(mm)
-	 * @param [out] velocity 机器人回到再起弧点速度百分比(0-100)
-	 * @param [out] moveType 机器人运动到再起弧点方式；0-LIN；1-PTP
-	 * @return 错误码
+	 * @brief get robot welding interrupt recovery parameters
+	 * @param [out] enable Whether to enable welding interrupt recovery
+	 * @param [out] length Weld overlap distance (mm)
+	 * @param [out] velocity Percentage of robot return to rearcing point (0-100)
+	 * @param [out] moveType Indicates how the robot moves to the rearcing point. 0-LIN; 1-PTP
+	 * @return Error code
 	 */
 	errno_t WeldingGetReWeldAfterBreakOffParam(int* enable, double* length, double* velocity, int* moveType);
 
 	/**
-	 * @brief 设置机器人焊接中断后恢复焊接
-	 * @return 错误码
+	 * @brief sets the robot to resume welding after welding interruption
+	 * @return Error code
 	 */
 	errno_t WeldingStartReWeldAfterBreakOff();
 
 	/**
-	 * @brief 设置机器人焊接中断后退出焊接
-	 * @return 错误码
+	 * @brief sets the robot to exit welding after welding interruption
+	 * @return Error code
 	 */
 	errno_t WeldingAbortWeldAfterBreakOff();
 
 	/**
-	 * @brief 激光轨迹记录
-	 * @param [in] status 0-停止记录；1-实时跟踪；2-开始记录；3-轨迹复现；4-边记录边复现
-	 * @param [in] delayMode 数据处理方式。0-延时时间；1-延时距离
-	 * @param [in] delayTime 激光传感器起始点运动到机器人焊枪处所需要的时间(ms)
-	 * @param [in] delayDisExAxisNum 延时距离对应外部轴号，bit0-3对应轴1-4
-	 * @param [in] delayDis 激光传感器起始点运动到机器人焊枪处所需要的距离(mm/°)
-	 * @param [in] sensitivePara 补偿灵敏度系数(0~1)
-	 * @param [in] trackMode 定点跟踪类型。0-扩展轴异步运动；1-机器人
-	 * @param [in] triggerMode 定点跟踪触发方式。0-跟踪时长；1-IO
-	 * @param [in] runTime 机器人定点跟踪时长(s)
-	 * @param [in] speed 机器人运动速度百分比
-	 * @return 错误码
+	 * @brief Laser trajectory recording
+	 * @param [in] status 0-Stop recording; 1-Real-time tracking; 2-Start recording; 3-Trajectory replay; 4-Record and replay simultaneously
+	 * @param [in] delayMode Data processing method. 0-Delay time; 1-Delay distance
+	 * @param [in] delayTime Time required for the laser sensor starting point to move to the robot welding torch (ms)
+	 * @param [in] delayDisExAxisNum External axis number corresponding to delay distance, bit0-3 correspond to axis 1-4
+	 * @param [in] delayDis Distance required for the laser sensor starting point to move to the robot welding torch (mm/°)
+	 * @param [in] sensitivePara Compensation sensitivity coefficient (0~1)
+	 * @param [in] trackMode Fixed-point tracking type. 0-External axis asynchronous motion; 1-Robot
+	 * @param [in] triggerMode Fixed-point tracking trigger method. 0-Tracking duration; 1-IO
+	 * @param [in] runTime Robot fixed-point tracking duration (s)
+	 * @param [in] speed Robot movement speed percentage
+	 * @return Error code
 	 */
 	errno_t LaserSensorRecord(int status, int delayMode, int delayTime, int delayDisExAxisNum, double delayDis, double sensitivePara, int trackMode, int triggerMode, int runTime, double speed);
 
@@ -3926,1080 +4035,1467 @@ public:
 
 
 	/**
-	 * @brief 激光外设打开关闭函数
-	 * @param [in] OnOff 0-关闭 1-打开
-	 * @param [in] weldId 焊缝ID 默认为0
-	 * @return 错误码
+	 * @brief Laser device on/off function
+	 * @param [in] OnOff 0-Off 1-On
+	 * @param [in] weldId Weld seam ID, default is 0
+	 * @return Error code
 	 */
-	errno_t LaserTrackingLaserOnOff(int OnOff,int weldId);
+	errno_t LaserTrackingLaserOnOff(int OnOff, int weldId);
 
 	/**
-	 * @brief 激光跟踪开始结束函数
-	 * @param [in] OnOff 0-结束 1-开始
-	 * @param [in] coordId 激光外设工具坐标系编号
-	 * @return 错误码
+	 * @brief Laser tracking start/stop function
+	 * @param [in] OnOff 0-Stop 1-Start
+	 * @param [in] coordId Tool coordinate system number of the laser device
+	 * @return Error code
 	 */
 	errno_t LaserTrackingTrackOnOff(int OnOff, int coordId);
 
 	/**
-	 * @brief 激光寻位-固定方向
-	 * @param [in] direction 0-x+ 1-x- 2-y+ 3-y- 4-z+ 5-z-
-	 * @param [in] vel 速度 单位%
-	 * @param [in] distance 最大寻位距离 单位mm
-	 * @param [in] distance 寻位超时时间 单位ms
-	 * @param [in] posSensorNum 激光标定的工具坐标编号
-	 * @return 错误码
+	 * @brief Laser search - Fixed direction
+	 * @param [in] direction 0-X+ 1-X- 2-Y+ 3-Y- 4-Z+ 5-Z-
+	 * @param [in] vel Velocity in %
+	 * @param [in] distance Maximum search distance in mm
+	 * @param [in] timeout Search timeout period in ms
+	 * @param [in] posSensorNum Tool coordinate number calibrated by the laser
+	 * @return Error code
 	 */
 	errno_t LaserTrackingSearchStart_xyz(int direction, int vel, int distance, int timeout, int posSensorNum);
 
 	/**
-	 * @brief 激光寻位-任意方向
-	 * @param [in] directionPoint 寻位输入的点的xyz左边
-	 * @param [in] vel 速度 单位%
-	 * @param [in] distance 最大寻位距离 单位mm
-	 * @param [in] distance 寻位超时时间 单位ms
-	 * @param [in] posSensorNum 激光标定的工具坐标编号
-	 * @return 错误码
+	 * @brief Laser search - Arbitrary direction
+	 * @param [in] directionPoint XYZ coordinates of the point input for search
+	 * @param [in] vel Velocity in %
+	 * @param [in] distance Maximum search distance in mm
+	 * @param [in] timeout Search timeout period in ms
+	 * @param [in] posSensorNum Tool coordinate number calibrated by the laser
+	 * @return Error code
 	 */
 	errno_t LaserTrackingSearchStart_point(DescTran directionPoint, int vel, int distance, int timeout, int posSensorNum);
 
 	/**
-	 * @brief 激光寻位结束
-	 * @return 错误码
+	 * @brief Stop laser search
+	 * @return Error code
 	 */
 	errno_t LaserTrackingSearchStop();
 
 	/**
-	 * @brief 激光网络参数配置
-	 * @param [in] ip 激光外设的ip地址
-	 * @param [in] port 激光外设的端口号
-	 * @return 错误码
+	 * @brief Configure laser network parameters
+	 * @param [in] ip IP address of the laser device
+	 * @param [in] port Port number of the laser device
+	 * @return Error code
 	 */
 	errno_t LaserTrackingSensorConfig(std::string ip, int port);
 
 	/**
-	 * @brief 激光外设采样周期配置
-	 * @param [in] period 激光外设采样周期 单位ms
-	 * @return 错误码
+	 * @brief Configure laser device sampling period
+	 * @param [in] period Sampling period of the laser device in ms
+	 * @return Error code
 	 */
 	errno_t LaserTrackingSensorSamplePeriod(int period);
 
 	/**
-	 * @brief 激光外设驱动加载
-	 * @param [in] type 激光外设驱动的协议类型 101-睿牛 102-创想 103-全视 104-同舟 105-奥太
-	 * @return 错误码
+	 * @brief Load laser device driver
+	 * @param [in] type Protocol type of the laser device driver: 101-Ruineng 102-Chuangxiang 103-Quanshi 104-Tongzhou 105-Aotai
+	 * @return Error code
 	 */
 	errno_t LoadPosSensorDriver(int type);
 
 	/**
-	 * @brief 激光外设驱动卸载
-	 * @return 错误码
+	 * @brief Unload laser device driver
+	 * @return Error code
 	 */
 	errno_t UnLoadPosSensorDriver();
 
 	/**
-	 * @brief 激光焊缝轨迹记录
-	 * @param [in] status 0-停止记录 1-实时跟踪  2-开始记录
-	 * @param [in] delayTime 延时时间 单位ms
-	 * @return 错误码
+	 * @brief Record laser weld seam trajectory
+	 * @param [in] status 0-Stop recording 1-Real-time tracking 2-Start recording
+	 * @param [in] delayTime Delay time in ms
+	 * @return Error code
 	 */
 	errno_t LaserSensorRecord1(int status, int delayTime);
 
 	/**
-	 * @brief 激光焊缝轨迹复现
-	 * @param [in] delayTime 延时时间 单位ms
-	 * @param [in] speed 速度 单位%
-	 * @return 错误码
+	 * @brief Replay laser weld seam trajectory
+	 * @param [in] delayTime Delay time in ms
+	 * @param [in] speed Velocity in %
+	 * @return Error code
 	 */
 	errno_t LaserSensorReplay(int delayTime, double speed);
 
 
 	/**
-	 * @brief 激光跟踪复现
-	 * @return 错误码
+	 * @brief Laser tracking replay
+	 * @return Error code
 	 */
 	errno_t MoveLTR();
 
 	/**
-	 * @brief 激光焊缝轨迹复现
-	 * @param [in] delayMode 模式 0-延时时间 1-延时距离
-	 * @param [in] delayTime 延时时间 单位ms
-	 * @param [in] delayDisExAxisNum 扩展轴编号
-	 * @param [in] delayDis 延时距离 单位mm
-	 * @param [in] sensitivePara 补偿灵敏系数
-	 * @param [in] trackMode 定点跟踪类型。0-扩展轴异步运动；1-机器人
-	 * @param [in] triggerMode 定点跟踪触发方式。0-跟踪时长；1-IO
-	 * @param [in] runTime 机器人定点跟踪时长(s)
-	 * @param [in] speed 速度 单位%
-	 * @return 错误码
+	 * @brief Laser Seam Trajectory Recording and Replay
+	 * @param [in] delayMode Mode: 0-Delay time 1-Delay distance
+	 * @param [in] delayTime Delay time in ms
+	 * @param [in] delayDisExAxisNum Extended axis number
+	 * @param [in] delayDis Delay distance in mm
+	 * @param [in] sensitivePara Compensation sensitivity coefficient
+	 * @param [in] trackMode Fixed-point tracking type. 0-External axis asynchronous motion; 1-Robot
+	 * @param [in] triggerMode Fixed-point tracking trigger method. 0-Tracking duration; 1-IO
+	 * @param [in] runTime Robot fixed-point tracking duration (s)
+	 * @param [in] speed Speed, unit %
+	 * @return Error code
 	 */
 	errno_t LaserSensorRecordandReplay(int delayMode, int delayTime, int delayDisExAxisNum, double delayDis, double sensitivePara, int trackMode, int triggerMode, double runTime, double speed);
 
 	/**
-	 * @brief 运动到焊缝记录的起点
+	 * @brief Move to the starting point of the laser record
 	 * @param [in] moveType 0-moveJ 1-moveL
-	 * @param [in] ovl 速度 单位%
-	 * @return 错误码
+	 * @param [in] ovl Velocity in %
+	 * @return Error code
 	 */
 	errno_t MoveToLaserRecordStart(int moveType, double ovl);
 
 	/**
-	 * @brief 运动到焊缝记录的终点
+	 * @brief Move to the endpoint of the laser record
 	 * @param [in] moveType 0-moveJ 1-moveL
-	 * @param [in] ovl 速度 单位%
-	 * @return 错误码
+	 * @param [in] ovl Velocity in %
+	 * @return Error code
 	 */
 	errno_t MoveToLaserRecordEnd(int moveType, double ovl);
 
 
 	/**
-	 * @brief 运动到激光传感器寻位点
-	 * @param [in] moveFlag 运动类型：0-PTP；1-LIN
-	 * @param [in] ovl 速度缩放因子，0-100
-	 * @param [in] dataFlag 焊缝缓存数据选择：0-执行规划数据；1-执行记录数据
-	 * @param [in] plateType 板材类型：0-波纹板；1-瓦楞板；2-围栏板；3-油桶；4-波纹甲壳钢
-	 * @param [in] trackOffectType 激光传感器偏移类型：0-不偏移；1-基坐标系偏移；2-工具坐标系偏移；3-激光传感器原始数据偏移
-	 * @param [in] offset 偏移量
-	 * @return 错误码
+	 * @brief Move to the laser sensor search position
+	 * @param [in] moveFlag Motion type: 0-PTP; 1-LIN
+	 * @param [in] ovl Velocity scaling factor, 0-100
+	 * @param [in] dataFlag Weld seam buffer data selection: 0-Execute planning data; 1-Execute recorded data
+	 * @param [in] plateType Plate type: 0-Corrugated plate; 1-Corrugated cardboard; 2-Fence plate; 3-Oil drum; 4-Corrugated shell steel
+	 * @param [in] trackOffectType Laser sensor offset type: 0-No offset; 1-Base coordinate system offset; 2-Tool coordinate system offset; 3-Laser sensor raw data offset
+	 * @param [in] offset Offset value
+	 * @return Error code
 	 */
 	errno_t MoveToLaserSeamPos(int moveFlag, double ovl, int dataFlag, int plateType, int trackOffectType, DescPose offset);
 
 	/**
-	 * @brief 获取激光传感器寻位点坐标信息
-	 * @param [in] trackOffectType 激光传感器偏移类型：0-不偏移；1-基坐标系偏移；2-工具坐标系偏移；3-激光传感器原始数据偏移
-	 * @param [in] offset 偏移量
-	 * @param [out] jPos 关节位置[°]
-	 * @param [out] descPos 笛卡尔位置[mm]
-	 * @param [out] tool 工具坐标系
-	 * @param [out] user 工件坐标系
-	 * @param [out] exaxis 扩展轴位置[mm]
-	 * @return 错误码
+	 * @brief Get the coordinate information of the laser sensor search position
+	 * @param [in] trackOffectType Laser sensor offset type: 0-No offset; 1-Base coordinate system offset; 2-Tool coordinate system offset; 3-Laser sensor raw data offset
+	 * @param [in] offset Offset value
+	 * @param [out] jPos Joint position [°]
+	 * @param [out] descPos Cartesian position [mm]
+	 * @param [out] tool Tool coordinate system
+	 * @param [out] user User coordinate system
+	 * @param [out] exaxis Extended axis position [mm]
+	 * @return Error code
 	 */
 	errno_t GetLaserSeamPos(int trackOffectType, DescPose offset, JointPos& jPos, DescPose& descPos, int& tool, int& user, ExaxisPos& exaxis);
 
 	/**
-	 * @brief 摆动渐变开始
-	 * @param [in] weaveChangeFlag 1-变摆动参数；2-变摆动参数+焊接速度
-	 * @param [in] weaveNum 摆动编号 
-	 * @param [in] velStart 焊接开始速度，(cm/min)
-	 * @param [in] velEnd 焊接结束速度，(cm/min)
-	 * @return 错误码
+	 * @brief Wobble gradient begins
+	 * @param [in] weaveChangeFlag 1- Variable swing parameters; 2- Variable swing parameters + welding speed
+	 * @param [in] weaveNum swing number
+	 * @param [in] velStart welding start speed, (cm/min)
+	 * @param [in] velEnd welding end speed, (cm/min)
+	 * @return Error code
 	 */
 	errno_t WeaveChangeStart(int weaveChangeFlag, int weaveNum, double velStart, double velEnd);
 
 	/**
-	 * @brief 摆动渐变结束
-	 * @return 错误码
+	 * @brief swing gradient ends
+	 * @return Error code
 	 */
 	errno_t WeaveChangeEnd();
 
-	/**
-	 * @brief 轨迹预处理(轨迹前瞻)
-	 * @param [in] name  轨迹文件名
-	 * @param [in] mode 采样模式，0-不进行采样；1-等数据间隔采样；2-等误差限制采样
-	 * @param [in] errorLim 误差限制，使用直线拟合生效
-	 * @param [in] type 平滑方式，0-贝塞尔平滑
-	 * @param [in] precision 平滑精度，使用贝塞尔平滑时生效
-	 * @param [in] vamx 设定的最大速度，mm/s
-	 * @param [in] amax 设定的最大加速度，mm/s2
-	 * @param [in] jmax 设定的最大加加速度，mm/s3
-	 * @param [in] flag 匀速前瞻开启开关 0-不开启；1-开启
-	 * @return 错误码
-	 */
+   /**
+	* @brief trajectory Preprocessing (trajectory Foresight)
+	* @param [in] name Indicates the track file name
+	* @param [in] mode Sampling mode. 0- Sampling is not performed. 1- equal data interval sampling; 2- Equal error limit sampling
+	* @param [in] errorLim Error limit, using line fitting takes effect
+	* @param [in] type Indicates the smoothing mode, 0-Bessel smoothing
+	* @param [in] precision Smoothing precision. This parameter takes effect when Bezier smoothing is used
+	* @param [in] vamx set maximum speed, mm/s
+	* @param [in] Maximum acceleration set by amax, mm/s2
+	* @param [in] Max acceleration set by jmax, mm/s3
+	* @param [in] flag Constant speed forward-looking open switch 0-not open; 1-Open
+	* @return Error code
+	*/
 	errno_t LoadTrajectoryLA(char name[30], int mode, double errorLim, int type, double precision, double vamx, double amax, double jmax, int flag = 0);
 
 	/**
-	 * @brief 轨迹复现(轨迹前瞻)
-	 * @return 错误码
-	 */
+	* @brief trajectory reproduction(trajectory Foresight)
+	* @return Error code
+	*/
 	errno_t MoveTrajectoryLA();
 
 	/**
-	 * @brief 自定义碰撞检测阈值功能开始，设置关节端和TCP端的碰撞检测阈值
-	 * @param [in] flag 1-仅关节检测开启；2-仅TCP检测开启；3-关节和TCP检测同时开启
-	 * @param [in] jointDetectionThreshould 关节碰撞检测阈值 j1-j6
-	 * @param [in] tcpDetectionThreshould TCP碰撞检测阈值，xyzabc
-	 * @param [in] block 0-非阻塞；1-阻塞
-	 * @return 错误码
+	 * @brief custom collision detection threshold function starts, set the collision detection thresholds of the joint end and TCP end
+	 * @param[in] flag 1 - Only joint detection is enabled; 2 - Only TCP detection is enabled. 3 - Joint and TCP detection are enabled simultaneously
+	 * @param[in] jointDetectionThreshould Joint Collision Detection threshold j1 - j6
+	 * @param[in] tcpDetectionThreshould TCP collision detection threshold, xyzabc
+	 * @param[in] block 0 - non blocking; 1 - block
+	 * @return Error code
 	 */
 	errno_t CustomCollisionDetectionStart(int flag, double jointDetectionThreshould[6], double tcpDetectionThreshould[6], int block);
 
 	/**
-	 * @brief 自定义碰撞检测阈值功能关闭
-	 * @return 错误码
+	 * @brief custom collision detection threshold function ends
+	 * @return Error code
 	 */
 	errno_t CustomCollisionDetectionEnd();
 
 	/**
-	 * @brief 加速度平滑开启
-	 * @param [in] saveFlag 是否断电保存
-	 * @return 错误码
+	 * @brief  Acceleration smooth on
+	 * @param  [in] saveFlag Power-off save or not
+	 * @return  Error code
 	 */
 	errno_t AccSmoothStart(bool saveFlag);
 
 	/**
-	 * @brief 加速度平滑关闭
-	 * @param [in] saveFlag 是否断电保存
-	 * @return 错误码
+	 * @brief  Acceleration smooth off
+	 * @param  [in] saveFlag Power-off save or not
+	 * @return  Error code
 	 */
 	errno_t AccSmoothEnd(bool saveFlag);
 
 	/**
-	 * @brief 控制器日志下载
-	 * @param [in] savePath 保存文件路径"D://zDown/"
-	 * @return 错误码
+	 * @brief Download controller log
+	 * @param [in] savePath Save file path "D://zDown/"
+	 * @return Error code
 	 */
 	errno_t RbLogDownload(std::string savePath);
 
 	/**
-	 * @brief 所有数据源下载
-	 * @param [in] savePath 保存文件路径"D://zDown/"
-	 * @return 错误码
+	 * @brief Download all data sources
+	 * @param [in] savePath Save file path "D://zDown/"
+	 * @return Error code
 	 */
 	errno_t AllDataSourceDownload(std::string savePath);
 
 	/**
-	 * @brief 数据备份包下载
-	 * @param [in] savePath 保存文件路径"D://zDown/"
-	 * @return 错误码
+	 * @brief Download data backup package
+	 * @param [in] savePath Save file path "D://zDown/"
+	 * @return Error code
 	 */
 	errno_t DataPackageDownload(std::string savePath);
 
 	/**
-	 * @brief 获取控制箱SN码
-	 * @param [out] SNCode 控制箱SN码
-	 * @return 错误码
+	 * @brief Get the SN code of the control box
+	 * @param [out] SNCode SN of the control box
+	 * @return Error code
 	 */
 	errno_t GetRobotSN(std::string& SNCode);
 
 	/**
-	 * @brief 关闭机器人操作系统
-	 * @return 错误码
+	 * @brief Shut down the robot operating system
+	 * @return Error code
 	 */
 	errno_t ShutDownRobotOS();
 
 	/**
-	 * @brief 传送带通讯输入检测
-	 * @param [in] timeout 等待超时时间ms
-	 * @return 错误码
+	 * @brief Conveyor communication input detection
+	 * @param [in] timeout Waiting timeout(ms)
+	 * @return Error code
 	 */
 	errno_t ConveyorComDetect(int timeout);
 
 	/**
-	 * @brief 传送带通讯输入检测触发
-	 * @return 错误码
+	 * @brief Conveyor communication input detection triggered
+	 * @return Error code
 	 */
 	errno_t ConveyorComDetectTrigger();
 
 	/**
-	 * @brief 电弧跟踪焊机电流反馈AI通道选择
-	 * @param [in]  channel 通道；0-扩展AI0；1-扩展AI1；2-扩展AI2；3-扩展AI3；4-控制箱AI0；5-控制箱AI1
-	 * @return 错误码
+	 * @brief Selection of AI channels for current feedback in arc tracking
+	 * @param [in]  channel channels；0-Aux AI0；1-Aux AI1；2-Aux AI2；3-Aux AI3；4-Control Box AI0；5-Control Box AI1
+	 * @return Error code
 	 */
 	errno_t ArcWeldTraceAIChannelCurrent(int channel);
 
 	/**
-	 * @brief 电弧跟踪焊机电压反馈AI通道选择
-	 * @param [in]  channel 通道；0-扩展AI0；1-扩展AI1；2-扩展AI2；3-扩展AI3；4-控制箱AI0；5-控制箱AI1
-	 * @return 错误码
+	 * @brief Selection of AI channels for voltage feedback in arc tracking
+	 * @param [in]  channel channels；0-Aux AI0；1-Aux AI1；2-Aux AI2；3-Aux AI3；4-Control Box AI0；5-Control Box AI1
+	 * @return Error code
 	 */
 	errno_t ArcWeldTraceAIChannelVoltage(int channel);
 
 	/**
-	 * @brief 电弧跟踪焊机电流反馈转换参数
-	 * @param [in] AILow AI通道下限，默认值0V，范围[0-10V]
-	 * @param [in] AIHigh AI通道上限，默认值10V，范围[0-10V]
-	 * @param [in] currentLow AI通道下限对应焊机电流值，默认值0V，范围[0-200V]
-	 * @param [in] currentHigh AI通道上限对应焊机电流值，默认值100V，范围[0-200V]
-	 * @return 错误码
+	 * @brief Current feedback conversion parameters of arc tracking
+     * @param [in] AILow AI channel lower limit, default value 0V, range [0-10V]
+     * @param [in] AIHigh AI channel upper limit, default value 10V, range [0-10V]
+     * @param [in] The lower limit of the currentLow AI channel corresponds to the current value of the welding machine. The default value is 0V, and the range is [0-200V]
+	 * @param [in] The upper limit of the currentLow AI channel corresponds to the current value of the welding machine. The default value is 0V, and the range is [0-200V]
+	 * @return Error code
 	 */
 	errno_t ArcWeldTraceCurrentPara(float AILow, float AIHigh, float currentLow, float currentHigh);
 
 	/**
-	 * @brief 电弧跟踪焊机电压反馈转换参数
-	 * @param [in] AILow AI通道下限，默认值0V，范围[0-10V]
-	 * @param [in] AIHigh AI通道上限，默认值10V，范围[0-10V]
-	 * @param [in] voltageLow AI通道下限对应焊机电压值，默认值0V，范围[0-200V]
-	 * @param [in] voltageHigh AI通道上限对应焊机电压值，默认值100V，范围[0-200V]
-	 * @return 错误码
+	 * @brief Voltage feedback Conversion Parameters of Arc Tracking Welding machine
+	 * @param [in] AILow AI channel lower limit, default value 0V, range [0-10V]
+	 * @param [in] AIHigh AI channel upper limit, default value 10V, range [0-10V]
+	 * @param [in] The lower limit of the voltageLow AI channel corresponds to the welding machine voltage value. The default value is 0V, and the range is [0-200V]
+	 * @param [in] The upper limit of the voltageHigh AI channel corresponds to the voltage value of the welding machine. The default value is 100V, and the range is [0-200V]
+	 * @return Error code
 	 */
 	errno_t ArcWeldTraceVoltagePara(float AILow, float AIHigh, float voltageLow, float voltageHigh);
 
 	/**
-	 * @brief 设置焊接电压渐变开始
-	 * @param [in] IOType 控制类型；0-控制箱IO；1-数字通信协议(UDP);2-数字通信协议(ModbusTCP)
-	 * @param [in] voltageStart 起始焊接电压(V)
-	 * @param [in] voltageEnd 终止焊接电压(V)
-	 * @param [in] AOIndex 控制箱AO端口号(0-1)
-	 * @param [in] blend 是否平滑 0-不平滑；1-平滑
-	 * @return 错误码
+	 * @brief Set the welding voltage to start gradually
+	 * @param [in] IOType control type; 0- Control Box IO 1- Digital Communication Protocol (UDP) 2- Digital Communication Protocol (ModbusTCP)
+	 * @param [in] voltageStart Initial Welding Voltage (V)
+	 * @param [in] voltageEnd Stop welding Voltage (V)
+	 * @param [in] AOIndex control box AO port number (0-1)
+	 * @param [in] Is blend smooth? 0- Not smooth; 1- Smooth
+     * @return Error code
 	 */
 	errno_t WeldingSetVoltageGradualChangeStart(int IOType, double voltageStart, double voltageEnd, int AOIndex, int blend);
 
 	/**
-	 * @brief 设置焊接电压渐变结束
-	 * @return 错误码
+	 * @brief Set the welding voltage gradient to end
+	 * @return Error code
 	 */
 	errno_t WeldingSetVoltageGradualChangeEnd();
 
 	/**
-	 * @brief 设置焊接电流渐变开始
-	 * @param [in] IOType 控制类型；0-控制箱IO；1-数字通信协议(UDP);2-数字通信协议(ModbusTCP)
-	 * @param [in] voltageStart 起始焊接电流(A)
-	 * @param [in] voltageEnd 终止焊接电流(A)
-	 * @param [in] AOIndex 控制箱AO端口号(0-1)
-	 * @param [in] blend 是否平滑 0-不平滑；1-平滑
-	 * @return 错误码
+	 * @brief Set the welding current to start gradually
+	 * @param [in] IOType control type; 0- Control Box IO 1- Digital Communication Protocol (UDP) 2- Digital Communication Protocol (ModbusTCP)
+	 * @param [in] voltageStart Initial welding Current (A)
+	 * @param [in] voltageEnd Stop welding current (A)
+	 * @param [in] AOIndex control box AO port number (0-1)
+	 * @param [in] Is blend smooth? 0- Not smooth; 1- Smooth
+	 * @return Error code
 	 */
 	errno_t WeldingSetCurrentGradualChangeStart(int IOType, double currentStart, double currentEnd, int AOIndex, int blend);
 
 	/**
-	 * @brief 设置焊接电流渐变结束
-	 * @return 错误码
+	 * @brief Set the welding current gradient to end
+	 * @return Error code
 	 */
 	errno_t WeldingSetCurrentGradualChangeEnd();
 
 	/**
-	 * @brief 获取SmartTool按钮状态
-	 * @param [out] state SmartTool手柄按钮状态;(bit0:0-通信正常；1-通信掉线；bit1-撤销操作；bit2-清空程序；
-	bit3-A键；bit4-B键；bit5-C键；bit6-D键；bit7-E键；bit8-IO键；bit9-手自动；bit10开始)
-	 * @return 错误码
-	 */
+	* @brief Get the status of the SmartTool button
+    * @param [out] state SmartTool handle button status; (bit0:0- Communication is normal; 1- Communication disconnection; bit1- Undo; bit2- Clear the program;
+      bit3-A key; bit4-B key; bit5-C key; bit6-D key; bit7-E key; bit8-IO key; bit9- Manual automatic; bit10-Start
+    * @return error code
+    */
 	errno_t GetSmarttoolBtnState(int& state);
 
 	/**
-	 * @brief 获取扩展轴坐标系
-	 * @param [out] coord 扩展轴坐标系
-	 * @return 错误码
+	 * @brief Get the extended axis coordinate system
+	 * @param [out] coord extended axis coordinate system
+	 * @return error code
 	 */
 	errno_t ExtAxisGetCoord(DescPose& coord);
 
 	/**
-	 * @brief 设置宽电压控制箱温度及风扇电流监控参数
-	 * @param [in] enable 0-不使能监测；1-使能监测
-	 * @param [in] period 监测周期(s),范围1-100
-	 * @return 错误码
+	 * @brief Set the monitoring parameters for the temperature and fan current of the wide-voltage control box
+	 * @param [in] enable 0-not enable; 1-Enable monitoring
+	 * @param [in] period Monitoring period (unit: s), range 1-100
+	 * @return error code
 	 */
 	errno_t SetWideBoxTempFanMonitorParam(int enable, int period);
 
 	/**
-	 * @brief 获取宽电压控制箱温度及风扇电流监控参数
-	 * @param [out] enable 0-不使能监测；1-使能监测
-	 * @param [out] period 监测周期(s),范围1-100
-	 * @return 错误码
+	 * @brief Get the monitoring parameters for the temperature and fan current of the wide-voltage control box
+	 * @param [out] enable enable 0-not enable; 1-Enable monitoring
+	 * @param [out] period period Monitoring period (unit: s), range 1-100
+	 * @return error code
 	 */
-	errno_t GetWideBoxTempFanMonitorParam(int &enable, int &period);
+	errno_t GetWideBoxTempFanMonitorParam(int& enable, int& period);
 
 	/**
-	 * @brief 设置焦点标定点
-	 * @param [in] pointNum 焦点标定点编号 1-8
-	 * @param [in] point 标定点坐标
-	 * @return 错误码
+	 * @brief Set the focus calibration point
+	 * @param [in] pointNum Focus calibration point number 1-8
+	 * @param [in] point Coordinate of the calibration point
+	 * @return error code
 	 */
 	errno_t SetFocusCalibPoint(int pointNum, DescPose point);
 
 	/**
-	 * @brief 计算焦点标定结果
-	 * @param [in] pointNum 标定点个数
-	 * @param [out] resultPos 标定结果XYZ
-	 * @param [out] accuracy 标定精度误差
-	 * @return 错误码
+	 * @brief Calculate the focus calibration result
+	 * @param [in] pointNum The number of calibration points
+	 * @param [out] resultPos Calibration result XYZ
+	 * @param [out] accuracy Calibration accuracy error
+	 * @return error code
 	 */
 	errno_t ComputeFocusCalib(int pointNum, DescTran& resultPos, float& accuracy);
 
 	/**
-	 * @brief 开启焦点跟随
-	 * @param [in] kp 比例参数，默认50.0
-	 * @param [in] kpredict 前馈参数，默认19.0
-	 * @param [in] aMax 最大角加速度限制，默认1440°/s^2
-	 * @param [in] vMax 最大角速度限制，默认180°/s
-	 * @param [in] type 锁定X轴指向(0-参考输入矢量；1-水平；2-垂直)
-	 * @return 错误码
+	 * @brief Enable focus following
+	 * @param [in] kp Proportional parameter, default50.0
+	 * @param [in] kpredict Feedforward parameter, default 19.0
+	 * @param [in] aMax Maximum angular acceleration limit, default 1440°/s^2
+	 * @param [in] vMax Maximum angular velocity limit, default 180°/s
+	 * @param [in] type Lock the X-axis pointing (0- reference input vector; 1-level; 2- Vertical
+	 * @return error code
 	 */
 	errno_t FocusStart(double kp, double kpredict, double aMax, double vMax, int type);
 
 	/**
-	 * @brief 停止焦点跟随
-	 * @return 错误码
+	 * @brief Stop focusing following
+	 * @return error code
 	 */
 	errno_t FocusEnd();
 
 	/**
-	 * @brief 设置焦点坐标
-	 * @param [in] pos 焦点坐标XYZ
-	 * @return 错误码
+	 * @brief Set the focus coordinates
+	 * @param [in] pos Focal coordinate XYZ
+	 * @return error code
 	 */
 	errno_t SetFocusPosition(DescTran pos);
 
 	/**
-	 * @brief 设置编码器升级(暂未开放)
-	 * @param [in] path 本地升级包全路径(D://zUP/XXXXX.bin)
-	 * @return 错误码
+	 * @brief Set the encoder upgrade
+	 * @param [in] path Full path of local upgrade package(D://zUP/XXXXX.bin)
+	 * @return error code
 	 */
 	errno_t SetEncoderUpgrade(std::string path);
 
 	/**
-	 * @brief 设置关节固件升级
-	 * @param [in] type 升级文件类型；1-升级固件(使用前需要使机器人进入boot模式)；2-升级从站配置文件(使用前需要去使能机器人)
-	 * @param [in] path 本地升级包全路径(D://zUP/XXXXX.bin)
-	 * @return 错误码
+	 * @brief Set the joint firmware upgrade
+	 * @param [in] type Upgrade file type; 1- Upgrade the firmware (the robot needs to be put into boot mode before use); 2- Upgrade the slave station configuration file (Disable the robot before use)
+	 * @param [in] path Full path of local upgrade package(D://zUP/XXXXX.bin)
+	 * @return error code
 	 */
 	errno_t SetJointFirmwareUpgrade(int type, std::string path);
 
 	/**
-	 * @brief 设置控制箱固件升级
-	 * @param [in] type 升级文件类型；1-升级固件(使用前需要使机器人进入boot模式)；2-升级从站配置文件(使用前需要去使能机器人)
-	 * @param [in] path 本地升级包全路径(D://zUP/XXXXX.bin)
-	 * @return 错误码
+	 * @brief Set the control box firmware upgrade
+	 * @param [in] type Upgrade file type; 1- Upgrade the firmware (the robot needs to be put into boot mode before use); 2- Upgrade the slave station configuration file (Disable the robot before use)
+	 * @param [in] path Full path of local upgrade package(D://zUP/XXXXX.bin)
+	 * @return error code
 	 */
 	errno_t SetCtrlFirmwareUpgrade(int type, std::string path);
 
 	/**
-	 * @brief 设置末端固件升级
-	 * @param [in] type 升级文件类型；1-升级固件(使用前需要使机器人进入boot模式)；2-升级从站配置文件(使用前需要去使能机器人)
-	 * @param [in] path 本地升级包全路径(D://zUP/XXXXX.bin)
-	 * @return 错误码
+	 * @brief Set robot end firmware upgrade
+	 * @param [in] type Upgrade file type; 1- Upgrade the firmware (the robot needs to be put into boot mode before use); 2- Upgrade the slave station configuration file (Disable the robot before use)
+	 * @param [in] path path Full path of local upgrade package(D://zUP/XXXXX.bin)
+	 * @return error code
 	 */
 	errno_t SetEndFirmwareUpgrade(int type, std::string path);
 
 	/**
-	 * @brief 关节全参数配置文件升级(使用前需要去使能机器人)
-	 * @param [in] path 本地升级包全路径(D://zUP/XXXXX.bin)
-	 * @return 错误码
+	 * @brief Joint full parameter profile upgrade(Disable the robot before use)
+	 * @param [in] path Full path of local upgrade package(D://zUP/XXXXX.db)
+	 * @return error code
 	 */
 	errno_t JointAllParamUpgrade(std::string path);
 
 	/**
-	 * @brief 设置机器人型号(使用前需要去使能机器人)
-	 * @param [in] type 机器人型号
-	 * @return 错误码
+	 * @brief Set the type of the robot(Disable the robot before use)
+	 * @param [in] type Robot type
+	 * @return error code
 	 */
 	errno_t SetRobotType(int type);
 
 	/**
-	 * @brief 激光传感器记录点
-	 * @param [in] coordID 激光传感器坐标系
-	 * @param [out] desc 激光传感器识别点笛卡尔位置
-	 * @param [out] joint 激光传感器识别点关节位置
-	 * @param [out] exaxis 激光传感器识别点扩展轴位置
-	 * @return 错误码
+	 * @brief Laser sensor recording points
+	 * @param [in] coordID Laser sensor coordinate system ID
+	 * @param [out] desc Laser sensor identification point Descartes
+	 * @param [out] joint Laser sensor identification joint position
+	 * @param [out] exaxis Laser sensor identification point spread shaft position
+	 * @return error code
 	 */
 	errno_t LaserRecordPoint(int coordID, DescPose& desc, JointPos& joint, ExaxisPos& exaxis);
 
 	/**
-	 * @brief 设置扩展轴与机器人同步运动策略
-	 * @param [in] strategy 策略；0-以机器人为主；1-扩展轴与机器人同步
-	 * @return 错误码
+	 * @brief Set the expansion axis and the robot synchronous motion strategy
+	 * @param [in] strategy Strategy; 0- Mainly robots; 1- The extended axis is synchronized with the robot
+	 * @return error code
 	 */
 	errno_t SetExAxisRobotPlan(int strategy);
 
 	/**
-	* @brief  设置与机器人通讯重连参数
-	* @param  [in] enable  网络故障时使能重连 true-使能 false-不使能
-	* @param  [in] reconnectTime 重连时间，单位ms
-	* @param  [in] period 重连周期，单位ms
-	* @return  错误码
+	* @brief  Set communication reconnection parameters with the robot
+	* @param [in] enable Enable reconnection when the network is faulty true- enabled false- disabled
+	* @param [in] reconnectTime Reconnection time, unit: ms
+	* @param [in] period Reconnection period, expressed in ms
+	* @return  error code
 	*/
 	errno_t SetReConnectParam(bool enable, int reconnectTime = 30000, int period = 50);
 
 	/**
-	 * @brief  获取从站板卡参数
+	 * @brief  Get slave board parameters
 	 * @param  [out] type  0-Ethercat，1-CClink, 3-Ethercat, 4-EIP
-	 * @param  [out] version  协议版本
-	 * @param  [out] connState  0-未连接 1-已连接
-	 * @return  错误码
+	 * @param  [out] version  Protocol version
+	 * @param  [out] connState  0-Disconnected, 1-Connected
+	 * @return  Error code
 	 */
 	errno_t GetFieldBusConfig(uint8_t* type, uint8_t* version, uint8_t* connState);
-	
+
 	/**
-	 * @brief  写入从站DO
-	 * @param  [in] DOIndex  DO编号
-	 * @param  [in] wirteNum  写入的数量
-	 * @param  [in] status[8] 写入的数值，最多写8个
-	 * @return  错误码
+	 * @brief  Write slave DO (Digital Output)
+	 * @param  [in] DOIndex  DO number
+	 * @param  [in] wirteNum  Number of values to write
+	 * @param  [in] status[8] Values to write (max 8)
+	 * @return  Error code
 	 */
 	errno_t FieldBusSlaveWriteDO(uint8_t DOIndex, uint8_t wirteNum, uint8_t status[8]);
 
 	/**
-	 * @brief  写入从站AO
-	 * @param  [in] AOIndex  AO编号
-	 * @param  [in] wirteNum  写入的数量
-	 * @param  [in] status[8] 写入的数值，最多写8个
-	 * @return  错误码
+	 * @brief  Write slave AO (Analog Output)
+	 * @param  [in] AOIndex  AO number
+	 * @param  [in] wirteNum  Number of values to write
+	 * @param  [in] status[8] Values to write (max 8)
+	 * @return  Error code
 	 */
-	errno_t FieldBusSlaveWriteAO(uint8_t AOIndex, uint8_t wirteNum, int status[8]);
+	errno_t FieldBusSlaveWriteAO(uint8_t AOIndex, uint8_t wirteNum, double status[8]);
 
 	/**
-	 * @brief  读取从站DI
-	 * @param  [in] DOIndex  DI编号
-	 * @param  [in] readeNum  读取的数量
-	 * @param  [out] status[8] 读取到的数值，最多读8个
-	 * @return  错误码
+	 * @brief  Read slave DI (Digital Input)
+	 * @param  [in] DOIndex  DI number
+	 * @param  [in] readeNum  Number of values to read
+	 * @param  [out] status[8] Read values (max 8)
+	 * @return  Error code
 	 */
 	errno_t FieldBusSlaveReadDI(uint8_t DOIndex, uint8_t readNum, uint8_t status[8]);
 
 	/**
-	 * @brief  读取从站AI
-	 * @param  [in] AOIndex  AI编号
-	 * @param  [in] readeNum  读取的数量
-	 * @param  [out] status[8] 读取到的数值，最多读8个
-	 * @return  错误码
+	 * @brief  Read slave AI (Analog Input)
+	 * @param  [in] AOIndex  AI number
+	 * @param  [in] readeNum  Number of values to read
+	 * @param  [out] status[8] Read values (max 8)
+	 * @return  Error code
 	 */
-	errno_t FieldBusSlaveReadAI(uint8_t AIIndex, uint8_t readNum, int status[8]);
+	errno_t FieldBusSlaveReadAI(uint8_t AIIndex, uint8_t readNum, double status[8]);
 
 	/**
-	 * @brief 等待扩展DI输入
-	 * @param [in] DIIndex DI编号
-	 * @param [in] status 0-低电平；1-高电平
-	 * @param [in] waitMs 最大等待时间(ms)
-	 * @return 错误码
+	 * @brief Wait for extended DI input
+	 * @param [in] DIIndex DI number
+	 * @param [in] status 0-Low level; 1-High level
+	 * @param [in] waitMs Maximum wait time (ms)
+	 * @return Error code
 	 */
 	errno_t FieldBusSlaveWaitDI(uint8_t DIIndex, bool status, int waitMs);
 
 	/**
-	 * @brief 等待扩展AI输入
-	 * @param [in] AIIndex AI编号
-	 * @param [in] waitType 0-大于；1-小于
-	 * @param [in] value AI值
-	 * @param [in] waitMs 最大等待时间(ms)
-	 * @return 错误码
+	 * @brief Wait for extended AI input
+	 * @param [in] AIIndex AI number
+	 * @param [in] waitType 0-Greater than; 1-Less than
+	 * @param [in] value AI threshold value
+	 * @param [in] waitMs Maximum wait time (ms)
+	 * @return Error code
 	 */
 	errno_t FieldBusSlaveWaitAI(uint8_t AIIndex, uint8_t waitType, double value, int waitMs);
 
 	/**
-	 * @brief 控制阵列式吸盘
-	 * @param [in] slaveID 从站号
-	 * @param [in] len 长度
-	 * @param [in] ctrlValue 控制值
-	 * @return 错误码
+	 * @brief Control array-type suction cups
+	 * @param [in] slaveID Slave station ID
+	 * @param [in] len Data length
+	 * @param [in] ctrlValue Control value array (size 20)
+	 * @return Error code
 	 */
 	errno_t SetSuckerCtrl(uint8_t slaveID, uint8_t len, uint8_t ctrlValue[20]);
 
 	/**
-	 * @brief 获取阵列式吸盘状态
-	 * @param [in] slaveID 从站号
-	 * @param [out] state 吸附状态 0-释放物体 1-检测到工件吸附成功 2-没有吸附到物体 3-物体脱离
-	 * @param [out] pressValue 当前真空度 单位kpa 
-	 * @param [out] error 吸盘当前的错误码
-	 * @return 错误码
+	 * @brief Get array-type suction cup status
+	 * @param [in] slaveID Slave station ID
+	 * @param [out] state Adsorption state:
+	 *        0-Object released,
+	 *        1-Workpiece detected (adsorption success),
+	 *        2-No workpiece detected,
+	 *        3-Object detached
+	 * @param [out] pressValue Current vacuum (unit: kPa)
+	 * @param [out] error Current error code
+	 * @return Error code
 	 */
 	errno_t GetSuckerState(uint8_t slaveID, uint8_t* state, int* pressValue, int* error);
 
 	/**
-	 * @brief 等待吸盘状态
-	 * @param [in] slaveID 从站号
-	 * @param [in] state 吸附状态 0-释放物体 1-检测到工件吸附成功 2-没有吸附到物体 3-物体脱离
-	 * @param [in] ms 等待最大时间
-	 * @return 错误码
+	 * @brief Wait for suction cup state
+	 * @param [in] slaveID Slave station ID
+	 * @param [in] state Target adsorption state:
+	 *        0-Object released,
+	 *        1-Workpiece detected,
+	 *        2-No workpiece detected,
+	 *        3-Object detached
+	 * @param [in] ms Maximum wait time (ms)
+	 * @return Error code
 	 */
 	errno_t WaitSuckerState(uint8_t slaveID, uint8_t state, int ms);
 
 	/**
-	 * @brief 上传Lua文件
-	 * @param [in] filePath 本地lua文件路径名
-	 * @return 错误码
+	 * @brief Upload Lua file
+	 * @param [in] filePath local openlua file path name
+	 * @return error code
 	 */
 	errno_t OpenLuaUpload(std::string filePath);
 
 	/**
-	 * @brief 下载开放协议Lua文件
-	 * @param [in] fileName 开放协议文件名称“CtrlDev_XXX.lua”
-	 * @param [in] savePath 开放协议保存文件路径
-	 * @return 错误码
+	 * @brief Download open protocol Lua file
+	 * @param [in] fileName Open protocol file name "CtrlDev_XXX.lua"
+	 * @param [in] savePath Open protocol save file path
+	 * @return Error code
 	 */
 	errno_t OpenLuaDownload(std::string fileName, std::string savePath);
 
 	/**
-	 * @brief 删除开放协议Lua文件
-	 * @param [in] fileName 要删除的开放协议lua文件名“CtrlDev_XXX.lua”
-	 * @return 错误码
-	 */
+	* @brief Delete the open protocol Lua file
+	* @param [in] fileName The name of the open protocol Lua file to be deleted, e.g., "CtrlDev_XXX.lua"
+	* @return Error code
+	*/
 	errno_t OpenLuaDelete(std::string fileName);
 
 	/**
-	 * @brief 删除所有开放协议Lua文件
-	 * @return 错误码
+	 * @brief Delete all of the open protocol Lua file
+	 * @return Error code
 	 */
 	errno_t AllOpenLuaDelete();
 
 	/**
-	* @brief 阻抗启停控制
-	* @param [in] status 0：关闭；1-开启
-	* @param [in] workSpace 0-关节空间；1-迪卡尔空间
-	* @param [in] forceThreshold 触发力阈值(N)
-	* @param [in] m 质量参数
-	* @param [in] b 阻尼参数
-	* @param [in] k 刚度参数
-	* @param [in] maxV 最大线速度(mm/s)
-	* @param [in] maxVA 最大线加速度(mm/s2)
-	* @param [in] maxW 最大角速度(°/s)
-	* @param [in] maxWA 最大角加速度(°/s2)
-	* @return 错误码
+	* @brief Impedance Control
+	* @param [in] status 0：OFF；1-ON
+	* @param [in] workSpace 0-joint space;1 -Dicard space
+	* @param [in] forceThreshold Trigger force threshold (N)
+	* @param [in] m Quality parameters
+	* @param [in] b Damping parameter
+	* @param [in] k Stiffness parameter
+	* @param [in] maxV Maximum linear velocity(mm/s)
+	* @param [in] maxVA Maximum linear acceleration(mm/s2)
+	* @param [in] maxW Maximum angular velocity(°/s)
+	* @param [in] maxWA Maximum angular acceleration(°/s2)
+	* @return Error code
 	*/
 	errno_t ImpedanceControlStartStop(int status, int workSpace, double forceThreshold[6], double m[6], double b[6], double k[6], double maxV, double maxVA, double maxW, double maxWA);
 
 	/**
-	 * @brief 设置拖动开启前负载力检测
-	 * @param [in] flag 0-关闭；1-开启
-	 * @return 错误码
+	 * @brief Set check the load state before starting drag flag
+	 * @param [in] flag 0-OFF;1-ON
+	 * @return Error code
 	 */
 	errno_t SetTorqueDetectionSwitch(uint8_t flag);
 
 	/**
-	* @brief 根据编号获取工具坐标系
-	* @param [in] id 工具坐标系编号
-	* @param [out] coord 坐标系数值
-	 * @return 错误码
+	 * @brief Get tool coordinate system by ID
+	 * @param [in] id Tool coordinate system ID
+	 * @param [out] coord Coordinate system values
+	 * @param [out] type Tool type, 0-Tool; 1-Sensor
+	 * @param [out] install Mount position, 0-Robot flange; 1-External robot
+	 * @param [out] toolID Tool ID
+	 * @param [out] loadNo Payload number
+	 * @return Error code
 	 */
-	errno_t GetToolCoordWithID(int id, DescPose& coord);
+	errno_t GetToolCoordWithID(int id, DescPose& coord, int& type, int& install, int& toolID, int& loadNo);
 
 	/**
-	* @brief 根据编号获取工件坐标系
-	* @param [in] id 工件坐标系编号
-	* @param [out] coord 坐标系数值
-	* @return 错误码
-	*/
-	errno_t GetWObjCoordWithID(int id, DescPose& coord);
+	 * @brief Get work piece coordinate system by ID
+	 * @param [in] id Work piece coordinate system number
+	 * @param [out] coord Coordinate system values
+	 * @param [out] refFrame Reference coordinate frame
+	 * @return Error code
+	 */
+	errno_t GetWObjCoordWithID(int id, DescPose& coord, int& refFrame);
 
 	/**
-	* @brief 根据编号获取外部工具坐标系
-	* @param [in] id 外部工具坐标系编号
-	* @param [out] coord 坐标系数值
-	* @return 错误码
-	*/
-	errno_t GetExToolCoordWithID(int id, DescPose& coord);
+	 * @brief Get external tool coordinate system by ID
+	 * @param [in] id External tool coordinate system number，Numbers 20 to 39 correspond to external tool coordinate systems 0 to 19
+	 * @param [out] coord Pose of robot external fixed tool TCP
+	 * @param [out] tcoord Pose of workpiece coordinate system mounted on robot flange
+	 * @return Error code
+	 */
+	errno_t GetExToolCoordWithID(int id, DescPose& coord, DescPose& tcoord);
 
 	/**
-	* @brief 根据编号获取扩展轴坐标系
-	* @param [in] id 外部工具坐标系编号
-	* @param [out] coord 坐标系数值
-	* @return 错误码
-	*/
-	errno_t GetExAxisCoordWithID(int id, DescPose& coord);
+	 * @brief Get extended axis coordinate system by ID
+	 * @param [in] id External tool coordinate system number
+	 * @param [out] coord Coordinate system values
+	 * @param [out] axisCoordNum Extended axis mask; bit0-bit3 correspond to extended axis 1~4. If axisCoordNum equals 3, extended axis [1, 2] are enabled
+	 * @param [out] calibFlag Calibration flag; 0-Uncalibrated; 1-Calibrated
+	 * @return Error code
+	 */
+	errno_t GetExAxisCoordWithID(int id, DescPose& coord, int& axisCoordNum, int& calibFlag);
 
 	/**
-	* @brief 根据编号获取负载质量及质心
-	* @param [in] id 负载编号
-	* @param [out] weight 负载质量
-	* @param [out] cog 负载质心
-	* @return 错误码
+	* @brief Obtain the load mass and center of mass based on the number
+	* @param [in] index load ID
+	* @param [out] weight load Weight
+	* @param [out] cog load centroid
+	* @return Error code
 	*/
 	errno_t GetTargetPayloadWithID(int id, double& weight, DescTran& cog);
-
 	/**
-	* @brief 获取当前工具坐标系
-	* @param [out] coord 坐标系数值
-	* @return 错误码
+	* @brief Obtain the current tool coordinate system
+	* @param [out] coord coord Coordinate system value
+	* @return Error code
 	*/
 	errno_t GetCurToolCoord(DescPose& coord);
 
 	/**
-	* @brief 获取当前工件坐标系
-	* @param [out] coord 坐标系数值
-	* @return 错误码
+	* @brief Gets the current workpiece coordinate system
+	* @param [out] coord coord Coordinate system value
+	* @return Error code
 	*/
 	errno_t GetCurWObjCoord(DescPose& coord);
 
 	/**
-	* @brief 获取当前外部工具坐标系
-	* @param [out] coord 坐标系数值
-	* @return 错误码
+	* @brief Gets the current external tool coordinate system
+	* @param [out] coord coord Coordinate system value
+	* @return Error code
 	*/
 	errno_t GetCurExToolCoord(DescPose& coord);
 
 	/**
-	* @brief 获取当前扩展轴坐标系
-	* @param [out] coord 坐标系数值
-	* @return 错误码
+	* @brief Gets the current extended axis coordinate system
+	* @param [out] coord coord Coordinate system value
+	* @return Error code
 	*/
 	errno_t GetCurExAxisCoord(DescPose& coord);
 
 	/**
-	 * @brief 机器人操作系统升级(LA控制箱)
-	 * @param [in] filePath 操作系统升级包全路径
-	 * @return  错误码
+	 * @brief Robot Operating System Upgrade (LA Control Box)
+	 * @param [in] filePath The full path of the operating system upgrade package
+	 * @return Error code
 	 */
 	errno_t KernelUpgrade(std::string filePath);
 
 	/**
-	 * @brief 获取机器人操作系统升级结果(LA控制箱)
-	 * @param [out] result 升级结果：0:成功；-1:失败
-	 * @return  错误码
+	 * @brief Obtain the upgrade result of the robot operating system (LA control box)
+	 * @param [out] result Upgrade result: 0: Success; -1: Failure
+	 * @return  Error code
 	 */
 	errno_t GetKernelUpgradeResult(int& result);
 
 	/**
-	 * @brief 设置自定义摆动参数
-	 * @param [in] id 自定义摆动编号：0-2
-	 * @param [in] pointNum 摆动点位个数 0-10
-	 * @param [in] point 移动端点数据x,y,z
-	 * @param [in] stayTime 摆动停留时间ms
-	 * @param [in] frequency 摆动频率 Hz
-	 * @param [in] incStayType 等待模式：0-周期不包含等待时间；1-周期包含等待时间
-	 * @param [in] stationary 摆动位置等待：0-等待时间内继续运动；1-等待时间内位置静止
-	 * @return  错误码
+	 * @brief Set custom weave parameters
+	 * @param [in] id custom weave ID：0-2
+	 * @param [in] pointNum Number of weave points 0-10
+	 * @param [in] point Moving endpoint data x,y,z
+	 * @param [in] stayTime weave residence time ms
+	 * @param [in] frequency weave frequency Hz
+	 * @param [in] incStayType Waiting mode: 0- Cycle does not include waiting time; 1- The cycle includes waiting time
+	 * @param [in] stationary weave position waiting: 0- Continue to move within the waiting time; The position remains stationary during the waiting time
+	 * @return Error code
 	 */
 	errno_t CustomWeaveSetPara(int id, int pointNum, DescTran point[10], double stayTime[10], double frequency, int incStayType, int stationary);
 
 	/**
-	 * @brief 获取自定义摆动参数
-	 * @param [in] id 自定义摆动编号：0-2
-	 * @param [out] pointNum 摆动点位个数 0-10
-	 * @param [out] point 移动端点数据x,y,z
-	 * @param [out] stayTime 摆动停留时间ms
-	 * @param [out] frequency 摆动频率 Hz
-	 * @param [out] incStayType 等待模式：0-周期不包含等待时间；1-周期包含等待时间
-	 * @param [out] stationary 摆动位置等待：0-等待时间内继续运动；1-等待时间内位置静止
-	 * @return  错误码
+	 * @brief Gets custom swing parameters
+	 * @param [in] id custom weave ID：0-2
+	 * @param [out] pointNum Number of weave points 0-10
+	 * @param [out] point Moving endpoint data x,y,z
+	 * @param [out] stayTime weave residence time ms
+	 * @param [out] frequency weave frequency Hz
+	 * @param [out] incStayType Waiting mode: 0- Cycle does not include waiting time; 1- The cycle includes waiting time
+	 * @param [out] stationary weave position waiting: 0- Continue to move within the waiting time; The position remains stationary during the waiting time
+	 * @return  Error code
 	 */
 	errno_t CustomWeaveGetPara(int id, int& pointNum, DescTran point[10], double stayTime[10], double& frequency, int& incStayType, int& stationary);
 
 	/**
-	 * @brief 关节扭矩传感器灵敏度标定功能开启
-	 * @param [in] status 0-关闭；1-开启
-	 * @return  错误码
+	 * @brief Enable joint torque sensor sensitivity calibration function
+	 * @param [in] status 0-Disable；1-Enable
+	 * @return Error code
 	 */
 	errno_t JointSensitivityEnable(int status);
 
 	/**
-	 * @brief 获取关节扭矩传感器灵敏度标定结果
-	 * @param [out] calibResult j1~j6关节灵敏度[0-1]
-	 * @param [out] linearityn j1~j6关节线性度[0-1]
-	 * @return 错误码
+	 * @brief Get the sensitivity calibration results of the joint torque sensor
+	 * @param [out] calibResult j1~j6 Joint sensitivity [0-1]
+	 * @param [out] linearityn j1~j6 Joint linearity[0-1]
+	 * @return Error code
 	 */
 	errno_t JointSensitivityCalibration(double calibResult[6], double linearity[6]);
 
 	/**
-	 * @brief 关节扭矩传感器灵敏度数据采集
-	 * @return 错误码
+	 * @brief Sensitivity data acquisition of joint torque sensors
+	 * @return Error code
 	 */
 	errno_t JointSensitivityCollect();
 
 	errno_t Sleep(int ms);
 
 	/**
-	 * @brief 清空运动指令队列
-	 * @return 错误码
+	 * @brief Clear the motion command queue
+	 * @return Error code
 	 */
 	errno_t MotionQueueClear();
 
 	/**
-	 * @brief 获取机器人8个从站端口错误帧数
-	 * @param [out] inRecvErr 输入接收错误帧数 
-	 * @param [out] inCRCErr 输入CRC错误帧数 
-	 * @param [out] inTransmitErr 输入转发错误帧数 
-	 * @param [out] inLinkErr 输入链接错误帧数 
-	 * @param [out] outRecvErr 输出接收错误帧数
-	 * @param [out] outCRCErr 输出CRC错误帧数
-	 * @param [out] outTransmitErr 输出转发错误帧数
-	 * @param [out] outLinkErr 输出链接错误帧数
-	 * @return 错误码
+	 * @brief Get the number of 8 slave port error frames of the robot
+	 * @param [out] inRecvErr Input receiving error frames
+	 * @param [out] inCRCErr Input CRC error frames
+	 * @param [out] inTransmitErr Input transmit error frames
+	 * @param [out] inLinkErr Input link error frames
+	 * @param [out] outRecvErr Output receiving error frames
+	 * @param [out] outCRCErr Output CRC error frames
+	 * @param [out] outTransmitErr Output transmit error frames
+	 * @param [out] outLinkErr Output link error frames
+	 * @return Error code
 	 */
 	errno_t GetSlavePortErrCounter(int inRecvErr[8], int inCRCErr[8], int inTransmitErr[8], int inLinkErr[8],
-								   int outRecvErr[8], int outCRCErr[8], int outTransmitErr[8], int outLinkErr[8]);
+		int outRecvErr[8], int outCRCErr[8], int outTransmitErr[8], int outLinkErr[8]);
 
 	/**
-	 * @brief 从站端口错误帧清零
-	 * @param [in] slaveID 从站编号0~7
-	 * @return 错误码
+	 * @brief Clear the slave port error num
+	 * @param [in] slaveID slave id 0~7
+	 * @return Error code
 	 */
 	errno_t SlavePortErrCounterClear(int slaveID);
 
 	/**
-	 * @brief 设置各轴速度前馈系数
-	 * @param [in] radio 各轴速度前馈系数
-	 * @return 错误码
+	 * @brief Set the feedforward coefficients of the velocities of each axis
+	 * @param [in] radio feedforward coefficients of the velocities of each axis
+	 * @return Error code
 	 */
 	errno_t SetVelFeedForwardRatio(double radio[6]);
 
 	/**
-	 * @brief 获取各轴速度前馈系数
-	 * @param [out] radio 各轴速度前馈系数
-	 * @return 错误码
+	 * @brief Get the feedforward coefficients of the velocities of each axis
+	 * @param [out] radio feedforward coefficients of the velocities of each axis
+	 * @return Error code
 	 */
 	errno_t GetVelFeedForwardRatio(double radio[6]);
 
 	/**
-	 * @brief 机器人MCU日志生成
-	 * @return 错误码
+	 * @brief Robot MCU log generation
+	 * @return Error code
 	 */
 	errno_t RobotMCULogCollect();
 
 	/**
-	 * @brief 移动到相贯线起始点
-	 * @param [in] mainPoint 主管6个示教点的笛卡尔位姿
-	 * @param [in] piecePoint 辅管6个示教点的笛卡尔位姿
-	 * @param [in] tool 工具坐标系编号
-	 * @param [in] wobj 工件坐标系编号
-	 * @param [in] vel 速度百分比
-	 * @param [in] acc 加速度百分比
-	 * @param [in] ovl 速度缩放因子
-	 * @param [in] oacc 加速度缩放因子
-	 * @param [in] moveType 运动类型; 0-PTP；1-LIN
-	 * @return 错误码
+	 * @brief Move to the starting point of the intersection line
+	 * @param [in] mainPoint Cartesian poses of the six teaching points of the main pipeline
+	 * @param [in] piecePoint Cartesian poses of the six teaching points of the auxiliary pipeline
+	 * @param [in] tool Tool coordinate system ID
+	 * @param [in] wobj Workpiece coordinate system ID
+	 * @param [in] vel Velocity percentage
+	 * @param [in] acc Acceleration percentage
+	 * @param [in] ovl Velocity scaling factor
+	 * @param [in] oacc Acceleration scaling factor
+	 * @param [in] moveType Movement type; 0-PTP；1-LIN
+	 * @return Error code
 	 */
 	errno_t MoveToIntersectLineStart(DescPose mainPoint[6], DescPose piecePoint[6], int tool, int wobj, double vel, double acc, double ovl, double oacc, int moveType);
 
 	/**
-	 * @brief 移动到相贯线起始点
-	 * @param [in] mainPoint 主管6个示教点的笛卡尔位姿
-	 * @param [in] mainExaxisPos 主管6个示教点扩展轴位置
-	 * @param [in] piecePoint 辅管6个示教点的笛卡尔位姿
-	 * @param [in] pieceExaxisPos 拼接管6个示教点扩展轴位置
-	 * @param [in] extAxisFlag 是否启用扩展轴；0-不启用；1-启用
-	 * @param [in] exaxisPos 起点扩展轴位置
-	 * @param [in] tool 工具坐标系编号
-	 * @param [in] wobj 工件坐标系编号
-	 * @param [in] vel 速度百分比
-	 * @param [in] acc 加速度百分比
-	 * @param [in] ovl 速度缩放因子
-	 * @param [in] oacc 加速度缩放因子
-	 * @param [in] moveType 运动类型; 0-PTP；1-LIN
-	 * @param [in] moveDirection 运动方向；0-顺时针；1-逆时针
-	 * @param [in] offset 偏移量
-	 * @return 错误码
+	 * @brief Move to the starting point of the intersection line
+	 * @param [in] mainPoint Cartesian poses of the six teaching points of the main pipeline
+	 * @param [in] mainExaxisPos Exaxis poses of the six teaching points of the main pipeline
+	 * @param [in] piecePoint Cartesian poses of the six teaching points of the auxiliary pipeline
+	 * @param [in] pieceExaxisPos Exaxis poses of the six teaching points of the auxiliary pipeline
+	 * @param [in] extAxisFlag Whether to enable the extended axis; 0- Not enabled; 1- Enable
+	 * @param [in] exaxisPos The position of the starting expansion axis
+	 * @param [in] tool Tool coordinate system ID
+	 * @param [in] wobj Workpiece coordinate system ID
+	 * @param [in] vel Velocity percentage
+	 * @param [in] acc Acceleration percentage
+	 * @param [in] ovl Velocity scaling factor
+	 * @param [in] oacc Acceleration scaling factor
+	 * @param [in] moveType Movement type; 0-PTP；1-LIN
+	 * @param [in] moveDirection Direction of movement; 0- clockwise; 1- Counterclockwise
+	 * @param [in] offset Offset Descartes
+	 * @return Error code
 	 */
 	errno_t MoveToIntersectLineStart(DescPose mainPoint[6], ExaxisPos mainExaxisPos[6], DescPose piecePoint[6], ExaxisPos pieceExaxisPos[6], int extAxisFlag, ExaxisPos exaxisPos, int tool, int wobj, double vel, double acc, double ovl, double oacc, int moveType, int moveDirection, DescPose offset);
 
 	/**
-	 * @brief 相贯线运动
-	 * @param [in] mainPoint 主管6个示教点的笛卡尔位姿
-	 * @param [in] piecePoint 辅管6个示教点的笛卡尔位姿
-	 * @param [in] tool 工具坐标系编号
-	 * @param [in] wobj 工件坐标系编号
-	 * @param [in] vel 速度百分比
-	 * @param [in] acc 加速度百分比
-	 * @param [in] ovl 速度缩放因子
-	 * @param [in] oacc 加速度缩放因子
-	 * @param [in] moveDirection 运动方向; 0-顺时针；1-逆时针
-	 * @return 错误码
+	 * @brief Intersection line movement
+	 * @param [in] mainPoint Cartesian poses of the six teaching points of the main pipeline
+	 * @param [in] piecePoint Cartesian poses of the six teaching points of the auxiliary pipeline
+	 * @param [in] tool Tool coordinate system ID
+	 * @param [in] wobj Workpiece coordinate system ID
+	 * @param [in] vel Velocity percentage
+	 * @param [in] acc Acceleration percentage
+	 * @param [in] ovl Velocity scaling factor
+	 * @param [in] oacc Acceleration scaling factor
+	 * @param [in] moveDirection Direction of movement; 0- clockwise; 1- Counterclockwise
+	 * @return Error code
 	 */
 	errno_t MoveIntersectLine(DescPose mainPoint[6], DescPose piecePoint[6], int tool, int wobj, double vel, double acc, double ovl, double oacc, int moveDirection);
 
 	/**
-	 * @brief 相贯线运动
-	 * @param [in] mainPoint 主管6个示教点的笛卡尔位姿
-	 * @param [in] mainExaxisPos 主管6个示教点扩展轴位置
-	 * @param [in] piecePoint 辅管6个示教点的笛卡尔位姿
-	 * @param [in] pieceExaxisPos 拼接管6个示教点扩展轴位置
-	 * @param [in] extAxisFlag 是否启用扩展轴；0-不启用；1-启用
-	 * @param [in] exaxisPos 起点扩展轴位置
-	 * @param [in] tool 工具坐标系编号
-	 * @param [in] wobj 工件坐标系编号
-	 * @param [in] vel 速度百分比
-	 * @param [in] acc 加速度百分比
-	 * @param [in] ovl 速度缩放因子
-	 * @param [in] oacc 加速度缩放因子
-	 * @param [in] moveDirection 运动方向; 0-顺时针；1-逆时针
-	 * @param [in] offset 偏移量
-	 * @return 错误码
+	 * @brief Intersection line movement
+	 * @param [in] mainPoint Cartesian poses of the six teaching points of the main pipeline
+	 * @param [in] mainExaxisPos Exaxis poses of the six teaching points of the main pipeline
+	 * @param [in] piecePoint Cartesian poses of the six teaching points of the auxiliary pipeline
+	 * @param [in] pieceExaxisPos Exaxis poses of the six teaching points of the auxiliary pipeline
+	 * @param [in] extAxisFlag Whether to enable the extended axis; 0- Not enabled; 1- Enable
+	 * @param [in] exaxisPos The position of the starting expansion axis
+	 * @param [in] tool Tool coordinate system ID
+	 * @param [in] wobj Workpiece coordinate system ID
+	 * @param [in] vel Velocity percentage
+	 * @param [in] acc Acceleration percentage
+	 * @param [in] ovl Velocity scaling factor
+	 * @param [in] oacc Acceleration scaling factor
+	 * @param [in] moveDirection Direction of movement; 0- clockwise; 1- Counterclockwise
+	 * @param [in] offset Offset Descartes
+	 * @return Error code
 	 */
 	errno_t MoveIntersectLine(DescPose mainPoint[6], ExaxisPos mainExaxisPos[6], DescPose piecePoint[6], ExaxisPos pieceExaxisPos[6], int extAxisFlag, ExaxisPos exaxisPos[4], int tool, int wobj, double vel, double acc, double ovl, double oacc, int moveDirection, DescPose offset);
+
 	/**
-	 * @brief 获取关节扭矩传感器迟滞误差
-	 * @param [out] hysteresisError j1~j6关节迟滞误差
-	 * @return 错误码
+	 * @brief Get the hysteresis error of the joint torque sensor
+	 * @param [out] hysteresisError j1~j6 Joint hysteresis error
+	 * @return Error code
 	 */
 	errno_t JointHysteresisError(double hysteresisError[6]);
 
 	/**
-	 * @brief 获取关节扭矩传感器重复精度
-	 * @param [out] repeatability j1~j6关节扭矩传感器重复精度
-	 * @return 错误码
+	 * @brief Get the repeatability accuracy of the joint torque sensor
+	 * @param [out] repeatability j1~j6 Repeatability accuracy of joint torque sensors
+	 * @return Error code
 	 */
 	errno_t JointRepeatability(double repeatability[6]);
 
 	/**
-	 * @brief 设置关节力传感器参数
-	 * @param [in] M J1-J6质量系数[0.001 ~ 10]
-	 * @param [in] B J1-J6阻尼系数[0.001 ~ 10]
-	 * @param [in] K J1-J6刚度系数[0.001 ~ 10]
-	 * @param [in] threshold 力控制阈值，Nm
-	 * @param [in] sensitivity 灵敏度,Nm/V,[0 ~ 10]
-	 * @param [in] setZeroFlag 功能开启标志位；0-关闭；1-开启；2-位置1记录零点；3-位置2记录零点
-	 * @return 错误码
+	 * @brief Set the parameters of the joint torque sensor
+	 * @param [in] M J1-J6 Mass coefficient [0.001 ~ 10]
+	 * @param [in] B J1-J6 Damping coefficient [0.001 ~ 10]
+	 * @param [in] K J1-J6 Stiffness coefficient [0.001 ~ 10]
+	 * @param [in] threshold Force control threshold，Nm
+	 * @param [in] sensitivity Sensitivity,Nm/V [0 ~ 10]
+	 * @param [in] setZeroFlag Function enable flag bit; 0- Close; 1- Turn on; Position 2- Position 1 records the zero point; Position 3- Position 2 records the zero point
+	 * @return Error code
 	 */
 	errno_t SetAdmittanceParams(double M[6], double B[6], double K[6], double threshold[6], double sensitivity[6], int setZeroFlag);
 
 	/**
-	 * @brief 开启力矩补偿功能及补偿系数
-	 * @param [in] status 开关，0-关闭；1-开启
-	 * @param [in] torqueCoeff J1-J6力矩补偿系数[0-1]
-	 * @return 错误码
+	 * @brief Enable torque compensation function and compensation coefficient
+	 * @param [in] status Switch, 0- off; 1- Start
+	 * @param [in] torqueCoeff Torque compensation coefficient of J1-J6 [0-1]
+	 * @return Error code
 	 */
-	errno_t SerCoderCompenParams(int status, double torqueCoeff[6]);
+	errno_t SetCoderCompenParams(int status, double torqueCoeff[6]);
 
 	/**
-	 * @brief 光电传感器TCP标定-计算工具RPY
-	 * @param [in] Btool 机器人笛卡尔位置
-	 * @param [in] Etool 当前工具坐标系数值
-	 * @param [in] senser 当前传感器坐标系数值(暂未开放)
-	 * @param [in] radius 圆周运动半径mm(暂未开放)
-	 * @param [in] dz 沿基座标系z轴负方向运动距离；当dz = 10000时，函数直接返回工具RPY
-	 * @param [out] TCPRPY 工具RPY数值
-	 * @return 错误码
-	 */
+	* @brief TCP calibration of photoelectric sensors-Computing tool RPY
+	* @param [in] Btool Robot Cartesian position
+	* @param [in] Etool The current tool coordinate system value
+	* @param [in] senser Current sensor coordinate system value (not yet open)
+	* @param [in] radius Circular motion radius mm(not yet open)
+	* @param [in] dz The movement distance along the negative Z-axis of the base marking system; When dz = 10000, the function directly returns the tool RPY
+	* @param [out] TCPRPY Tool RPY values
+	* @return Error code
+	*/
 	errno_t TCPComputeRPY(DescPose Btool, DescPose Etool, DescPose sensor, double radius, double dz, Rpy& TCPRPY);
 
 	/**
-	 * @brief 光电传感器TCP标定-计算工具XYZ
-	 * @param [in] select 0-计算工具TCP；1-计算传感器原点；2-计算传感器姿态；3-直接返回工具TCP；4-记录当前工件坐标系和工具坐标系
-	 * @param [in] originDirection 0-X方向；1-Y方向；2-Z方向
-	 * @param [in] pos1 机器人笛卡尔位置1
-	 * @param [in] pos2 机器人笛卡尔位置2
-	 * @param [in] pos3 机器人笛卡尔位置3
-	 * @param [in] pos4 机器人笛卡尔位置4
-	 * @param [out] TCP 工具XYZ数值
-	 * @return 错误码
+	 * @brief TCP calibration of photoelectric sensors-Computing tool XYZ
+	 * @param [in] select 0- Computing tool TCP; 1- Calculate the origin of the sensor; 2- Calculate the sensor attitude; 3- Directly return the tool TCP; 4- Record the current workpiece coordinate system and tool coordinate system
+	 * @param [in] originDirection 0-X direction; 1-Y direction; 2-Z direction
+	 * @param [in] pos1 Robot Cartesian position 1
+	 * @param [in] pos2 Robot Cartesian position 2
+	 * @param [in] pos3 Robot Cartesian position 3
+	 * @param [in] pos4 Robot Cartesian position 4
+	 * @param [out] TCP Tool XYZ value
+	 * @return Error code
 	 */
 	errno_t TCPComputeXYZ(int select, double originDirection, DescTran pos1, DescTran pos2, DescTran pos3, DescTran pos4, DescTran& TCP);
 
 	/**
-	 * @brief 光电传感器TCP标定-开始记录末端法兰中心位置
-	 * @return 错误码
+	 * @brief TCP calibration of photoelectric sensors-Start recording the center position of the end flange
+	 * @return Error code
 	 */
 	errno_t TCPRecordFlangePosStart();
 
 	/**
-	 * @brief 光电传感器TCP标定-停止记录末端法兰中心位置
-	 * @return 错误码
+	 * @brief TCP calibration of photoelectric sensors-Stop recording the center position of the end flange
+	 * @return Error code
 	 */
 	errno_t TCPRecordFlangePosEnd();
 
 	/**
-	 * @brief 光电传感器TCP标定-获取末端工具中心点位置
-	 * @param [out] TCP 工具中心点位置(x,y,z)
-	 * @return 错误码
+	 * @brief TCP calibration of photoelectric sensors-Get the center point position of the end tool
+	 * @param [out] TCP The position of the tool center point (x,y,z)
+	 * @return Error code
 	 */
 	errno_t TCPGetRecordFlangePos(DescTran& TCP);
 
 	/**
-	 * @brief 光电传感器TCP标定
-	 * @param [in] luaPath 自动标定lua程序路径：QX版本机器人-"/fruser/FR_CalibrateTheToolTcp.lua";LA版本机器人-"/usr/local/etc/controller/lua/FR_CalibrateTheToolTcp.lua"
-	 * @param [in] offsetX 示教点偏移(x,y,z)mm
-	 * @param [out] TCP 标定后的工具坐标系(x,y,z,rx,ry,rz)
-	 * @return 错误码
+	 * @brief TCP calibration of photoelectric sensors
+	 * @param [in] luaPath Automatic calibration of lua program paths: QX version robot-"/fruser/FR_CalibrateTheToolTcp.lua";LA version robot-"/usr/local/etc/controller/lua/FR_CalibrateTheToolTcp.lua"
+	 * @param [in] offsetX Teaching point offset(x,y,z)mm
+	 * @param [out] TCP The calibrated tool coordinate system(x,y,z,rx,ry,rz)
+	 * @return Error code
 	 */
 	errno_t PhotoelectricSensorTCPCalibration(std::string luaPath, DescTran offset, DescPose& TCP);
 
 	/**
-	 * @brief 原地空运动
-	 * @return 错误码
+	 * @brief Stationary Motion
+	 * @return Error code
 	 */
 	errno_t MoveStationary();
 
 	/**
-	 * @brief 获取lua程序错误行号和错误码
-	 * @param [out] errLinNum lua程序执行错误行号
-	 * @param [out] luaErrCode lua程序执行错误码
-	 * @return 错误码
+	 * @brief Wait for stationary motion to complete
+	 * @return Error code
+	 */
+	errno_t WaitStationaryMotionDone();
+
+	/**
+	 * @brief Get the error line number and error code of the lua program
+	 * @param [out] errLinNum The error line number of the Lua program execution
+	 * @param [out] luaErrCode The error code of the Lua program execution
+	 * @return Error code
 	 */
 	errno_t GetProgramRunErrCode(int& errLinNum, int& luaErrCode);
 
+
 	/**
-	* @brief 开启末端通用透传功能
-	* @param [in] 使能，0-关闭，1-开启
-	* @return  错误码
+	* @brief Enable the end device general passthrough function
+	* @param [in] mode Enable status: 0-disable, 1-enable
+	* @return Error code
 	*/
 	errno_t SetAxleGenComEnable(int mode);
 
 	/**
-	* @brief 按长度获取周期数据
-	* @param [in] len，返回的长度
-	* @return  错误码
+	* @brief Get periodic data by specified length
+	* @param [in] len Length of data to retrieve
+	* @param [out] cycleData Array of periodic data returned (size 130)
+	* @return Error code
 	*/
 	errno_t GetAxleGenComCycleData(int len, int cycleData[130]);
 
 	/**
-	* @brief 末端发送非周期数据并等待应答
-	* @param [in] len_snd 发送的长度
-	* @param [in] sndBuff 发送数据
-	* @param [in] len_rcv 选择接受的长度
-	* @param [out] rcvBuff 应答的数据
-	* @return  错误码
+	* @brief Send aperiodic command data to the end-effector and wait for response
+	* @param [in] lenSnd Length of data to send
+	* @param [in] sndBuff Buffer containing data to send
+	* @param [in] lenRcv Expected length of data to receive
+	* @param [out] rcvData Buffer for received response data
+	* @return Error code
 	*/
 	errno_t SndRcvAxleGenComCmdData(int lenSnd, int sndBuff[130], int lenRcv, int rcvData[130]);
 
 	/**
-	* @brief 设置端口通讯断开时停止机器人运行
-	* @param [in] pordID 端口编号 0-8080；1-8083；2-20002；3-20004
-	* @param [in] enable 0-关闭；1-开启
-	* @param [in] confirmTime 通讯中断确认时长(ms)[0-5000]
-	* @return  错误码
+	* @brief Set whether to stop robot motion when communication is disconnected on a specific port
+	* @param [in] portID Port number: 0-8080; 1-8083; 2-20002; 3-20004
+	* @param [in] enable Enable flag: 0-disable, 1-enable
+	* @param [in] confirmTime Communication disconnection confirmation time (ms), range: [0-5000]
+	* @return Error code
 	*/
 	errno_t SetRobotStopOnComDisc(int pordID, bool enable, int confirmTime);
 
 	/**
-	* @brief 获取端口通讯断开时停止机器人运行参数
-	* @param [in] pordID 端口编号 0-8080；1-8083；2-20002；3-20004
-	* @param [out] enable 0-关闭；1-开启
-	* @param [out] confirmTime 通讯中断确认时长(ms)[0-5000]
-	* @return  错误码
+	* @brief Get the parameters for stopping robot motion on communication disconnection
+	* @param [in] portID Port number: 0-8080; 1-8083; 2-20002; 3-20004
+	* @param [out] enable Enable flag: 0-disable, 1-enable
+	* @param [out] confirmTime Communication disconnection confirmation time (ms)
+	* @return Error code
 	*/
 	errno_t GetRobotStopOnComDisc(int pordID, bool &enable, int &confirmTime);
 
 	/**
-	 * @brief UDP扩展轴定位完成时间设置
-	 * @param [in] time 定位完成时间[ms]
-	 * @return 错误码
+	 * @brief Set UDP external axis positioning completion time
+	 * @param [in] time Positioning completion time [ms]
+	 * @return Error code
 	 */
 	errno_t SetExAxisCmdDoneTime(double time);
 
 	/**
-	 * @brief UDP发送一帧指令
-	 * @param [in] frame 发送数据帧字符串如：/f/bIII20III303III7IIIMode(0)III/b/f
-	 * @return 错误码
+	 * @brief Send one frame of UDP command
+	 * @param [in] frame Send data frame string e.g.: /f/bIII20III303III7IIIMode(0)III/b/f
+	 * @return Error code
 	 */
 	errno_t SendUDPFrame(std::string frame);
 
 	/**
-	 * @brief 设置SDK通过UDP发送指令的执行结果回调函数
-	 * @param [in] CallBack 回调函数；comType-指令结果通讯回复类型0-TCP，1-UDP；count-指令回复帧计数；cmdID-指令编号；contentLen-数据长度；content-数据内容
-	 * @return 错误码
+	 * @brief Set callback function for SDK command execution results sent via UDP
+	 * @param [in] CallBack Callback function; comType-Command result communication reply type 0-TCP, 1-UDP; count-Command reply frame count; cmdID-Command ID; contentLen-Data length; content-Data content
+	 * @return Error code
 	 */
 	errno_t SetCmdRpyCallback(void (*CallBack)(int comType, int count, int cmdID, int contentLen, std::string content));
 
 	/**
-	 * @brief 设置安全速度参数
-	 * @param [in] enable 0-关；1-手动模式启用；2-所有模式启用
-	 * @param [in] maxTCPVel 限制最大TCP速度;[0-1000]mm/s
-	 * @param [in] strategy 超速后策略；0-停止报警；1-自动限速；2-停止报警并去使能
-	 * @return 错误码
+	 * @brief Set safety speed parameters
+	 * @param [in] enable 0-Off; 1-Enabled in manual mode; 2-Enabled in all modes
+	 * @param [in] maxTCPVel Maximum TCP speed limit; [0-1000] mm/s
+	 * @param [in] strategy Strategy after overspeed; 0-Stop and alarm; 1-Automatic speed limiting; 2-Stop, alarm and disable
+	 * @param [in] maxJointVel  6-axis maximum joint velocity (°/s), default 45°/s
+	 * @return Error code
 	 */
-	errno_t SetVelReducePara(int enable, double maxTCPVel, int strategy);
+	errno_t SetVelReducePara(int enable, double maxTCPVel, int strategy, std::vector<double> maxJointVel = { 45.0, 45.0, 45.0, 45.0, 45.0, 45.0 });
 
 	/**
-	 * @brief 定点摆动开始
-	 * @param [in] weaveNum 摆动编号[0-7]
-	 * @param [in] mode 0-工具坐标系；1-参考点
-	 * @param [in] refPoint 参考点笛卡尔坐标[x,y,z,a,b,c]
-	 * @param [in] weaveTime 摆动时间[s]
-	 * @return 错误码
+	 * @brief Start fixed-point weaving
+	 * @param [in] weaveNum Weave number [0-7]
+	 * @param [in] mode 0-Tool coordinate system; 1-Reference point
+	 * @param [in] refPoint Reference point Cartesian coordinates [x, y, z, a, b, c]
+	 * @param [in] weaveTime Weave time [s]
+	 * @return Error code
 	 */
 	errno_t OriginPointWeaveStart(int weaveNum, int mode, DescPose refPoint, double weaveTime);
 
 	/**
-	 * @brief 定点摆动结束
-	 * @return 错误码
+	 * @brief End fixed-point weaving
+	 * @return Error code
 	 */
 	errno_t OriginPointWeaveEnd();
 
 	/**
-	 * @brief 设置用户自定义机器人末端灯色
-	 * @param [in] r 末端红灯控制；0-灭；1-亮
-	 * @param [in] g 末端绿灯控制；0-灭；1-亮
-	 * @param [in] b 末端蓝灯控制；0-灭；1-亮
-	 * @return 错误码
+	 * @brief Set the user-defined color of the robot end-effector light
+	 * @param [in] r Red light control; 0 - off, 1 - on
+	 * @param [in] g Green light control; 0 - off, 1 - on
+	 * @param [in] b Blue light control; 0 - off, 1 - on
+	 * @return Error code
 	 */
 	errno_t SetUserLEDColor(bool r, bool g, bool b);
 
 	/**
-	 *@brief  机器人接口类析构函数
+	 * @brief Configure the robot's CNDE real-time status feedback
+	 * @param [in] states List of configurable states
+	 * @param [in] period Status feedback period (ms)
+	 * @return Error code
+	 */
+	errno_t SetRobotRealtimeStateConfig(std::vector<RobotState> states, int period);
+
+	/**
+	 * @brief Add a robot state to the CNDE status configuration
+	 * @param [in] state Configurable state
+	 * @return Error code
+	 */
+	errno_t AddRobotRealtimeState(RobotState state);
+
+	/**
+	 * @brief Remove a robot state from the CNDE status configuration
+	 * @param [in] state Configurable state
+	 * @return Error code
+	 */
+	errno_t DeleteRobotRealtimeState(RobotState state);
+
+	/**
+	 * @brief Set the CNDE status feedback period
+	 * @param [in] period Configurable status feedback period (4-1000 ms)
+	 * @return Error code
+	 */
+	errno_t SetRobotRealtimeStatePeriod(int period);
+
+	/**
+	 * @brief Get the current set of all CNDE status feedback states and the feedback period
+	 * @param [out] states List of configurable states
+	 * @param [out] period Configurable status feedback period (ms)
+	 * @return Error code
+	 */
+	errno_t GetRobotRealtimeStateConfig(std::vector<RobotState>& states, int& period);
+
+	/**
+	 * @brief  Joint space velocity servo control mode motion
+	 * @param  [in] joint_pos  Target joint velocities for 6 axes, unit: deg/s
+	 * @param  [in] axisPos    Velocities for 4 external axes, unit: deg/s
+	 * @param  [in] acc        Acceleration percentage, range [0~100], not yet available, default is 0
+	 * @param  [in] vel        Velocity percentage, range [0~100], not yet available, default is 0
+	 * @param  [in] cmdT       Command sending period, unit: s, recommended range [0.001~0.0016]
+	 * @param  [in] filterT    Filter time, unit: s, not yet available, default is 0
+	 * @param  [in] gain       Proportional gain for target position, not yet available, default is 0
+	 * @param  [in] id         ServoJ command ID, default is 0
+	 * @param  [in] comType    Command sending type; 0-xmlrpc; 1-UDP (corresponding to robot port 20007)
+	 * @return   Error code
+	 */
+	errno_t ServoJV(double jointVel[6], double exisVel[4], float acc, float vel, float cmdT, float filterT, float gain, int id = 0, int comType = 0);
+
+	/**
+	 * @brief  Start joint MIT control
+	 * @param  [in] comType    Command sending type; 0-xmlrpc; 1-UDP (corresponding to robot port 20007)
+	 * @return   Error code
+	 */
+	errno_t ServoMITStart(int comType = 0);
+
+	/**
+	 * @brief  Stop joint MIT control
+	 * @param  [in] comType    Command sending type; 0-xmlrpc; 1-UDP (corresponding to robot port 20007)
+	 * @return   Error code
+	 */
+	errno_t ServoMITEnd(int comType = 0);
+
+	/**
+	 * @brief  Joint MIT control
+	 * @param  [in] posGain    Position gains for joints j1~j6
+	 * @param  [in] desPos     Desired positions for joints j1~j6, unit: deg
+	 * @param  [in] velGain    Velocity gains for joints j1~j6
+	 * @param  [in] desVel     Desired velocities for joints j1~j6, unit: deg/s
+	 * @param  [in] torque_ff  Feedforward torques for joints j1~j6, unit: Nm
+	 * @param  [in] interval   Command period, unit: s, range [0.001~0.008]
+	 * @param  [in] comType    Command sending type; 0-xmlrpc; 1-UDP (corresponding to robot port 20007)
+	 * @return   Error code
+	 */
+	errno_t ServoMIT(double posGain[6], double desPos[6], double velGain[6], double desVel[6], double torque_ff[6], double interval, int comType = 0);
+
+	/**
+	 * @brief Write configuration parameters to one of the 10 process groups of the laser welding machine and configure them to the welder
+	 * @param[in] io_type Communication type 0-IO 1-UDP
+	 * @param[in] num Process group number to set (1~10)
+	 * @param[in] scanSpeed Scanning speed
+	 * @param[in] scanWidth Scanning width
+	 * @param[in] peakPower Peak power
+	 * @param[in] dutyCycle Duty cycle
+	 * @param[in] freq Frequency
+	 * @return Error code, 0 indicates success, non-zero indicates failure
+	 */
+	errno_t SetLaserWeldingParam(int io_type, int num, int scanSpeed, int scanWidth,
+		int peakPower, int dutyCycle, int freq);
+
+	/**
+	 * @brief Start/stop the laser welding machine
+	 * @param[in] io_type Communication type 0-IO 1-UDP
+	 * @param[in] status Control word 0-Laser off 1-Laser on
+	 * @param[in] max_waittime Maximum waiting time in milliseconds, default 10000
+	 * @return Error code, 0 indicates success, non-zero indicates failure
+	 */
+	errno_t SetLaserWeldingStartEnd(int io_type, int status, int max_waittime = 10000);
+
+	/**
+	 * @brief Enable/disable the laser welding machine
+	 * @param[in] io_type Communication type 0-IO 1-UDP
+	 * @param[in] status 0-Disable 1-Enable
+	 * @return Error code, 0 indicates success, non-zero indicates failure
+	 */
+	errno_t SetLaserWeldingEnable(int io_type, int status);
+
+	/**
+	 * @brief Reset laser welding machine fault
+	 * @param[in] io_type Communication type 0-IO 1-UDP
+	 * @param[in] status Control word 0-Invalid 1-Fault reset
+	 * @return Error code, 0 indicates success, non-zero indicates failure
+	 */
+	errno_t ResetLaserWeldingErr(int io_type, int status);
+
+	/**
+	 * @brief Get laser welding machine running status
+	 * @param[in] io_type Communication type 0-IO 1-UDP
+	 * @param[out] status Control word 0-Stopped 1-Running
+	 * @return Error code, 0 indicates success, non-zero indicates failure
+	 */
+	errno_t GetLaserWeldingRunningState(int io_type, int& status);
+
+	/**
+	 * @brief Get laser welding machine fault status
+	 * @param[in] io_type Communication type 0-IO 1-UDP
+	 * @param[out] status 0-No fault 1-Fault present
+	 * @return Error code, 0 indicates success, non-zero indicates failure
+	 */
+	errno_t GetLaserWeldingErrState(int io_type, int& status);
+
+	/**
+	 * @brief Get configuration parameters of one of the 10 process groups from the laser welding machine
+	 * @param[in] num Process group number to get (1~10)
+	 * @param[out] scanSpeed Scanning speed
+	 * @param[out] scanWidth Scanning width
+	 * @param[out] peakPower Peak power
+	 * @param[out] dutyCycle Duty cycle
+	 * @param[out] freq Frequency
+	 * @return Error code, 0 indicates success, non-zero indicates failure
+	 */
+	errno_t GetLaserWeldingParamTarget(int num, int& scanSpeed, int& scanWidth, int& peakPower, int& dutyCycle, int& freq);
+
+	/**
+	 * @brief Get currently active configuration parameters of the laser welding machine
+	 * @param[in] io_type Communication type 0-IO 1-UDP
+	 * @param[out] scanSpeed Scanning speed
+	 * @param[out] scanWidth Scanning width
+	 * @param[out] peakPower Peak power
+	 * @param[out] dutyCycle Duty cycle
+	 * @param[out] freq Frequency
+	 * @return Error code, 0 indicates success, non-zero indicates failure
+	 */
+	errno_t GetLaserWeldingParamActual(int io_type, int& scanSpeed, int& scanWidth, int& peakPower, int& dutyCycle, int& freq);
+
+	/**
+	 * @brief Set extended IO for laser welding machine - Enable DO port
+	 * @param[in] ctrlModeDONum Extended DO port number for laser welding machine enable
+	 * @return Error code, 0 indicates success, non-zero indicates failure
+	 */
+	errno_t SetLaserWeldingEnableExtDoNum(int ctrlModeDONum);
+
+	/**
+	 * @brief Set extended IO for laser welding machine - Start DO port
+	 * @param[in] ctrlModeDONum Extended DO port number for laser welding machine start (laser on/off)
+	 * @return Error code, 0 indicates success, non-zero indicates failure
+	 */
+	errno_t SetLaserWeldingStartExtDoNum(int ctrlModeDONum);
+
+	/**
+	 * @brief Set extended IO for laser welding machine - Fault reset DO port
+	 * @param[in] ctrlModeDONum Extended DO port number for laser welding machine fault reset
+	 * @return Error code, 0 indicates success, non-zero indicates failure
+	 */
+	errno_t SetLaserWeldingErrResetExtDoNum(int ctrlModeDONum);
+
+	/**
+	 * @brief Configure extended DI for laser welding machine running status (laser on status)
+	 * @param[in] diNum Extended DI port number for laser welding machine running status (laser on status)
+	 * @return Error code, 0 indicates success, non-zero indicates failure
+	 */
+	errno_t SetLaserWeldingRunningStateExtDiNum(int diNum);
+
+	/**
+	 * @brief Configure extended DI for laser welding machine fault status
+	 * @param[in] diNum Extended DI port number for laser welding machine fault status
+	 * @return Error code, 0 indicates success, non-zero indicates failure
+	 */
+	errno_t SetLaserWeldingErrStateExtDiNum(int diNum);
+
+	/**
+	 * @brief  Control dexterous hand movement
+	 * @param  [in] idstart  Starting slave station number
+	 * @param  [in] slaveNum  Number of slave stations
+	 * @param  [in] pos  Position array, length 16, range (-360~360)
+	 * @param  [in] speed  Speed percentage array, length 16, range [0~100]
+	 * @param  [in] force  Torque percentage array, length 16, range [0~100]
+	 * @param  [in] max_time  Maximum waiting time, range [0~30000], unit: ms
+	 * @return  Error code, 0 on success
+	 */
+	errno_t SetDexterousHandsMove(int idstart, int slaveNum, double pos[16], int speed[16], int force[16], int max_time);
+
+	/**
+	 * @brief  Control dexterous hand reset and activation
+	 * @param  [in] id  Slave station number
+	 * @param  [in] act  0-Reset 1-Activate
+	 * @return  Error code, 0 on success
+	 */
+	errno_t SetDexterousHandsAct(int id, int act);
+
+	/**
+	 * @brief  Clear dexterous hand errors
+	 * @return  Error code, 0 on success
+	 */
+	errno_t ClearDexterousHandsError();
+
+	/**
+	 * @brief Set dexterous hand function control
+	 * @param [in] id Gripper device number
+	 * @param [in] func func[0]-Gripper enable;func[1]-Gripper initialization;func[2]-Position setting;func[3]-Speed setting;func[4]-Torque setting;func[6]-Read gripper status
+        func[7]-Read initialization status;func[8]-Read fault code;func[9]-Read position;func[10]-Read speed;func[11]-Read torque
+        func[12]-Rotating gripper revolution setting;func[13]-Rotating gripper rotation speed setting;func[14]-Rotating gripper rotation torque setting
+        func[15]-Read rotating gripper status;func[16]-Read rotating gripper initialization status;func[17]-Read rotating gripper revolutions
+        func[18]-Read rotating gripper rotation speed;func[19]-Read rotating gripper rotation torque;func[20]-Multi-axis synchronous motion setting
+        func[21]-Fault reset command;func[22]-Single-axis operating status;func[23]-All axes operating status
+	 * @return  Error code, 0 on success
+	 */
+	errno_t SetDexterousHandsFunc(int id, int func[32]);
+
+	/**
+	 * @brief Get dexterous hand function control status
+	 * @param [in] id  Gripper device number
+	 * @param [out] func func[0]-Gripper enable;func[1]-Gripper initialization;func[2]-Position setting;func[3]-Speed setting;func[4]-Torque setting;func[6]-Read gripper status
+        func[7]-Read initialization status;func[8]-Read fault code;func[9]-Read position;func[10]-Read speed;func[11]-Read torque
+        func[12]-Rotating gripper revolution setting;func[13]-Rotating gripper rotation speed setting;func[14]-Rotating gripper rotation torque setting
+        func[15]-Read rotating gripper status;func[16]-Read rotating gripper initialization status;func[17]-Read rotating gripper revolutions
+        func[18]-Read rotating gripper rotation speed;func[19]-Read rotating gripper rotation torque;func[20]-Multi-axis synchronous motion setting
+        func[21]-Fault reset command;func[22]-Single-axis operating status;func[23]-All axes operating status
+	 * @return  Error code, 0 on success, -1 or other error code on failure
+	 */
+	errno_t GetDexterousHandsFunc(int id, int func[32]);
+
+	/**
+	 * @brief Activate the specified workpiece coordinate system for subsequent point transformations
+	 * @param [in] workpieceID Workpiece number [0-14]
+	 * @return Error code, returns 0 on success
+	 */
+	errno_t WorkPieceTrsfStart(int workpieceID);
+
+	/**
+	 * @brief Deactivate the workpiece coordinate system point transformations
+	 * @return Error code, returns 0 on success
+	 */
+	errno_t WorkPieceTrsfEnd();
+
+	/**
+	 * @brief Get checksum of safety configuration parameters
+	 * @param [out] status Verification status, 0‑valid, 1‑verifying, 2‑verification failed
+	 * @param [out] checksum Checksum, 8‑digit hexadecimal value
+	 * @return Error code
+	 */
+	errno_t GetSafetyParamsCheckSum(int& status, uint32_t& checksum);
+
+	/**
+	 * @brief Verify safety operation password
+	 * @param [in] status Verification mode, 0‑enable, 1‑disable
+	 * @param [in] password Password string
+	 * @return Error code
+	 */
+	errno_t SafetyOPPasswordCheck(int status, std::string password);
+
+	/**
+	 * @brief Wait for gripper motion completion status
+	 * @param[in] status 0: Motion not finished; 1: Motion finished, no object detected; 2: Motion finished, object detected; 3: Object drop detected after motion completion
+	 * @param[in] timeout Timeout period in milliseconds; -1 indicates infinite waiting
+	 * @param[in] strategy 0: Halt and trigger error alert; 1: Keep running
+	 * @param[in] type 0: Parallel gripper; 1: Rotary gripper
+	 * @return Execution error code
+	 */
+	errno_t GripperWaitMotionDone(int status, int timeout, int strategy, int type);
+
+	/**
+	 * @brief Safety dual‑channel CI function configuration
+	 * @param [in] ID Dual‑channel ID; [0‑3]
+	 * @param [in] config Function configuration; 0‑No configuration; 201‑External E‑stop input signal 1; 202‑External E‑stop input signal 2; 203‑Level‑1 reduction mode; 204‑Level‑2 reduction mode; 205‑Level‑3 reduction mode;
+								   206‑Normal stop; 207‑Safety wall 1; 208‑Safety wall 2; 209‑Safety wall 3; 210‑Safety wall 4; 211‑Safety wall 5; 212‑Safety wall 6; 213‑Safety wall 7;
+								   214‑Safety wall 8; 215‑Safety stop reset;
+	 * @return Error code
+	 */
+	errno_t SetSafetyDIConfig(int ID, int config);
+	/**
+	 * @brief Safety dual‑channel CO function configuration
+	 * @param [in] ID Dual‑channel ID; [0‑3]
+	 * @param [in] config Function configuration; 0‑No configuration; 201‑E‑stop output signal 1; 202‑E‑stop output signal 2; 203‑Safety status output; 204‑Protective stop status output; 205‑Robot in motion;
+								   206‑Robot reduction mode; 207‑Robot non‑reduction mode;
+	 * @return Error code
+	 */
+	errno_t SetSafetyDOConfig(int ID, int config);
+
+	/**
+	 * @brief Switch manual high‑speed mode
+	 * @param [in] state 0‑Exit manual high‑speed; 1‑Enter manual high‑speed
+	 * @return Error code
+	 */
+	errno_t HiSpeedManualSwitch(int state);
+
+	/**
+	 * @brief Obtain the current upper‑computer system time and send it to the robot for system time synchronization.
+	 * Due to QNX system limitations, the synchronization accuracy is at minute‑level.
+	 * @return Error code
+	 */
+	errno_t SetRobotTime();
+
+	/**
+	 * @brief Set TLS encryption certificate path
+	 * @param [in] certPath  Certificate path; if empty, defaults to the certificates in the executable file directory; certificate names: ca.crt; client.crt; client.key
+	 * @return Error code
+	 */
+	errno_t MtlsLink(std::string certPath = "");
+
+	/**
+	 * @brief Send a custom command frame via TCP 8080 (automatically through the encrypted channel in mTLS mode)
+	 * @param [in] frame Complete command frame, e.g. "/f/bIII52III236III7IIIMode(0)III/b/f"
+	 * @return Error code
+	 */
+	errno_t SendTCPFrame(std::string frame);
+
+	/**
+	 * @brief Set physical speed instantly
+	 * @param [in] speed Physical speed value, mm/s
+	 * @return Error code
+	 */
+	errno_t SetPhySpeedInstant(double speed);
+
+	/**
+	 * @brief Get TLS enable state of robot command protocol server
+	 * @param [out] enable 0-disabled; 1-enabled
+	 * @return Error code
+	 */
+	errno_t GetTLSEnableState(bool& enable);
+
+	/**
+	 * @brief Upload and upgrade with data backup package
+	 * @param [in] filePath File path of the uploaded data backup package; e.g. D://zUP/fr_user_data.tar.gz
+	 * @return Error code
+	 */
+	errno_t DataPackageUpgrade(std::string filePath);
+	/**
+	 * @brief Get the upgrade progress percentage of data backup package
+	 * @param [out] progress Upgrade progress percentage [0-100], -1: upgrade failed
+	 * @return Error code
+	 */
+	errno_t GetDataPackageUpgradeProgress(int& progress);
+	/**
+	 * @brief Get the upgrade progress percentage of all joint parameters
+	 * @param [out] progress Upgrade progress percentage [0-100], -1: upgrade failed
+	 * @return Error code
+	 */
+	errno_t GetJointAllParamUpgradeProgress(int& progress);
+
+	/**
+	 *@brief  Robot interface class destructor
 	 */
 	~FRRobot();
 
 private:
-	void RobotStateRoutineThread();
 	void RobotInstCmdSendRoutineThread();
 	void RobotInstCmdRecvRoutineThread();
 	void RobotTaskRoutineThread();
@@ -5008,48 +5504,41 @@ private:
 	bool rpc_done = false;
 
 	/**
-	 * @brief 下载文件
-	 * @param [in] fileType 文件类型    0-lua文件
-	 * @param [in] fileName 文件名称    “test.lua”
-	 * @param [in] saveFilePath 保存文件路径    “C：//test/”
-	 * @return 错误码
-	 */
+	* @brief download file
+	* @param [in] fileType File type 0-lua file
+	* @param [in] fileName File name "test.lua"
+	* @param [in] saveFilePath Save file path C: //test/
+	* @return error code
+	*/
 	errno_t FileDownLoad(int fileType, std::string fileName, std::string saveFilePath);
 
 	/**
-	 * @brief 上传文件
-	 * @param [in] fileType 文件类型    0-lua文件
-	 * @param [in] fileName 文件名称    “test.lua”
-	 * @param [in] upLoadFilePath 保存文件路径    “C：//test/”
-	 * @return 错误码
-	 */
+	* @brief Upload file
+	* @param [in] fileType File type 0-lua file
+	* @param [in] fileName File name "test.lua"
+	* @param [in] upLoadFilePath Save file C: //test/
+	* @return error code
+	*/
 	errno_t FileUpLoad(int fileType, std::string filePath, int reUp = 0);
-
 
 	errno_t GetFileUploadBreakState(int& breakFlag, std::string& md5, int& fileSize, int& curSentSize);
 
 	/**
-	 * @brief 上传文件
-	 * @param [in] fileType 文件类型    0-lua文件
-	 * @param [in] fileName 文件名称    “test.lua”
-	 * @return 错误码
-	 */
+	* @brief Upload file
+	* @param [in] fileType File type 0-lua file
+	* @param [in] fileName File name "test.lua"
+	* @return error code
+	*/
 	errno_t FileDelete(int fileType, std::string fileName);
 
-	/* 根据字符分割字符串 */
 	std::vector<std::string> split(const std::string& s, char delim);
 
-	/* 根据字符串分割字符串 */
 	std::vector<std::string> split(std::string s, std::string delimiter);
 
-	//判断当前通信是否正常  正常返回false，异常反馈true
 	bool IsSockError();
-
-	//判断当前安全状态，安全停止、主子故障等
 	int GetSafetyCode();
 
 private:
-	uint8_t robot_realstate_exit = 0;
 	uint8_t robot_instcmd_send_exit = 0;
 	uint8_t robot_instcmd_recv_exit = 0;
 	uint8_t robot_task_exit = 0;
@@ -5064,10 +5553,10 @@ private:
 
 	char robot_ip[64];
 	std::shared_ptr<ROBOT_STATE_PKG> robot_state_pkg;
-	std::shared_ptr <FRTcpClient> rtClient;
-	std::shared_ptr <FRTcpClient> cmdClient;
-	std::shared_ptr <FRUdpClient> udpCmdClient;
-
+	std::shared_ptr <FRCNDEClient> cndeClient;
+	std::shared_ptr<FRTCPClientBase> cmdClient;
+	std::shared_ptr<FRUDPClientBase> udpCmdClient;
+	bool TLSEnable = false;
 };
 
 #endif

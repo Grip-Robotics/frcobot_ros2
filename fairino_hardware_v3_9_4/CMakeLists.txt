@@ -61,9 +61,9 @@ target_include_directories(fairino_hardware PUBLIC
 # target_link_libraries(fairino_hardware ${CMAKE_CURRENT_SOURCE_DIR}/libfairino/lib/libfairino.so.2.3.0)
 
 # 链接库时添加rpath参数
-target_link_libraries(ros2_cmd_server "-Wl,-rpath,$ORIGIN" ${CMAKE_CURRENT_SOURCE_DIR}/libfairino/lib/libfairino.so.2.3.4)
+target_link_libraries(ros2_cmd_server "-Wl,-rpath,$ORIGIN" ${CMAKE_CURRENT_SOURCE_DIR}/libfairino/lib/libfairino.so.2.4.1)
 target_link_libraries(ros2_cmd_server servo_j_streamer)
-target_link_libraries(fairino_hardware "-Wl,-rpath,$ORIGIN" ${CMAKE_CURRENT_SOURCE_DIR}/libfairino/lib/libfairino.so.2.3.4)
+target_link_libraries(fairino_hardware "-Wl,-rpath,$ORIGIN" ${CMAKE_CURRENT_SOURCE_DIR}/libfairino/lib/libfairino.so.2.4.1)
 
 #add dependencies
 ament_target_dependencies(ros2_cmd_server rclcpp rclcpp_action fairino_msgs)
@@ -93,6 +93,8 @@ install(DIRECTORY include/
   DESTINATION include/${PROJECT_NAME}
 )
 
+install(DIRECTORY config/ DESTINATION share/${PROJECT_NAME}/config)
+
 #test example
 install(TARGETS srv_test_client
   DESTINATION lib/${PROJECT_NAME}
@@ -107,7 +109,7 @@ install(TARGETS fairino_hardware
 
 # Install vendor SDK next to ros2_cmd_server and fairino_hardware ($ORIGIN)
 install(FILES
-  libfairino/lib/libfairino.so.2.3.4
+  libfairino/lib/libfairino.so.2.4.1
   libfairino/lib/libfairino.so.2
   libfairino/lib/libfairino.so
   DESTINATION lib/${PROJECT_NAME}
@@ -126,6 +128,14 @@ if(BUILD_TESTING)
   # a copyright and license is added to all source files
   set(ament_cmake_cpplint_FOUND TRUE)
   ament_lint_auto_find_test_dependencies()
+
+  ament_add_gmock(test_servo_start_settings test/test_servo_start_settings.cpp)
+  target_link_libraries(test_servo_start_settings servo_j_streamer)
+
+  ament_add_gmock(test_servo_start_sdk test/test_servo_start_sdk.cpp)
+  target_include_directories(test_servo_start_sdk PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
+  target_link_libraries(test_servo_start_sdk servo_j_streamer
+    ${CMAKE_CURRENT_SOURCE_DIR}/libfairino/lib/libfairino.so.2.4.1 "-Wl,--export-dynamic")
 
   ament_add_gmock(test_servo_j_streamer test/test_servo_j_streamer.cpp)
   target_link_libraries(test_servo_j_streamer servo_j_streamer)

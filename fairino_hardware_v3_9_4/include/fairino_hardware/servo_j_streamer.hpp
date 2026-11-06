@@ -1,6 +1,8 @@
 #ifndef FAIRINO_HARDWARE__SERVO_J_STREAMER_HPP_
 #define FAIRINO_HARDWARE__SERVO_J_STREAMER_HPP_
 
+#include "fairino_hardware/servo_start_settings.hpp"
+
 #include <array>
 #include <atomic>
 #include <cstdint>
@@ -39,6 +41,7 @@ struct ServoJStreamMetrics
 
 struct ServoJStreamerConfig
 {
+  ServoStartSettings servo_start{};
   double minimum_period_sec{0.001};
   double maximum_period_sec{0.016};
   double maximum_joint_step_deg{1.0};
@@ -81,7 +84,8 @@ class ServoJRobot
 {
 public:
   virtual ~ServoJRobot() = default;
-  virtual int servo_move_start(int communication_type) = 0;
+  virtual int servo_move_start(
+    int communication_type, const ServoStartSettings & settings) = 0;
   virtual int servo_j(
     const std::array<double, 6> & joints_deg, float period_sec, int command_id,
     int communication_type) = 0;

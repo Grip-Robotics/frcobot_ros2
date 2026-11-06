@@ -1,0 +1,6 @@
+# SDK 2.4.1 / controller 4.0.1 defaults, not empirically tuned values.
+# Load with --ros-args --params-file <path>; startup-only for both command paths.
+/**:
+  ros__parameters:
+    servo_j.filter_time_ms: 0
+    servo_j.joint_gains: [-1.0, -1.0, -1.0, -1.0, -1.0, -1.0]

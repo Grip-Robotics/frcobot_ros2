@@ -52,6 +52,7 @@ ServoJStreamer::ServoJStreamer(
 
 bool ServoJStreamer::validate(const ServoJStreamRequest & request, std::string & reason) const
 {
+  if (!config_.servo_start.validate(reason)) {return false;}
   if (!std::isfinite(config_.minimum_period_sec) ||
     !std::isfinite(config_.maximum_period_sec) || config_.minimum_period_sec <= 0.0 ||
     config_.maximum_period_sec < config_.minimum_period_sec ||
@@ -249,7 +250,7 @@ ServoJStreamMetrics ServoJStreamer::run_reserved(
     return metrics;
   }
 
-  int error = robot_.servo_move_start(communication_type);
+  int error = robot_.servo_move_start(communication_type, config_.servo_start);
   if (error != 0) {
     metrics.controller_error = error;
     metrics.cancelled = cancel_requested_.load();
@@ -438,7 +439,13 @@ void ServoJStreamer::write_trace(
     ",\"trace_records_overwritten\":" << (trace_count_ > trace_.size() ?
   trace_count_ - trace_.size() : 0) << ",\"message\":";
   json_string(out, metrics.message);
-  out << ",\"udp_replies\":";
+  out << ",\"servo_start_filter_time_ms\":" << config_.servo_start.filter_time_ms <<
+    ",\"servo_start_joint_gains\":[";
+  for (size_t index = 0; index < config_.servo_start.joint_gains.size(); ++index) {
+    if (index != 0) {out << ',';}
+    out << config_.servo_start.joint_gains[index];
+  }
+  out << "],\"udp_replies\":";
   robot_.write_udp_summary(out);
   out << "}\n";
   if (!include_samples || trace_.empty()) {return;}

@@ -323,6 +323,7 @@ private:
     //用于接受用户发送过来的脚本service
     rclcpp::Service<fairino_msgs::srv::RemoteScriptContent>::SharedPtr _recv_ros_script_server;
     std::mutex _motion_mutex;
+    fairino_hardware::ServoStartSettings _servo_start_settings;
     std::mutex _sdk_mutex;
     std::unique_ptr<FairinoServoJRobot> _servo_j_robot;
     fairino_hardware::SystemMonotonicClock _monotonic_clock;

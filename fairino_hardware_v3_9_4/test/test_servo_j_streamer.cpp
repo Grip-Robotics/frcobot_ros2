@@ -38,8 +38,10 @@ public:
 class MockRobot : public fairino_hardware::ServoJRobot
 {
 public:
-  int servo_move_start(int communication_type) override
+  int servo_move_start(int communication_type,
+    const fairino_hardware::ServoStartSettings & settings) override
   {
+    starts.push_back(settings);
     calls.push_back("start:" + std::to_string(communication_type));
     return start_error;
   }
@@ -78,6 +80,7 @@ public:
     return timing;
   }
 
+  std::vector<fairino_hardware::ServoStartSettings> starts;
   int start_error{0};
   int servo_error{0};
   int stop_error{0};
@@ -184,6 +187,49 @@ TEST(ServoJStreamerCmdT, DefaultPreservesRequestedSdkPeriod)
     EXPECT_EQ(clock.deadlines.back() - clock.deadlines.front(),
       2 * std::llround(period * 1.0e9));
   }
+}
+
+TEST(ServoJStreamerSettings, LatchesStartupSettingsWithoutChangingSampleTiming)
+{
+  MockRobot robot;
+  FakeClock clock;
+  fairino_hardware::ServoJStreamerConfig config;
+  config.servo_start.filter_time_ms = 17;
+  config.servo_start.joint_gains = {11.0, 12.0, 13.0, 14.0, -1.0, 16.0};
+  fairino_hardware::ServoJStreamer streamer(robot, clock, config);
+  const auto expected = config.servo_start;
+  config.servo_start.filter_time_ms = 99;
+  config.servo_start.joint_gains[0] = 99.0;
+  auto request = valid_request(3);
+  request.period_sec = 0.005;
+  std::string reason;
+  ASSERT_TRUE(streamer.reserve(request, reason)) << reason;
+  const auto result = streamer.run_reserved(request);
+  ASSERT_TRUE(result.success);
+  ASSERT_EQ(robot.starts.size(), 1U);
+  EXPECT_EQ(robot.starts[0].filter_time_ms, expected.filter_time_ms);
+  EXPECT_EQ(robot.starts[0].joint_gains, expected.joint_gains);
+  EXPECT_EQ(clock.deadlines[1] - clock.deadlines[0], 5000000LL);
+  EXPECT_EQ(clock.deadlines[2] - clock.deadlines[1], 5000000LL);
+  EXPECT_EQ(robot.periods, std::vector<float>(3, 0.005F));
+  std::ostringstream trace;
+  streamer.write_trace(trace, request, result);
+  EXPECT_NE(trace.str().find("\"servo_start_filter_time_ms\":17"), std::string::npos);
+  EXPECT_NE(trace.str().find("\"servo_start_joint_gains\":[11,12,13,14,-1,16]"),
+    std::string::npos);
+}
+
+TEST(ServoJStreamerSettings, InvalidSettingsCannotReserveOrStartStream)
+{
+  MockRobot robot;
+  FakeClock clock;
+  fairino_hardware::ServoJStreamerConfig config;
+  config.servo_start.joint_gains = {20.0};
+  fairino_hardware::ServoJStreamer streamer(robot, clock, config);
+  std::string reason;
+  EXPECT_FALSE(streamer.reserve(valid_request(), reason));
+  EXPECT_NE(reason.find("six"), std::string::npos);
+  EXPECT_TRUE(robot.calls.empty());
 }
 
 TEST(ServoJStreamerCmdT, OverrideKeepsLongHostClockTargetsAndFeedbackUnchanged)

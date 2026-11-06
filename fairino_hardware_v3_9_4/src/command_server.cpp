@@ -49,13 +49,15 @@ public:
         }
     }
 
-    int servo_move_start(int communication_type) override
+    int servo_move_start(int communication_type,
+      const fairino_hardware::ServoStartSettings & settings) override
     {
         std::lock_guard<std::mutex> lock(sdk_mutex_);
         if (udp_ && communication_type == 1) {
             udp_->call(689, -1, fairino_hardware::ServoUdpDiagnostics::now_ns());
         }
-        const int result = robot_.ServoMoveStart(communication_type);
+        const int result = fairino_hardware::start_servo_with_settings(
+            robot_, communication_type, settings);
         if (udp_ && communication_type == 1 && result != 0) {
             udp_->failure(689, result, fairino_hardware::ServoUdpDiagnostics::now_ns());
         }
@@ -351,6 +353,28 @@ robot_command_thread::robot_command_thread(const std::string node_name):rclcpp::
         "Experimental SDK cmdT override in seconds; zero follows the host action period. "
         "Startup-only, latched for each stream; does not retime samples or feedback.";
     this->declare_parameter<double>("servo_j.sdk_cmdt_override_sec", 0.0, cmdt_descriptor);
+    rcl_interfaces::msg::ParameterDescriptor servo_start_descriptor;
+    servo_start_descriptor.read_only = true;
+    servo_start_descriptor.description =
+        "ServoMoveStart filter time in milliseconds (SDK 2.4.1 / controller 4.0.1). "
+        "Startup-only; does not change sample timing.";
+    _servo_start_settings.filter_time_ms = this->declare_parameter<int64_t>(
+        "servo_j.filter_time_ms", 0, servo_start_descriptor);
+    servo_start_descriptor.description =
+        "ServoMoveStart position-loop gains in J1..J6 order; -1 uses controller defaults. "
+        "Startup-only; requires controller support for the SDK 2.4.1 interface.";
+    _servo_start_settings.joint_gains = this->declare_parameter<std::vector<double>>(
+        "servo_j.joint_gains", std::vector<double>(6, -1.0), servo_start_descriptor);
+    std::string servo_start_error;
+    if (!_servo_start_settings.validate(servo_start_error)) {
+        throw std::invalid_argument(servo_start_error);
+    }
+    RCLCPP_INFO(get_logger(),
+        "ServoMoveStart requested settings: filter_time_ms=%ld joint_gains=[%.9g,%.9g,%.9g,%.9g,%.9g,%.9g]",
+        _servo_start_settings.filter_time_ms,
+        _servo_start_settings.joint_gains[0], _servo_start_settings.joint_gains[1],
+        _servo_start_settings.joint_gains[2], _servo_start_settings.joint_gains[3],
+        _servo_start_settings.joint_gains[4], _servo_start_settings.joint_gains[5]);
     this->declare_parameter<std::string>("servo_j.trace_directory", "");
     this->declare_parameter<int>("servo_j.trace_samples", 8192);
     rcl_interfaces::msg::ParameterDescriptor trace_success_descriptor;
@@ -416,6 +440,7 @@ robot_command_thread::robot_command_thread(const std::string node_name):rclcpp::
     }
 
     fairino_hardware::ServoJStreamerConfig stream_config;
+    stream_config.servo_start = _servo_start_settings;
     stream_config.minimum_period_sec = this->get_parameter("servo_j.minimum_period_sec").as_double();
     stream_config.maximum_period_sec = this->get_parameter("servo_j.maximum_period_sec").as_double();
     stream_config.maximum_joint_step_deg =
@@ -2477,9 +2502,15 @@ std::string robot_command_thread::Circle(std::string para){
 std::string robot_command_thread::ServoMoveStart(std::string para){
     int comType = 0;
     if(!para.empty()){
-        comType = std::stoi(para);
+        size_t consumed = 0;
+        comType = std::stoi(para, &consumed);
+        if (para.find_first_not_of(" \t\r\n", consumed) != std::string::npos) {
+            throw std::invalid_argument(
+                "ServoMoveStart accepts only comType; use startup servo_j settings for tuning");
+        }
     }
-    errno_t result = _ptr_robot->ServoMoveStart(comType);
+    errno_t result = fairino_hardware::start_servo_with_settings(
+        *_ptr_robot, comType, _servo_start_settings);
     if(result == 0){
         _servo_move_active = true;
         _servo_com_type = comType;
