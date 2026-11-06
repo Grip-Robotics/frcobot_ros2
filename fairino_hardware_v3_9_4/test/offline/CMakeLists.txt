@@ -12,7 +12,7 @@ get_filename_component(PACKAGE_ROOT "${CMAKE_CURRENT_SOURCE_DIR}/../.." ABSOLUTE
 add_library(servo_j_streamer "${PACKAGE_ROOT}/src/servo_j_streamer.cpp")
 target_include_directories(servo_j_streamer PUBLIC "${PACKAGE_ROOT}/include")
 target_link_libraries(servo_j_streamer PUBLIC Threads::Threads)
-foreach(name servo_j_streamer servo_j_udp_diagnostics servo_start_settings servo_start_sdk)
+foreach(name servo_j_streamer servo_j_udp_diagnostics servo_start_settings servo_start_sdk controller_state_progress)
   add_executable(test_${name} "${PACKAGE_ROOT}/test/test_${name}.cpp")
   target_link_libraries(test_${name} PRIVATE servo_j_streamer GTest::gtest_main)
   add_test(NAME test_${name} COMMAND test_${name})

@@ -27,6 +27,7 @@
 #include "semaphore.h"
 #include "fairino_hardware/servo_j_streamer.hpp"
 #include "fairino_hardware/servo_j_action_feedback.hpp"
+#include "fairino_hardware/controller_state_progress.hpp"
 #include "fairino_hardware/servo_j_diagnostics.hpp"
 
 using remote_cmd_server_srv_msg = fairino_msgs::srv::RemoteCmdInterface;
@@ -332,6 +333,7 @@ private:
     std::thread _stream_worker;
     fairino_hardware::ServoJFeedbackPublisher _stream_feedback_publisher;
     fairino_hardware::ServoJActionFeedbackPublisher::SharedPtr _stream_feedback_messages;
+    fairino_hardware::ControllerStateProgress _controller_state_progress;
     std::string _servo_trace_directory;
     std::unique_ptr<fairino_hardware::BoundedJsonlFile> _servo_trace_states;
     std::unique_ptr<fairino_hardware::BoundedJsonlFile> _servo_trace_events;
@@ -341,7 +343,8 @@ private:
     uint8_t _servo_trace_frame = 0;
     int64_t _servo_trace_last_change_ns = 0;
     void _trace_controller_state(const ROBOT_STATE_PKG & state, int sdk_error,
-      int64_t read_ros_ns, int64_t read_mono_ns, bool read_skipped = false);
+      int64_t read_ros_ns, int64_t read_mono_ns, bool read_skipped = false,
+      bool state_published = true);
     void _trace_stream_result(const fairino_hardware::ServoJStreamRequest & request,
       const fairino_hardware::ServoJStreamMetrics & metrics);
     int _servo_j_realtime_priority = 0;

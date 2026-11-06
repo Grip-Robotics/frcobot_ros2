@@ -131,6 +131,8 @@ if(BUILD_TESTING)
 
   ament_add_gmock(test_servo_start_settings test/test_servo_start_settings.cpp)
   target_link_libraries(test_servo_start_settings servo_j_streamer)
+  ament_add_gmock(test_controller_state_progress test/test_controller_state_progress.cpp)
+  target_link_libraries(test_controller_state_progress servo_j_streamer)
 
   ament_add_gmock(test_servo_start_sdk test/test_servo_start_sdk.cpp test/offline_network_guard.cpp)
   target_include_directories(test_servo_start_sdk PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})

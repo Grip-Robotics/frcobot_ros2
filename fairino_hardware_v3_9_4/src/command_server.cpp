@@ -904,13 +904,17 @@ void robot_command_thread::_state_recv_callback(){
         std::unique_lock<std::mutex> sdk_lock(_sdk_mutex, std::try_to_lock);
         if (!sdk_lock.owns_lock()) {
             _trace_controller_state(ctrl_state, -1, now().nanoseconds(),
-                _monotonic_clock.now_nanoseconds(), true);
+                _monotonic_clock.now_nanoseconds(), true, false);
             return;
         }
         res = _ptr_robot->GetRobotRealTimeState(&ctrl_state);
     }
     const auto read_ros_ns = now().nanoseconds();
     const auto read_mono_ns = _monotonic_clock.now_nanoseconds();
+    if (res == 0 && !_controller_state_progress.observe(ctrl_state)) {
+        _trace_controller_state(ctrl_state, res, read_ros_ns, read_mono_ns, false, false);
+        return;
+    }
     if (res == 0) {
         mainerrcode = ctrl_state.main_code;
         suberrcode = ctrl_state.sub_code;
@@ -1068,7 +1072,7 @@ void robot_command_thread::_state_recv_callback(){
 }
 
 void robot_command_thread::_trace_controller_state(const ROBOT_STATE_PKG & state, int sdk_error,
-    int64_t read_ros_ns, int64_t read_mono_ns, bool read_skipped)
+    int64_t read_ros_ns, int64_t read_mono_ns, bool read_skipped, bool state_published)
 {
     if (!_servo_trace_states) {return;}
     try {
@@ -1076,7 +1080,9 @@ void robot_command_thread::_trace_controller_state(const ROBOT_STATE_PKG & state
         row << std::setprecision(17) << "{\"event\":\"controller_state\",\"schema\":1,\"read_ros_ns\":" <<
             read_ros_ns << ",\"read_mono_ns\":" << read_mono_ns <<
             ",\"sdk_error\":" << sdk_error <<
-            ",\"sdk_read_skipped\":" << (read_skipped ? "true" : "false");
+            ",\"sdk_read_skipped\":" << (read_skipped ? "true" : "false") <<
+            ",\"state_published\":" << (state_published ? "true" : "false") <<
+            ",\"frame_head\":" << state.frame_head;
         if (sdk_error == 0) {
             const auto & time = state.robotTime;
             // An identity key, not an epoch conversion or clock-sync assertion.

@@ -107,8 +107,23 @@ inspect the stage trace below before attributing a cause.
 The existing `nonrt_state_data` timer runs at 50 ms (20 Hz), including during a stream.
 It uses `try_lock` on the shared SDK mutex and skips the sample when the mutex is busy.
 Service and action callbacks use separate callback groups; the blocking stream itself
-does not run on an executor thread. The SDK poll reads its cached controller state, so
-a newly published ROS message alone does not prove that the controller sample advanced.
+does not run on an executor thread. The SDK poll reads its cached controller state.
+With automatic reconnect enabled, the pinned SDK 2.3.4 can return success and an
+all-zero cache despite receiving no feedback. A successful getter alone is therefore
+insufficient for publication.
+
+The first nonzero frame-counter/controller-time identity primes a progress check;
+publication begins only after that identity changes. Repeated cached identities and
+an all-zero identity are not published or assigned fresh ROS timestamps. Counter
+wrap and a changed controller clock at the same counter are accepted. The existing
+GRIP 500 ms missing-state watchdog can then detect a stopped stream. SDK-error
+messages retain their existing publication path. The state callback group is
+mutually exclusive; this check adds no sender work, SDK calls or locking.
+
+This is an observation-of-progress check, not proof of wire age or clock alignment.
+SDK 2.4.1 uses its CNDE-backed cache, so the check uses common counter/time fields
+without assuming that raw TCP header/length fields have been populated. Field
+availability still requires live qualification for each firmware/SDK pairing.
 
 Clients that enforce a final joint tolerance should include a short run of repeated final
 samples in the submitted buffer, then wait for a `nonrt_state_data` message published
@@ -142,7 +157,7 @@ below. Formatting and file writes happen after termination:
 | --- | --- |
 | `stream-fault-0.jsonl` through `stream-fault-3.jsonl` | Last four failed/cancelled streams; one result header followed by the retained sample records, oldest first. Slots are reused after process restart. |
 | `stream-events.jsonl` and `.1` | One result header per stream, including successful streams; each file is capped at 1 MiB. |
-| `controller-state.jsonl` and `.1` | Existing 20 Hz SDK state reads, skipped polls, and errors; each file is capped at 8 MiB. Writes occur after releasing the SDK mutex and publishing state. |
+| `controller-state.jsonl` and `.1` | Existing 20 Hz SDK state reads, suppressed cached samples, skipped polls, and errors; each file is capped at 8 MiB. Writes occur after releasing the SDK mutex and any state publication. |
 
 Fault files are written to `.tmp` then renamed. Copy them promptly when preserving an
 incident because later faults rotate the slots. A process crash or forced kill before
@@ -191,8 +206,10 @@ it equals the host `command_id` without establishing its offset/reset behavior.
 `observed_sample_unchanged_ns` measures time since the observed controller time/frame
 identity last changed. It can expose repeated cached samples and grows across failed
 or skipped reads; it is not an absolute network packet age. A skipped SDK mutex poll
-sets `sdk_read_skipped=true`; its `sdk_error=-1` is a local sentinel. Controller clock
-synchronization with host ROS time is not assumed. Join state and send records using
+sets `sdk_read_skipped=true`; its `sdk_error=-1` is a local sentinel.
+`state_published=false` identifies skipped polls and suppressed cache observations;
+`frame_head` is diagnostic only and is not required by the progress check.
+Controller clock synchronization with host ROS time is not assumed. Join state and send records using
 their host monotonic timestamps, then inspect controller time/frame progression.
 
 The moving-tail implementation and `ReplaceServoJTail.srv` were recovered unchanged
