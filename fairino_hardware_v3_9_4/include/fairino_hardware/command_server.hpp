@@ -26,6 +26,7 @@
 #include <thread>
 #include "semaphore.h"
 #include "fairino_hardware/servo_j_streamer.hpp"
+#include "fairino_hardware/servo_j_action_feedback.hpp"
 #include "fairino_hardware/servo_j_diagnostics.hpp"
 
 using remote_cmd_server_srv_msg = fairino_msgs::srv::RemoteCmdInterface;
@@ -330,6 +331,7 @@ private:
     std::unique_ptr<fairino_hardware::ServoJStreamer> _servo_j_streamer;
     std::thread _stream_worker;
     fairino_hardware::ServoJFeedbackPublisher _stream_feedback_publisher;
+    fairino_hardware::ServoJActionFeedbackPublisher::SharedPtr _stream_feedback_messages;
     std::string _servo_trace_directory;
     std::unique_ptr<fairino_hardware::BoundedJsonlFile> _servo_trace_states;
     std::unique_ptr<fairino_hardware::BoundedJsonlFile> _servo_trace_events;

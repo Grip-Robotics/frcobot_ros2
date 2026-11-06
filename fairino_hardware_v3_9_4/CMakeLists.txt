@@ -144,6 +144,13 @@ if(BUILD_TESTING)
 
   ament_add_gmock(test_servo_j_streamer test/test_servo_j_streamer.cpp)
   target_link_libraries(test_servo_j_streamer servo_j_streamer)
+  ament_add_gmock(test_servo_j_action_feedback test/test_servo_j_action_feedback.cpp TIMEOUT 30)
+  find_package(rmw REQUIRED)
+  ament_target_dependencies(test_servo_j_action_feedback rclcpp rclcpp_action fairino_msgs rmw)
+  target_link_libraries(test_servo_j_action_feedback servo_j_streamer ${CMAKE_DL_LIBS}
+    "-Wl,--export-dynamic")
+  set_tests_properties(test_servo_j_action_feedback PROPERTIES ENVIRONMENT
+    "RMW_IMPLEMENTATION=rmw_fastrtps_cpp;ROS_LOCALHOST_ONLY=1;ROS_DOMAIN_ID=74")
   ament_add_gmock(test_servo_j_udp_diagnostics test/test_servo_j_udp_diagnostics.cpp)
   target_link_libraries(test_servo_j_udp_diagnostics servo_j_streamer)
 endif()

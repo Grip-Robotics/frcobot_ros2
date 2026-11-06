@@ -510,6 +510,8 @@ robot_command_thread::robot_command_thread(const std::string node_name):rclcpp::
           &robot_command_thread::_handle_stream_accepted, this, std::placeholders::_1),
         rcl_action_server_get_default_options(),
         _action_callback_group);
+    _stream_feedback_messages = fairino_hardware::create_servo_j_action_feedback_publisher(
+        *this, STREAM_SERVO_J_ACTION_NAME);
 
     _replace_tail_service = create_service<fairino_msgs::srv::ReplaceServoJTail>(
       "replace_servo_j_tail", [this](
@@ -646,13 +648,8 @@ void robot_command_thread::_execute_stream(
     auto request = _make_stream_request(*goal_handle->get_goal());
     request.goal_id = rclcpp_action::to_string(goal_handle->get_goal_id());
     auto feedback_session = _stream_feedback_publisher.start(
-        [goal_handle](uint64_t samples_sent, uint64_t last_command_id, int64_t stream_start_ros_ns) {
-            auto feedback = std::make_shared<stream_servo_j_action::Feedback>();
-            feedback->samples_sent = samples_sent;
-            feedback->last_command_id = last_command_id;
-            feedback->stream_start = rclcpp::Time(stream_start_ros_ns);
-            goal_handle->publish_feedback(feedback);
-        });
+        fairino_hardware::servo_j_action_feedback_callback(
+            _stream_feedback_messages, goal_handle->get_goal_id()));
     _apply_stream_thread_scheduling();
     auto metrics = _servo_j_streamer->run_reserved(
         request,

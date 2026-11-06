@@ -267,10 +267,15 @@ or publication. There is no unbounded feedback queue and no per-goal worker join
 Closing a session prevents a new publication claim and discards pending progress.
 An already claimed call can complete later, tied to its original goal UUID. A
 stalled old publication can delay progress for later goals, but cannot relabel it.
-Sending, cleanup and the terminal result path do not wait for this worker. ROS/DDS
-may still share internal resources; end-to-end result delivery needs its own
-integration test. The result remains the
-authoritative final sample count; a terminal progress message is not guaranteed.
+Sending, cleanup and the terminal result path do not wait for this worker. The
+worker publishes the generated action feedback message directly on the resolved
+`/_action/feedback` topic, with the default action-server QoS and original goal
+UUID. Calling `ServerGoalHandle::publish_feedback` instead held a shared action
+server lock during a deliberately stalled middleware call, blocking result
+delivery in both tested RMWs. The separate typed publisher avoids that lock while
+preserving the action wire format, namespace and action-name remapping.
+The result remains the authoritative final sample count; a terminal progress
+message is not guaranteed. Other shared ROS/DDS resources can still stall.
 Publisher exceptions are counted and contained. The node joins the publication
 worker only on shutdown; permanently blocked middleware can therefore delay shutdown.
 Detaching a worker that retains node/action resources would be unsafe.
@@ -289,8 +294,25 @@ The mock tests deliberately block publication through completion, another
 session, cancellation and SDK failure, then separately block SDK sending and
 verify deadline abort plus StopMotion-before-ServoMoveEnd. They also check latest
 progress, publication exceptions, ROS-clock versus SDK timing, and bounded trace
-retention. They establish software behavior with mocks, not Linux real-time bounds
-or ROS/DDS end-to-end result delivery.
+retention. They establish software behavior with mocks, not Linux real-time bounds.
+
+`test_servo_j_action_feedback` adds a real Jazzy action server/client with a fake
+robot and virtual sender clock. It interposes `rmw_publish` to block the feedback
+topic for at least 500 ms. Successful and canceled results, another goal, and
+correctly attributed progress after release must still arrive. A separate SDK
+error and 325.090 ms final-send stall must deliver aborted results and retain
+StopMotion-before-ServoMoveEnd. The server uses intra-process communication and a
+remapped action in a namespace; the client crosses the real RMW boundary. This
+test does not link the vendor SDK or start the hardware node.
+
+On 6 November 2026, a cached Jazzy image built the full driver and passed all 53
+cases in six ServoJ CTest targets, including ten repeats of the action test with
+FastDDS. Five action-test repeats also passed with Zenoh. Replacing only the
+callback with `ServerGoalHandle::publish_feedback` made the result-delivery check
+fail on both RMWs. Twelve selected GRIP command/fake-driver integration cases
+also passed, covering fault/stale feedback, cancellation, invalid source times,
+handoff stalls and period preservation. These container tests used no external
+network or robot; they do not prove the cause of the historical host pause.
 
 Without ROS installed, run the same C++ tests with local GoogleTest sources:
 
@@ -308,5 +330,6 @@ SDK as well. SDK tests interpose the UDP SendFrame boundary and abort before any
 unexpected connect/send/sendto call. SDK 2.3.4 uses a different constructor and
 communication-type-only ServoMoveStart; branch head still requires SDK 2.4.1.0's
 filter/six-gain start interface. These tests do not make the branch head compatible
-with older controllers, or replace the required Jazzy build and mock action-client
-integration test before deployment. No firmware or runtime image is changed here.
+with older controllers. The Jazzy build and mock action-client checks above do not
+replace fresh controller identity, SDK compatibility review and authorized live
+qualification before deployment. No firmware or runtime image is changed here.
