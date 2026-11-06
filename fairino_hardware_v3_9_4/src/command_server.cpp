@@ -353,6 +353,13 @@ robot_command_thread::robot_command_thread(const std::string node_name):rclcpp::
     this->declare_parameter<double>("servo_j.sdk_cmdt_override_sec", 0.0, cmdt_descriptor);
     this->declare_parameter<std::string>("servo_j.trace_directory", "");
     this->declare_parameter<int>("servo_j.trace_samples", 8192);
+    rcl_interfaces::msg::ParameterDescriptor trace_success_descriptor;
+    trace_success_descriptor.read_only = true;
+    trace_success_descriptor.description =
+        "Save bounded per-sample traces for successful streams as well as failures. "
+        "Diagnostic use only; file writing happens after streaming completes.";
+    this->declare_parameter<bool>(
+        "servo_j.trace_successful_streams", false, trace_success_descriptor);
     // 0 keeps the stream worker on the default best-effort policy. A positive
     // value requests that SCHED_FIFO priority for the worker instead.
     this->declare_parameter<int>("servo_j.realtime_priority", 0);
@@ -677,15 +684,19 @@ void robot_command_thread::_trace_stream_result(
         auto row = summary.str();
         if (!row.empty() && row.back() == '\n') {row.pop_back();}
         _servo_trace_events->append(row);
-        if (metrics.success && !metrics.cancelled) {return;}
-        const auto path = _servo_trace_directory + "/stream-fault-" +
+        const bool completed = metrics.success && !metrics.cancelled;
+        if (completed && !this->get_parameter("servo_j.trace_successful_streams").as_bool()) {
+            return;
+        }
+        const auto path = _servo_trace_directory +
+            (completed ? "/stream-success-" : "/stream-fault-") +
             std::to_string(_servo_trace_fault_slot++ % 4) + ".jsonl";
         std::ofstream out(path + ".tmp", std::ios::trunc);
         _servo_j_streamer->write_trace(out, request, metrics);
         out.close();
         if (!out) {throw std::runtime_error("trace write failed");}
         std::filesystem::rename(path + ".tmp", path);
-        RCLCPP_INFO(get_logger(), "ServoJ fault trace saved: %s (goal=%s)",
+        RCLCPP_INFO(get_logger(), "ServoJ sample trace saved: %s (goal=%s)",
             path.c_str(), request.goal_id.c_str());
     } catch (const std::exception & error) {
         RCLCPP_WARN(get_logger(), "ServoJ trace unavailable: %s", error.what());
