@@ -297,6 +297,18 @@ Publisher exceptions are counted and contained. The node joins the publication
 worker only on shutdown; permanently blocked middleware can therefore delay shutdown.
 Detaching a worker that retains node/action resources would be unsafe.
 
+After stopping active streams and joining the driver workers, shutdown disables
+SDK reconnection before `CloseRPC()` and object destruction. With SDK 2.3.4,
+silent-peer mocks otherwise accepted new connections after SDK destruction; one
+repetition also crashed during shutdown. The corrected order passed continuous,
+silent, frozen, disconnected and interrupted mock sessions, including an extra
+one-second process observation window. The unchanged order fails the explicit
+post-destruction reconnect check. This is a measured reconnect mitigation, not a
+proof that all detached vendor threads have exited: neither pinned SDK exposes a
+thread-join API, and the intermittent crash's exact stack was not obtained.
+The setter changes local SDK behavior, not controller configuration. SDK 2.4.1
+builds and mock tests do not establish compatibility with an old controller.
+
 Stream-result traces include an `action_feedback` snapshot taken at close:
 published/coalesced/contended/exception counts, latest publication begin/end
 monotonic timestamps, maximum completed publication duration, and

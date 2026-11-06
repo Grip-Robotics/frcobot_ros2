@@ -549,6 +549,8 @@ robot_command_thread::~robot_command_thread()
     if (_servo_j_robot) {_servo_j_robot->disable_diagnostics();}
     if (_ptr_robot) {
         std::lock_guard<std::mutex> lock(_sdk_mutex);
+        // A reconnect loop can otherwise outlive CloseRPC and the SDK object.
+        _ptr_robot->SetReConnectParam(false,86400000,500);
         _ptr_robot->CloseRPC();
         _ptr_robot.reset();
     }
