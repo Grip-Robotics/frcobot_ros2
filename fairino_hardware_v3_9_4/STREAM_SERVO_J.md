@@ -155,7 +155,7 @@ below. Formatting and file writes happen after termination:
 
 | File | Contents and retention |
 | --- | --- |
-| `stream-fault-0.jsonl` through `stream-fault-3.jsonl` | Last four failed/cancelled streams; one result header followed by the retained sample records, oldest first. Slots are reused after process restart. |
+| `stream-fault-0.jsonl` through `stream-fault-4.jsonl` (or `stream-success-*` when successful tracing is enabled) | Five rotating slot numbers shared by traced outcomes; one result header followed by the retained sample records, oldest first. Slots are reused after process restart. Five successive successful goals retain all five traces. |
 | `stream-events.jsonl` and `.1` | One result header per stream, including successful streams; each file is capped at 1 MiB. |
 | `controller-state.jsonl` and `.1` | Existing 20 Hz SDK state reads, suppressed cached samples, skipped polls, and errors; each file is capped at 8 MiB. Writes occur after releasing the SDK mutex and any state publication. |
 

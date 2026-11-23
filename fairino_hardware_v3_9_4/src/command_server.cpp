@@ -727,9 +727,10 @@ void robot_command_thread::_trace_stream_result(
         if (completed && !this->get_parameter("servo_j.trace_successful_streams").as_bool()) {
             return;
         }
+        // Retain every trace in the five-goal start/stop repeatability test.
         const auto path = _servo_trace_directory +
             (completed ? "/stream-success-" : "/stream-fault-") +
-            std::to_string(_servo_trace_fault_slot++ % 4) + ".jsonl";
+            std::to_string(_servo_trace_fault_slot++ % 5) + ".jsonl";
         std::ofstream out(path + ".tmp", std::ios::trunc);
         _servo_j_streamer->write_trace(out, request, metrics);
         out.close();
