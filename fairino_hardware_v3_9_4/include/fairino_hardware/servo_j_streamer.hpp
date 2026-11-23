@@ -42,6 +42,9 @@ struct ServoJStreamMetrics
   bool queue_primed{false};
   uint64_t queue_drain_frames{0};
   int64_t queue_drain_ns{0};
+  int64_t first_send_deadline_mono_ns{0};
+  int64_t servo_start_begin_mono_ns{0};
+  int64_t servo_start_return_mono_ns{0};
 };
 
 struct ServoJQueueSnapshot
@@ -60,6 +63,9 @@ struct ServoJQueueConfig
   // Verified raw reception only. Must be bounded, nonblocking and allocation-free;
   // return false on unavailable/incoherent feedback or any latched safety fault.
   std::function<bool(ServoJQueueSnapshot &)> read;
+  // Optional experimental absolute start. Read exactly once per session;
+  // provided callbacks must return a valid CLOCK_MONOTONIC deadline.
+  std::function<int64_t()> first_send_deadline_mono_ns;
 };
 
 struct ServoJStreamerConfig

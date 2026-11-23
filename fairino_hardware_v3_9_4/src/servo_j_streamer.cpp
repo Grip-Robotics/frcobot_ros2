@@ -86,6 +86,10 @@ bool ServoJStreamer::validate(const ServoJStreamRequest & request, std::string &
     reason = "communication_type must be 1 (FAIRINO UDP port 20007)";
     return false;
   }
+  if (config_.queue.first_send_deadline_mono_ns && !config_.queue.enabled) {
+    reason = "absolute first-send scheduling requires experimental queue regulation";
+    return false;
+  }
   for (size_t index = 0; index < request.joints_deg.size(); ++index) {
     if (!std::isfinite(request.joints_deg[index])) {
       reason = "every joint target must be finite";
@@ -315,7 +319,54 @@ ServoJStreamMetrics ServoJStreamer::run_reserved(
     }
   }
 
+  int64_t first_deadline_ns = 0;
+  auto wait_empty_until = [&](int64_t until) -> const char * {
+      for (;;) {
+        if (cancel_requested_.load()) {
+          metrics.cancelled = true;
+          return "ServoJ stream cancelled while waiting for absolute start";
+        }
+        if (const auto failure = read_queue()) {return failure;}
+        if (queue_snapshot.queue_length != 0) {return "Queue became nonempty before first send";}
+        const int64_t now = clock_.now_nanoseconds();
+        if (now < 0) {return "Absolute start monotonic clock failed";}
+        if (now >= until) {return nullptr;}
+        if (clock_.sleep_until(now + std::min<int64_t>(until - now, 1000000LL)) != 0) {
+          return "Absolute start clock_nanosleep failed";
+        }
+      }
+    };
+  if (config_.queue.first_send_deadline_mono_ns) {
+    try {first_deadline_ns = config_.queue.first_send_deadline_mono_ns();}
+    catch (...) {metrics.message = "Absolute first-send deadline callback failed"; return metrics;}
+    metrics.first_send_deadline_mono_ns = first_deadline_ns;
+    const int64_t now = clock_.now_nanoseconds();
+    if (now < 0 || first_deadline_ns <= now || first_deadline_ns - now < 20000000LL ||
+      first_deadline_ns - now > 5000000000LL)
+    {
+      metrics.message = "Absolute first-send deadline requires 20 ms to 5 seconds of lead time";
+      return metrics;
+    }
+    if (const auto failure = wait_empty_until(first_deadline_ns - 20000000LL)) {
+      metrics.message = failure;
+      return metrics;
+    }
+    // A delayed wake must not silently start an already-expired schedule.
+    metrics.servo_start_begin_mono_ns = clock_.now_nanoseconds();
+    if (metrics.servo_start_begin_mono_ns < 0 ||
+      metrics.servo_start_begin_mono_ns >= first_deadline_ns) {
+      metrics.message = "Absolute first-send deadline expired or clock failed before ServoMoveStart";
+      return metrics;
+    }
+    if (cancel_requested_.load()) {
+      metrics.cancelled = true;
+      metrics.message = "ServoJ stream cancelled before ServoMoveStart";
+      return metrics;
+    }
+  }
+
   int error = robot_.servo_move_start(communication_type, config_.servo_start);
+  if (first_deadline_ns != 0) {metrics.servo_start_return_mono_ns = clock_.now_nanoseconds();}
   if (error != 0) {
     metrics.controller_error = error;
     metrics.cancelled = cancel_requested_.load();
@@ -324,7 +375,21 @@ ServoJStreamMetrics ServoJStreamer::run_reserved(
     return metrics;
   }
 
-  const int64_t start_ns = clock_.now_nanoseconds();
+  if (first_deadline_ns != 0) {
+    if (metrics.servo_start_return_mono_ns < metrics.servo_start_begin_mono_ns ||
+      metrics.servo_start_return_mono_ns >= first_deadline_ns)
+    {
+      metrics.message = "ServoMoveStart exceeded absolute first-send deadline";
+      finish_with_stop_and_end(metrics, communication_type);
+      return metrics;
+    }
+    if (const auto failure = wait_empty_until(first_deadline_ns)) {
+      metrics.message = failure;
+      finish_with_stop_and_end(metrics, communication_type);
+      return metrics;
+    }
+  }
+  const int64_t start_ns = first_deadline_ns != 0 ? first_deadline_ns : clock_.now_nanoseconds();
   trace_start_mono_ns_ = start_ns;
   if (start_ns < 0) {
     metrics.message = "clock_gettime(CLOCK_MONOTONIC) failed";
@@ -623,6 +688,9 @@ void ServoJStreamer::write_trace(
     ",\"queue_primed\":" << (metrics.queue_primed ? "true" : "false") <<
     ",\"queue_drain_frames\":" << metrics.queue_drain_frames <<
     ",\"queue_drain_ns\":" << metrics.queue_drain_ns <<
+    ",\"first_send_deadline_mono_ns\":" << metrics.first_send_deadline_mono_ns <<
+    ",\"servo_start_begin_mono_ns\":" << metrics.servo_start_begin_mono_ns <<
+    ",\"servo_start_return_mono_ns\":" << metrics.servo_start_return_mono_ns <<
     ",\"trace_capacity\":" << trace_.size() <<
     ",\"trace_records_total\":" << trace_count_ <<
     ",\"trace_records_overwritten\":" << (trace_count_ > trace_.size() ?

@@ -1041,6 +1041,13 @@ class QueueModelRobot : public MockRobot
 {
 public:
   explicit QueueModelRobot(FakeClock & source) : origin(source.now) {clock = &source;}
+  int servo_move_start(int communication_type,
+    const fairino_hardware::ServoStartSettings & settings) override
+  {
+    started_at = clock->now;
+    clock->now += start_duration_ns;
+    return MockRobot::servo_move_start(communication_type, settings);
+  }
   int servo_j(const std::array<double, 6> & joints, float period, int id, int type) override
   {
     const auto sent = clock->now;
@@ -1076,6 +1083,7 @@ public:
     return result;
   }
   int64_t origin, execution_end{0}, ended_at{0}, consumption_ns{6006000};
+  int64_t started_at{0}, start_duration_ns{0};
   bool available{true};
   fairino_hardware::ServoJQueueSnapshot snapshot{};
   std::vector<std::pair<int64_t, int64_t>> commands;
@@ -1390,6 +1398,175 @@ TEST(ServoJQueue, SDKStallAbortsWithoutCatchupCommand)
   EXPECT_EQ(result.samples_sent, 1U);
   EXPECT_EQ(robot.commands.size(), 1U);
   EXPECT_EQ(std::count(robot.calls.begin(), robot.calls.end(), "stop"), 1);
+}
+
+TEST(ServoJAbsoluteStart, FrozenDeadlineWaitsWithShortActiveSessionLead)
+{
+  FakeClock clock;
+  QueueModelRobot robot(clock);
+  auto config = robot.config();
+  const int64_t deadline = clock.now + 2000000000LL;
+  unsigned reads = 0;
+  config.queue.first_send_deadline_mono_ns = [&]() {++reads; return deadline;};
+  fairino_hardware::ServoJStreamer streamer(robot, clock, config);
+  const auto request = queue_request();
+  std::string reason;
+  ASSERT_TRUE(streamer.reserve(request, reason));
+  const auto result = streamer.run_reserved(request);
+  ASSERT_TRUE(result.success) << result.message;
+  EXPECT_EQ(reads, 1U);
+  EXPECT_EQ(robot.started_at, deadline - 20000000LL);
+  EXPECT_EQ(robot.commands.front().first, deadline);
+  EXPECT_EQ(result.first_send_deadline_mono_ns, deadline);
+  EXPECT_EQ(result.servo_start_begin_mono_ns, deadline - 20000000LL);
+  EXPECT_EQ(result.servo_start_return_mono_ns, deadline - 20000000LL);
+  std::ostringstream trace;
+  streamer.write_trace(trace, request, result);
+  EXPECT_NE(trace.str().find("\"deadline_origin_mono_ns\":3000000000"), std::string::npos);
+  EXPECT_NE(trace.str().find("\"first_send_deadline_mono_ns\":3000000000"), std::string::npos);
+}
+
+TEST(ServoJAbsoluteStart, RejectsUnsetExpiredInsufficientAndExcessiveLead)
+{
+  for (const int64_t advance : {-1000000000LL, -1LL, 0LL, 19999999LL, 5000000001LL}) {
+    SCOPED_TRACE(advance);
+    FakeClock clock;
+    QueueModelRobot robot(clock);
+    auto config = robot.config();
+    const auto deadline = clock.now + advance;
+    config.queue.first_send_deadline_mono_ns = [=]() {return deadline;};
+    fairino_hardware::ServoJStreamer streamer(robot, clock, config);
+    std::string reason;
+    ASSERT_TRUE(streamer.reserve(queue_request(), reason));
+    EXPECT_FALSE(streamer.run_reserved(queue_request()).success);
+    EXPECT_TRUE(robot.calls.empty());
+  }
+}
+
+TEST(ServoJAbsoluteStart, CancelAndFeedbackFailureBeforeAndAfterStartDoNotSend)
+{
+  for (const bool after_start : {false, true}) {
+    for (const unsigned failure : {0U, 1U, 2U, 3U}) {
+      SCOPED_TRACE(after_start);
+      SCOPED_TRACE(failure);
+      FakeClock clock;
+      QueueModelRobot robot(clock);
+      auto config = robot.config();
+      const auto deadline = clock.now + 2000000000LL;
+      config.queue.first_send_deadline_mono_ns = [=]() {return deadline;};
+      fairino_hardware::ServoJStreamer streamer(robot, clock, config);
+      robot.alter = [&](auto & snapshot) {
+          const bool inject = after_start ? !robot.calls.empty() : clock.now >= robot.origin + 100000000LL;
+          if (!inject) {return;}
+          switch (failure) {
+            case 0: streamer.request_cancel(); break;
+            case 1: robot.available = false; break;
+            case 2: snapshot.received_mono_ns = clock.now - 50000001LL; break;
+            case 3: snapshot.queue_length = 1; break;
+          }
+        };
+      std::string reason;
+      ASSERT_TRUE(streamer.reserve(queue_request(), reason));
+      const auto result = streamer.run_reserved(queue_request());
+      EXPECT_FALSE(result.success);
+      EXPECT_EQ(result.cancelled, failure == 0);
+      EXPECT_TRUE(robot.commands.empty());
+      if (after_start) {
+        EXPECT_EQ(std::count(robot.calls.begin(), robot.calls.end(), "stop"), 1);
+        EXPECT_EQ(std::count(robot.calls.begin(), robot.calls.end(), "end:1"), 1);
+      } else {EXPECT_TRUE(robot.calls.empty());}
+    }
+  }
+}
+
+TEST(ServoJAbsoluteStart, SlowStartDoesNotResetExpiredFirstDeadline)
+{
+  FakeClock clock;
+  QueueModelRobot robot(clock);
+  robot.start_duration_ns = 21000000LL;
+  auto config = robot.config();
+  const auto deadline = clock.now + 2000000000LL;
+  config.queue.first_send_deadline_mono_ns = [=]() {return deadline;};
+  fairino_hardware::ServoJStreamer streamer(robot, clock, config);
+  std::string reason;
+  ASSERT_TRUE(streamer.reserve(queue_request(), reason));
+  const auto result = streamer.run_reserved(queue_request());
+  EXPECT_FALSE(result.success);
+  EXPECT_TRUE(robot.commands.empty());
+  EXPECT_EQ(result.first_send_deadline_mono_ns, deadline);
+  EXPECT_NE(result.message.find("exceeded absolute"), std::string::npos);
+  EXPECT_EQ(std::count(robot.calls.begin(), robot.calls.end(), "stop"), 1);
+}
+
+TEST(ServoJAbsoluteStart, FailedClockAtStartBoundaryDoesNotCallRobot)
+{
+  class BoundaryClock : public FakeClock
+  {
+  public:
+    int64_t now_nanoseconds() override
+    {
+      if (now == 2980000000LL && ++boundary_reads == 3) {return -1;}
+      return now;
+    }
+    unsigned boundary_reads{0};
+  } clock;
+  QueueModelRobot robot(clock);
+  auto config = robot.config();
+  config.queue.first_send_deadline_mono_ns = []() {return 3000000000LL;};
+  fairino_hardware::ServoJStreamer streamer(robot, clock, config);
+  std::string reason;
+  ASSERT_TRUE(streamer.reserve(queue_request(), reason));
+  const auto result = streamer.run_reserved(queue_request());
+  EXPECT_FALSE(result.success);
+  EXPECT_EQ(result.servo_start_begin_mono_ns, -1);
+  EXPECT_TRUE(robot.calls.empty());
+}
+
+TEST(ServoJAbsoluteStart, ExpiredDeadlineCannotBeReusedByAnotherSession)
+{
+  FakeClock clock;
+  QueueModelRobot robot(clock);
+  auto config = robot.config();
+  const auto deadline = clock.now + 2000000000LL;
+  config.queue.first_send_deadline_mono_ns = [=]() {return deadline;};
+  fairino_hardware::ServoJStreamer streamer(robot, clock, config);
+  std::string reason;
+  ASSERT_TRUE(streamer.reserve(queue_request(), reason));
+  ASSERT_TRUE(streamer.run_reserved(queue_request()).success);
+  clock.now += 10000000LL;
+  const auto before = robot.calls.size();
+  ASSERT_TRUE(streamer.reserve(queue_request(), reason));
+  const auto result = streamer.run_reserved(queue_request());
+  EXPECT_FALSE(result.success);
+  EXPECT_NE(result.message.find("lead time"), std::string::npos);
+  EXPECT_EQ(robot.calls.size(), before);
+}
+
+TEST(ServoJAbsoluteStart, SixtyOneMillisecondAdvanceTranslatesEquivalentSchedule)
+{
+  std::vector<std::pair<int64_t, int64_t>> baseline;
+  for (const int64_t advance : {0LL, 61000000LL}) {
+    FakeClock clock;
+    // Translate the fake feedback clock as well to retain the same sampling phase.
+    clock.now -= advance;
+    QueueModelRobot robot(clock);
+    auto config = robot.config();
+    const int64_t nominal_origin = 3000000000LL;
+    config.queue.first_send_deadline_mono_ns = [=]() {return nominal_origin - advance;};
+    fairino_hardware::ServoJStreamer streamer(robot, clock, config);
+    std::string reason;
+    ASSERT_TRUE(streamer.reserve(queue_request(), reason));
+    const auto result = streamer.run_reserved(queue_request());
+    ASSERT_TRUE(result.success) << result.message;
+    if (advance == 0) {baseline = robot.commands;}
+    else {
+      ASSERT_EQ(robot.commands.size(), baseline.size());
+      for (size_t i = 0; i < baseline.size(); ++i) {
+        EXPECT_EQ(baseline[i].first - robot.commands[i].first, advance);
+        EXPECT_EQ(baseline[i].second - robot.commands[i].second, advance);
+      }
+    }
+  }
 }
 
 }  // namespace

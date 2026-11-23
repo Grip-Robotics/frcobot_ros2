@@ -404,3 +404,29 @@ session boundaries, cancellation, frozen/nonempty drain, publisher stalls and
 SDK stalls. A 4 ms transmission interval during prefill has not been established
 as reliable on the physical controller merely by these tests. No deployment or
 controller compatibility is implied by the opt-in code or SDK builds.
+
+### Optional absolute first-send scheduling
+
+The experimental queue config can supply `first_send_deadline_mono_ns`, a
+nonblocking callback read exactly once per session. An absent callback preserves
+the immediate-start behavior. A provided callback must return a CLOCK_MONOTONIC
+deadline between 20 ms and five seconds in the future; zero, past or insufficient
+lead times fail before ServoMoveStart. This is deliberately not a ROS parameter
+or a production pipeline timing policy.
+
+While waiting, the sender checks cancellation, fault status and fresh empty raw
+queue feedback every millisecond. ServoMoveStart is issued 20 ms before the
+deadline, followed by the same monitored wait until the first-send deadline.
+A start call that reaches/passes the deadline aborts without sending targets.
+The existing first-sample lateness guards still apply; a late start never resets
+the schedule to the current time. Failure after ServoMoveStart retains the
+StopMotion/ServoMoveEnd cleanup path.
+
+For scheduled streams, `deadline_origin_mono_ns` and the first sample deadline
+are the selected first-send deadline. New result fields retain that value plus
+`servo_start_begin_mono_ns` and `servo_start_return_mono_ns`; they are zero for
+legacy immediate starts. The caller separately records intended physical-arrival
+timestamps and the chosen advance before submitting the goal. Those intended
+timestamps are not reconstructed from actual first-send time, which would hide
+startup error. This feature shifts the complete existing queue schedule and does
+not change targets, command duration, refill rules or controller settings.
