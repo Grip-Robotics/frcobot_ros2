@@ -24,6 +24,28 @@ struct RecordingSdk
   std::vector<double> joint_gains;
 };
 
+struct LegacySdk
+{
+  int ServoMoveStart(int communication_type) {++calls; transport = communication_type; return 42;}
+  int calls{0}, transport{-1};
+};
+
+TEST(ServoStartSettings, LegacySdkUsesOneArgumentAndRejectsUnsupportedSettings)
+{
+  LegacySdk sdk;
+  for (const int transport : {0, 1}) {
+    EXPECT_EQ(fairino_hardware::start_servo_with_settings(sdk, transport, {}), 42);
+    EXPECT_EQ(sdk.transport, transport);
+  }
+  auto settings = fairino_hardware::ServoStartSettings{};
+  settings.filter_time_ms = 1;
+  EXPECT_THROW(fairino_hardware::start_servo_with_settings(sdk, 1, settings), std::invalid_argument);
+  settings.filter_time_ms = 0;
+  settings.joint_gains[2] = 0;
+  EXPECT_THROW(fairino_hardware::start_servo_with_settings(sdk, 1, settings), std::invalid_argument);
+  EXPECT_EQ(sdk.calls, 2);
+}
+
 TEST(ServoStartSettings, PassesDistinctJointGainsAndMillisecondsThroughBothTransports)
 {
   fairino_hardware::ServoStartSettings settings;

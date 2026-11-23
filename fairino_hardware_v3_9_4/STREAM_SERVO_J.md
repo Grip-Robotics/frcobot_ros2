@@ -357,8 +357,50 @@ No dependencies are downloaded. Optionally set `SDK234_PACKAGE_ROOT` to the
 `5925704ec25b27b3787544632a66a3702d80866a` to test ServoJ serialization against that
 SDK as well. SDK tests interpose the UDP SendFrame boundary and abort before any
 unexpected connect/send/sendto call. SDK 2.3.4 uses a different constructor and
-communication-type-only ServoMoveStart; branch head still requires SDK 2.4.1.0's
-filter/six-gain start interface. These tests do not make the branch head compatible
+communication-type-only ServoMoveStart. The start helper now detects the old API
+at compile time and permits only default settings (zero filter, all gains `-1`)
+on that API; custom settings are rejected rather than silently ignored. The
+bundled SDK remains 2.4.1.0. These tests do not make the branch head compatible
 with older controllers. The Jazzy build and mock action-client checks above do not
 replace fresh controller identity, SDK compatibility review and authorized live
 qualification before deployment. No firmware or runtime image is changed here.
+
+## Opt-in queue-regulation experiment
+
+`ServoJQueueConfig` can be injected into the command-node constructor; ordinary
+constructors leave it disabled and there is no production ROS parameter to enable
+it. The experimental stream requires a 6.006 ms request period, explicit 6 ms SDK
+duration, and a fixed prefix of identical starting-pose samples (100 by default).
+Tail replacement is rejected in this mode. The caller remains responsible for
+validating that starting pose, workspace, motion limits and physical readiness.
+
+The callback supplies a coherent raw-reception snapshot: queue length, monotonic
+arrival timestamp and increasing frame sequence. It must not block or allocate,
+and must report failure for latched controller/safety/reply faults. SDK cache-read
+time and ROS publication time are not substitutes for raw arrival time. Invalid,
+nonmonotonic or older-than-50-ms snapshots abort the stream; a new empty snapshot
+is required before starting each session. Queue depth above 32 aborts.
+
+Stationary samples are sent at 4 ms until the reported queue reaches 20, then the
+nominal interval is 6.006 ms. Each new raw frame selects a bounded correction:
+20 microseconds per queued-command deviation from 20, limited to +/-60 microseconds,
+with no correction for depth 19 through 21. Commands and their 6 ms duration remain
+unchanged. Readiness is required before leaving the stationary prefix. Deadline
+lateness reaching the selected interval aborts instead of catching up a missed
+sample interval. This is bounded replenishment, not physical motion retiming.
+
+After the final send, the stream retains ownership and checks feedback every
+2 ms until two distinct zero-queue frames arrive newer than that send. Drain has
+a one-second limit, and cancellation/fault/staleness still stops and ends the
+session. The action succeeds only after drain and ServoMoveEnd; the external
+runner must additionally confirm the physical endpoint. Queue zero alone does
+not establish that the measured joint position has settled.
+
+All prefix samples count toward action results and command IDs. Trace rows add
+the control phase (1 prefill, 2 regulation), queue snapshot/age and chosen interval;
+the result records priming and drain observations. The fake-clock FIFO tests
+exercise both consumption-rate directions, bad/stale feedback, prefill failure,
+session boundaries, cancellation, frozen/nonempty drain, publisher stalls and
+SDK stalls. A 4 ms transmission interval during prefill has not been established
+as reliable on the physical controller merely by these tests. No deployment or
+controller compatibility is implied by the opt-in code or SDK builds.

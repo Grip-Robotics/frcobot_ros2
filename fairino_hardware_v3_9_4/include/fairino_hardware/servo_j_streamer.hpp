@@ -39,6 +39,27 @@ struct ServoJStreamMetrics
   // Result-owned so a new reservation cannot relabel the completed trace.
   double sdk_cmdt_sec{0.0};
   ServoJFeedbackStats feedback_publication{};
+  bool queue_primed{false};
+  uint64_t queue_drain_frames{0};
+  int64_t queue_drain_ns{0};
+};
+
+struct ServoJQueueSnapshot
+{
+  int queue_length{0};
+  int64_t received_mono_ns{0};
+  uint64_t sequence{0};
+};
+
+struct ServoJQueueConfig
+{
+  bool enabled{false};
+  size_t prefix_samples{100};
+  int target_queue{20};
+  int maximum_queue{32};
+  // Verified raw reception only. Must be bounded, nonblocking and allocation-free;
+  // return false on unavailable/incoherent feedback or any latched safety fault.
+  std::function<bool(ServoJQueueSnapshot &)> read;
 };
 
 struct ServoJStreamerConfig
@@ -59,6 +80,7 @@ struct ServoJStreamerConfig
   double sdk_cmdt_override_sec{0.0};
   // Preallocated once; zero disables capture. Clamped to 32768 records.
   size_t trace_capacity{0};
+  ServoJQueueConfig queue{};
 };
 
 // Breakdown of the most recent servo_j() call, used to attribute a fatal
@@ -88,6 +110,13 @@ struct ServoJTraceSample
   int64_t feedback_begin_ns{0};
   int64_t feedback_end_ns{0};
   int64_t loop_end_ns{0};
+  int queue_length{-1};
+  int64_t queue_received_mono_ns{0};
+  uint64_t queue_sequence{0};
+  int64_t queue_age_ns{0};
+  int64_t scheduled_interval_ns{0};
+  // 0=fixed timing, 1=stationary prefill, 2=queue regulation.
+  unsigned queue_phase{0};
 };
 
 class ServoJRobot
@@ -188,6 +217,8 @@ private:
   uint64_t trace_count_{0};
   int64_t trace_start_mono_ns_{0};
   int64_t trace_start_ros_ns_{0};
+  // Keep the watermark across sessions so an old zero cannot admit a new stream.
+  ServoJQueueSnapshot last_queue_snapshot_{};
 };
 
 }  // namespace fairino_hardware

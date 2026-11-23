@@ -293,7 +293,8 @@ typedef enum _msg_id{
  * @brief 构造函数，用于初始化参数服务器中的变量，加载SDK库并连接机械臂
  * @param[in] node_name-节点名称，构建ros2 node必须的参数
  */
-robot_command_thread::robot_command_thread(const std::string node_name):rclcpp::Node(node_name,
+robot_command_thread::robot_command_thread(const std::string node_name,
+    fairino_hardware::ServoJQueueConfig queue):rclcpp::Node(node_name,
            rclcpp::NodeOptions().use_intra_process_comms(true)){
     using namespace std::chrono_literals;
 
@@ -369,6 +370,13 @@ robot_command_thread::robot_command_thread(const std::string node_name):rclcpp::
     if (!_servo_start_settings.validate(servo_start_error)) {
         throw std::invalid_argument(servo_start_error);
     }
+    if constexpr (!fairino_hardware::HasServoStartSettings<FRRobot>::value) {
+        if (_servo_start_settings.filter_time_ms != 0 ||
+            std::any_of(_servo_start_settings.joint_gains.begin(),
+                _servo_start_settings.joint_gains.end(), [](double gain) {return gain != -1.0;})) {
+            throw std::invalid_argument("This SDK does not support ServoMoveStart filter/gain settings");
+        }
+    }
     RCLCPP_INFO(get_logger(),
         "ServoMoveStart requested settings: filter_time_ms=%ld joint_gains=[%.9g,%.9g,%.9g,%.9g,%.9g,%.9g]",
         _servo_start_settings.filter_time_ms,
@@ -440,6 +448,7 @@ robot_command_thread::robot_command_thread(const std::string node_name):rclcpp::
     }
 
     fairino_hardware::ServoJStreamerConfig stream_config;
+    stream_config.queue = std::move(queue);
     stream_config.servo_start = _servo_start_settings;
     stream_config.minimum_period_sec = this->get_parameter("servo_j.minimum_period_sec").as_double();
     stream_config.maximum_period_sec = this->get_parameter("servo_j.maximum_period_sec").as_double();

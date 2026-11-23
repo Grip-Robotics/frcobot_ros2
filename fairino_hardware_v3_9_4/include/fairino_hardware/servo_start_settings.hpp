@@ -2,12 +2,15 @@
 #define FAIRINO_HARDWARE__SERVO_START_SETTINGS_HPP_
 
 #include <cmath>
+#include <algorithm>
 #include <cstdio>
 #include <cstdint>
 #include <limits>
 #include <stdexcept>
 #include <string>
 #include <vector>
+#include <type_traits>
+#include <utility>
 
 namespace fairino_hardware
 {
@@ -50,6 +53,13 @@ struct ServoStartSettings
 
 // Shared by the buffered action and legacy string-command paths. Keeping the
 // SDK boundary here allows argument ordering and errors to be tested offline.
+template<typename Robot, typename = void>
+struct HasServoStartSettings : std::false_type {};
+
+template<typename Robot>
+struct HasServoStartSettings<Robot, std::void_t<decltype(std::declval<Robot &>().ServoMoveStart(
+      0, 0, std::declval<std::vector<double>>()))>> : std::true_type {};
+
 template<typename Robot>
 int start_servo_with_settings(Robot & robot, int communication_type,
   const ServoStartSettings & settings)
@@ -61,8 +71,15 @@ int start_servo_with_settings(Robot & robot, int communication_type,
   if (communication_type != 0 && communication_type != 1) {
     throw std::invalid_argument("ServoMoveStart communication type must be 0 or 1");
   }
-  return robot.ServoMoveStart(communication_type,
-    static_cast<int>(settings.filter_time_ms), settings.joint_gains);
+  if constexpr (HasServoStartSettings<Robot>::value) {
+    return robot.ServoMoveStart(communication_type,
+      static_cast<int>(settings.filter_time_ms), settings.joint_gains);
+  } else {
+    if (settings.filter_time_ms != 0 || !std::all_of(settings.joint_gains.begin(),
+        settings.joint_gains.end(), [](double gain) {return gain == -1.0;}))
+    {throw std::invalid_argument("This SDK does not support ServoMoveStart filter/gain settings");}
+    return robot.ServoMoveStart(communication_type);
+  }
 }
 
 }  // namespace fairino_hardware

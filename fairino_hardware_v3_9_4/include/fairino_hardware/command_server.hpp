@@ -44,7 +44,8 @@ class FairinoServoJRobot;
 
 class robot_command_thread:public rclcpp::Node{
 public:
-    robot_command_thread(const std::string node_name);
+    robot_command_thread(const std::string node_name,
+      fairino_hardware::ServoJQueueConfig queue = {});
     ~robot_command_thread();
     
     //点位信息设置类

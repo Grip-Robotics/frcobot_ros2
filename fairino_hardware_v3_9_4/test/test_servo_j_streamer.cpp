@@ -1037,4 +1037,359 @@ TEST(ServoJStreamerDiagnostics, SeparatesFirstRosClockReadFromSdkAndHandoff)
   EXPECT_NE(out.str().find("\"loop_end_mono_ns\":1003010000"), std::string::npos);
 }
 
+class QueueModelRobot : public MockRobot
+{
+public:
+  explicit QueueModelRobot(FakeClock & source) : origin(source.now) {clock = &source;}
+  int servo_j(const std::array<double, 6> & joints, float period, int id, int type) override
+  {
+    const auto sent = clock->now;
+    execution_end = std::max(execution_end, sent) + consumption_ns;
+    commands.emplace_back(sent, execution_end);
+    return MockRobot::servo_j(joints, period, id, type);
+  }
+  int servo_move_end(int type) override
+  {
+    ended_at = clock->now;
+    return MockRobot::servo_move_end(type);
+  }
+  bool read(fairino_hardware::ServoJQueueSnapshot & out)
+  {
+    const int64_t arrival = origin + ((clock->now - origin) / 10000000LL) * 10000000LL;
+    if (arrival != snapshot.received_mono_ns) {
+      snapshot.received_mono_ns = arrival;
+      snapshot.sequence = 1 + static_cast<uint64_t>((arrival - origin) / 10000000LL);
+      snapshot.queue_length = static_cast<int>(std::count_if(commands.begin(), commands.end(),
+        [&](const auto & command) {return command.first < arrival && command.second > arrival;}));
+    }
+    out = snapshot;
+    if (alter) {alter(out);}
+    return available;
+  }
+  fairino_hardware::ServoJStreamerConfig config()
+  {
+    fairino_hardware::ServoJStreamerConfig result;
+    result.sdk_cmdt_override_sec = .006;
+    result.trace_capacity = 512;
+    result.queue.enabled = true;
+    result.queue.read = [this](auto & snapshot) {return read(snapshot);};
+    return result;
+  }
+  int64_t origin, execution_end{0}, ended_at{0}, consumption_ns{6006000};
+  bool available{true};
+  fairino_hardware::ServoJQueueSnapshot snapshot{};
+  std::vector<std::pair<int64_t, int64_t>> commands;
+  std::function<void(fairino_hardware::ServoJQueueSnapshot &)> alter;
+};
+
+fairino_hardware::ServoJStreamRequest queue_request()
+{
+  auto request = valid_request(400);
+  request.period_sec = .006006;
+  for (size_t index = 0; index < request.joints_deg.size(); ++index) {
+    request.joints_deg[index] = index / 6 < 100 ? 0.0 : .001 * (index / 6 - 99);
+  }
+  return request;
+}
+
+TEST(ServoJQueue, PrimesRegulatesAndDrainsBeforeEnd)
+{
+  FakeClock clock;
+  QueueModelRobot robot(clock);
+  fairino_hardware::ServoJStreamer streamer(robot, clock, robot.config());
+  const auto request = queue_request();
+  std::string reason;
+  ASSERT_TRUE(streamer.reserve(request, reason)) << reason;
+  const auto result = streamer.run_reserved(request);
+  ASSERT_TRUE(result.success) << result.message;
+  EXPECT_TRUE(result.queue_primed);
+  EXPECT_EQ(result.samples_sent, 400U);
+  EXPECT_EQ(result.queue_drain_frames, 2U);
+  EXPECT_GE(robot.ended_at, robot.execution_end + 10000000LL);
+  EXPECT_LT(result.queue_drain_ns, 200000000LL);
+  EXPECT_EQ(robot.commands[1].first - robot.commands[0].first, 4000000LL);
+  for (size_t index = 100; index < robot.commands.size(); ++index) {
+    const auto interval = robot.commands[index].first - robot.commands[index - 1].first;
+    EXPECT_GE(interval, 5946000LL);
+    EXPECT_LE(interval, 6066000LL);
+  }
+  EXPECT_EQ(std::count(robot.calls.begin(), robot.calls.end(), "stop"), 0);
+  std::ostringstream trace;
+  streamer.write_trace(trace, request, result);
+  EXPECT_NE(trace.str().find("\"queue_regulation_enabled\":true"), std::string::npos);
+  EXPECT_NE(trace.str().find("\"queue_phase\":1"), std::string::npos);
+  EXPECT_NE(trace.str().find("\"queue_phase\":2"), std::string::npos);
+}
+
+TEST(ServoJQueue, RejectsUnvalidatedConfigurationPrefixAndTail)
+{
+  FakeClock clock;
+  QueueModelRobot robot(clock);
+  auto config = robot.config();
+  fairino_hardware::ServoJStreamer streamer(robot, clock, config);
+  auto request = queue_request();
+  std::string reason;
+  request.joints_deg[60] = .01;
+  EXPECT_FALSE(streamer.reserve(request, reason));
+  request = queue_request();
+  request.period_sec = .006;
+  EXPECT_FALSE(streamer.reserve(request, reason));
+  request = queue_request();
+  ASSERT_TRUE(streamer.reserve(request, reason));
+  uint64_t revision = 0;
+  EXPECT_FALSE(streamer.replace_tail("goal", 0, 200, {0, 0, 0, 0, 0, 0}, revision, reason));
+  streamer.request_cancel();
+  EXPECT_TRUE(streamer.run_reserved(request).cancelled);
+  EXPECT_TRUE(robot.calls.empty());
+}
+
+TEST(ServoJQueue, RejectsNonemptyStartBeforeServoMoveStart)
+{
+  FakeClock clock;
+  QueueModelRobot robot(clock);
+  robot.alter = [](auto & snapshot) {snapshot.queue_length = 1;};
+  fairino_hardware::ServoJStreamer streamer(robot, clock, robot.config());
+  std::string reason;
+  ASSERT_TRUE(streamer.reserve(queue_request(), reason));
+  EXPECT_FALSE(streamer.run_reserved(queue_request()).success);
+  EXPECT_TRUE(robot.calls.empty());
+}
+
+TEST(ServoJQueue, NeverFilledPrefixCannotReachMovingSamples)
+{
+  FakeClock clock;
+  QueueModelRobot robot(clock);
+  robot.alter = [](auto & snapshot) {snapshot.queue_length = 0;};
+  fairino_hardware::ServoJStreamer streamer(robot, clock, robot.config());
+  std::string reason;
+  ASSERT_TRUE(streamer.reserve(queue_request(), reason));
+  const auto result = streamer.run_reserved(queue_request());
+  EXPECT_FALSE(result.success);
+  EXPECT_EQ(result.samples_sent, 100U);
+  EXPECT_FALSE(result.queue_primed);
+  EXPECT_EQ(std::count(robot.calls.begin(), robot.calls.end(), "stop"), 1);
+}
+
+TEST(ServoJQueue, RejectsOverflowStaleFutureMissingAndNonmonotonicFeedback)
+{
+  for (unsigned kind = 0; kind < 7; ++kind) {
+    SCOPED_TRACE(kind);
+    FakeClock clock;
+    QueueModelRobot robot(clock);
+    robot.alter = [&](auto & snapshot) {
+        if (clock.now - robot.origin < 20000000LL) {return;}
+        switch (kind) {
+          case 0: snapshot.queue_length = 33; break;
+          case 1: snapshot.received_mono_ns = clock.now - 50000001LL; break;
+          case 2: snapshot.received_mono_ns = clock.now + 1; break;
+          case 3: snapshot.sequence = 1; break;
+          case 4: robot.available = false; break;
+          case 5: snapshot.queue_length = -1; break;
+          case 6: snapshot.received_mono_ns = robot.origin; break;
+        }
+      };
+    fairino_hardware::ServoJStreamer streamer(robot, clock, robot.config());
+    std::string reason;
+    ASSERT_TRUE(streamer.reserve(queue_request(), reason));
+    const auto result = streamer.run_reserved(queue_request());
+    EXPECT_FALSE(result.success);
+    EXPECT_LE(result.samples_sent, 6U);
+    EXPECT_EQ(std::count(robot.calls.begin(), robot.calls.end(), "stop"), 1);
+  }
+}
+
+TEST(ServoJQueue, UnchangedFrameExpiresRatherThanBeingRestamped)
+{
+  FakeClock clock;
+  QueueModelRobot robot(clock);
+  robot.alter = [&](auto & snapshot) {snapshot = {0, robot.origin, 1};};
+  fairino_hardware::ServoJStreamer streamer(robot, clock, robot.config());
+  std::string reason;
+  ASSERT_TRUE(streamer.reserve(queue_request(), reason));
+  const auto result = streamer.run_reserved(queue_request());
+  EXPECT_FALSE(result.success);
+  EXPECT_NE(result.message.find("older than 50 ms"), std::string::npos);
+  EXPECT_EQ(result.samples_sent, 13U);
+}
+
+TEST(ServoJQueue, PreviousSessionZeroCannotAdmitNextSession)
+{
+  FakeClock clock;
+  QueueModelRobot robot(clock);
+  fairino_hardware::ServoJStreamer streamer(robot, clock, robot.config());
+  std::string reason;
+  ASSERT_TRUE(streamer.reserve(queue_request(), reason));
+  ASSERT_TRUE(streamer.run_reserved(queue_request()).success);
+  const auto calls = robot.calls.size();
+  ASSERT_TRUE(streamer.reserve(queue_request(), reason));
+  EXPECT_FALSE(streamer.run_reserved(queue_request()).success);
+  EXPECT_EQ(robot.calls.size(), calls);
+  clock.now += 10000000LL;
+  ASSERT_TRUE(streamer.reserve(queue_request(), reason));
+  EXPECT_TRUE(streamer.run_reserved(queue_request()).success);
+}
+
+TEST(ServoJQueue, OneFrozenZeroFrameCannotCompleteDrain)
+{
+  FakeClock clock;
+  QueueModelRobot robot(clock);
+  fairino_hardware::ServoJQueueSnapshot frozen{};
+  robot.alter = [&](auto & snapshot) {
+      if (robot.commands.size() == 400 && snapshot.queue_length == 0 && frozen.sequence == 0) {
+        frozen = snapshot;
+      }
+      if (frozen.sequence != 0) {snapshot = frozen;}
+    };
+  fairino_hardware::ServoJStreamer streamer(robot, clock, robot.config());
+  std::string reason;
+  ASSERT_TRUE(streamer.reserve(queue_request(), reason));
+  const auto result = streamer.run_reserved(queue_request());
+  EXPECT_FALSE(result.success);
+  EXPECT_EQ(result.samples_sent, 400U);
+  EXPECT_EQ(result.queue_drain_frames, 1U);
+  EXPECT_NE(result.message.find("older than 50 ms"), std::string::npos);
+  EXPECT_EQ(std::count(robot.calls.begin(), robot.calls.end(), "stop"), 1);
+}
+
+TEST(ServoJQueue, BoundedCorrectionRespondsToFasterAndSlowerConsumption)
+{
+  for (const int64_t consumption : {5950000LL, 6066000LL}) {
+    SCOPED_TRACE(consumption);
+    FakeClock clock;
+    QueueModelRobot robot(clock);
+    robot.consumption_ns = consumption;
+    fairino_hardware::ServoJStreamer streamer(robot, clock, robot.config());
+    auto request = queue_request();
+    request.joints_deg.resize(3000 * 6, request.joints_deg.back());
+    std::string reason;
+    ASSERT_TRUE(streamer.reserve(request, reason));
+    const auto result = streamer.run_reserved(request);
+    ASSERT_TRUE(result.success) << result.message;
+    bool corrected = false;
+    for (size_t index = 100; index < robot.commands.size(); ++index) {
+      const auto interval = robot.commands[index].first - robot.commands[index - 1].first;
+      EXPECT_GE(interval, 5946000LL);
+      EXPECT_LE(interval, 6066000LL);
+      corrected |= consumption < 6006000 ? interval < 6006000 : interval > 6006000;
+    }
+    EXPECT_TRUE(corrected);
+  }
+}
+
+TEST(ServoJQueue, CancellationDuringPrefillOrMotionPreventsNextSend)
+{
+  for (const size_t sent : {5U, 150U}) {
+    FakeClock clock;
+    QueueModelRobot robot(clock);
+    fairino_hardware::ServoJStreamer streamer(robot, clock, robot.config());
+    robot.alter = [&](auto &) {if (robot.commands.size() == sent) {streamer.request_cancel();}};
+    std::string reason;
+    ASSERT_TRUE(streamer.reserve(queue_request(), reason));
+    const auto result = streamer.run_reserved(queue_request());
+    EXPECT_FALSE(result.success);
+    EXPECT_TRUE(result.cancelled);
+    EXPECT_EQ(result.samples_sent, sent);
+    EXPECT_EQ(std::count(robot.calls.begin(), robot.calls.end(), "stop"), 1);
+    EXPECT_EQ(std::count(robot.calls.begin(), robot.calls.end(), "end:1"), 1);
+  }
+}
+
+TEST(ServoJQueue, FreshNonzeroDrainTimesOutWithoutSuccessfulResult)
+{
+  FakeClock clock;
+  QueueModelRobot robot(clock);
+  robot.alter = [&](auto & snapshot) {
+      if (snapshot.queue_length == 0 && robot.commands.size() == 400) {snapshot.queue_length = 1;}
+    };
+  fairino_hardware::ServoJStreamer streamer(robot, clock, robot.config());
+  std::string reason;
+  ASSERT_TRUE(streamer.reserve(queue_request(), reason));
+  const auto result = streamer.run_reserved(queue_request());
+  EXPECT_FALSE(result.success);
+  EXPECT_NE(result.message.find("exceeded 1 second"), std::string::npos);
+  EXPECT_EQ(result.samples_sent, 400U);
+  EXPECT_EQ(std::count(robot.calls.begin(), robot.calls.end(), "stop"), 1);
+}
+
+TEST(ServoJQueue, CancellationDuringDrainStillStopsAndEndsOnce)
+{
+  FakeClock clock;
+  QueueModelRobot robot(clock);
+  fairino_hardware::ServoJStreamer streamer(robot, clock, robot.config());
+  robot.alter = [&](auto &) {
+      if (robot.commands.size() == 400) {streamer.request_cancel();}
+    };
+  std::string reason;
+  ASSERT_TRUE(streamer.reserve(queue_request(), reason));
+  const auto result = streamer.run_reserved(queue_request());
+  EXPECT_FALSE(result.success);
+  EXPECT_TRUE(result.cancelled);
+  EXPECT_EQ(result.samples_sent, 400U);
+  EXPECT_EQ(std::count(robot.calls.begin(), robot.calls.end(), "stop"), 1);
+  EXPECT_EQ(std::count(robot.calls.begin(), robot.calls.end(), "end:1"), 1);
+}
+
+TEST(ServoJQueue, FaultDuringDrainCannotReturnSuccess)
+{
+  FakeClock clock;
+  QueueModelRobot robot(clock);
+  robot.alter = [&](auto &) {if (robot.commands.size() == 400) {robot.available = false;}};
+  fairino_hardware::ServoJStreamer streamer(robot, clock, robot.config());
+  std::string reason;
+  ASSERT_TRUE(streamer.reserve(queue_request(), reason));
+  const auto result = streamer.run_reserved(queue_request());
+  EXPECT_FALSE(result.success);
+  EXPECT_EQ(result.samples_sent, 400U);
+  EXPECT_EQ(std::count(robot.calls.begin(), robot.calls.end(), "stop"), 1);
+  EXPECT_EQ(std::count(robot.calls.begin(), robot.calls.end(), "end:1"), 1);
+}
+
+TEST(ServoJQueue, StalledPublisherDoesNotDelayQueueDrainOrResult)
+{
+  fairino_hardware::ServoJFeedbackPublisher publisher;
+  StalledCall stalled;
+  auto session = publisher.start([block = stalled.callback()](uint64_t, uint64_t, int64_t) {block();});
+  session->offer(0, 0, 0);
+  ASSERT_TRUE(stalled.wait_entered());
+  FakeClock clock;
+  QueueModelRobot robot(clock);
+  auto config = robot.config();
+  config.feedback_period_sec = 0;
+  fairino_hardware::ServoJStreamer streamer(robot, clock, config);
+  const auto request = queue_request();
+  std::string reason;
+  ASSERT_TRUE(streamer.reserve(request, reason));
+  auto sender = std::async(std::launch::async, [&]() {
+      return streamer.run_reserved(request,
+        [&](uint64_t sent, uint64_t id, int64_t start) {session->offer(sent, id, start);});
+    });
+  const auto status = sender.wait_for(std::chrono::seconds(2));
+  if (status != std::future_status::ready) {stalled.release();}
+  ASSERT_EQ(status, std::future_status::ready);
+  const auto result = sender.get();
+  const auto feedback = session->close();
+  EXPECT_TRUE(result.success);
+  EXPECT_EQ(result.samples_sent, 400U);
+  EXPECT_EQ(result.queue_drain_frames, 2U);
+  EXPECT_GT(feedback.coalesced, 390U);
+  EXPECT_TRUE(feedback.in_flight_at_close);
+  stalled.release();
+  publisher.shutdown();
+}
+
+TEST(ServoJQueue, SDKStallAbortsWithoutCatchupCommand)
+{
+  FakeClock clock;
+  QueueModelRobot robot(clock);
+  robot.servo_duration_nanoseconds = 5000000LL;
+  fairino_hardware::ServoJStreamer streamer(robot, clock, robot.config());
+  std::string reason;
+  ASSERT_TRUE(streamer.reserve(queue_request(), reason));
+  const auto result = streamer.run_reserved(queue_request());
+  EXPECT_FALSE(result.success);
+  EXPECT_EQ(result.samples_sent, 1U);
+  EXPECT_EQ(robot.commands.size(), 1U);
+  EXPECT_EQ(std::count(robot.calls.begin(), robot.calls.end(), "stop"), 1);
+}
+
 }  // namespace

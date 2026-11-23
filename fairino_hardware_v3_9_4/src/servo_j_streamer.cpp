@@ -103,6 +103,25 @@ bool ServoJStreamer::validate(const ServoJStreamRequest & request, std::string &
       return false;
     }
   }
+  if (config_.queue.enabled) {
+    const auto & queue = config_.queue;
+    if (!queue.read || queue.prefix_samples < 2 ||
+      queue.prefix_samples >= request.joints_deg.size() / 6 ||
+      queue.target_queue < 2 || queue.target_queue > 29 || queue.maximum_queue > 32 ||
+      queue.maximum_queue < queue.target_queue + 3 ||
+      std::abs(request.period_sec - 0.006006) > 1e-12 ||
+      std::abs(config_.sdk_cmdt_override_sec - 0.006) > 1e-12)
+    {
+      reason = "invalid experimental queue configuration (requires 6.006/6 ms)";
+      return false;
+    }
+    for (size_t index = 6; index < queue.prefix_samples * 6; ++index) {
+      if (request.joints_deg[index] != request.joints_deg[index % 6]) {
+        reason = "queue prefill prefix must contain identical stationary targets";
+        return false;
+      }
+    }
+  }
   return true;
 }
 
@@ -140,6 +159,10 @@ bool ServoJStreamer::replace_tail(
   uint64_t expected_revision, uint64_t start_sample, const std::vector<double> & tail,
   uint64_t & revision, std::string & reason)
 {
+  if (config_.queue.enabled) {
+    reason = "tail replacement is disabled for experimental queue regulation";
+    return false;
+  }
   std::shared_ptr<const std::vector<double>> original;
   double period;
   uint64_t offset, retire;
@@ -250,6 +273,48 @@ ServoJStreamMetrics ServoJStreamer::run_reserved(
     return metrics;
   }
 
+  const bool queue_enabled = config_.queue.enabled;
+  ServoJQueueSnapshot queue_snapshot{};
+  const uint64_t previous_session_sequence = last_queue_snapshot_.sequence;
+  auto read_queue = [&]() -> const char * {
+      try {
+        if (!config_.queue.read(queue_snapshot)) {return "Queue feedback unavailable or faulted";}
+      } catch (...) {return "Queue feedback callback failed";}
+      const auto now = clock_.now_nanoseconds();
+      if (now < 0 || queue_snapshot.sequence == 0 ||
+        queue_snapshot.received_mono_ns <= 0 || queue_snapshot.received_mono_ns > now ||
+        queue_snapshot.queue_length < 0 || queue_snapshot.queue_length > config_.queue.maximum_queue)
+      {return "Invalid queue feedback or queue ceiling exceeded";}
+      if (now - queue_snapshot.received_mono_ns > 50000000LL) {
+        return "Queue feedback older than 50 ms";
+      }
+      const auto & previous = last_queue_snapshot_;
+      if (queue_snapshot.sequence < previous.sequence ||
+        queue_snapshot.received_mono_ns < previous.received_mono_ns ||
+        (queue_snapshot.sequence == previous.sequence &&
+        (queue_snapshot.received_mono_ns != previous.received_mono_ns ||
+        queue_snapshot.queue_length != previous.queue_length)) ||
+        (queue_snapshot.sequence > previous.sequence && previous.sequence != 0 &&
+        queue_snapshot.received_mono_ns <= previous.received_mono_ns))
+      {return "Nonmonotonic or inconsistent queue feedback";}
+      last_queue_snapshot_ = queue_snapshot;
+      return nullptr;
+    };
+  if (queue_enabled) {
+    const auto failure = read_queue();
+    if (failure || queue_snapshot.queue_length != 0 ||
+      queue_snapshot.sequence <= previous_session_sequence)
+    {
+      metrics.message = failure ? failure : "Queue start requires a new empty raw feedback frame";
+      return metrics;  // No servo session has started.
+    }
+    if (cancel_requested_.load()) {
+      metrics.cancelled = true;
+      metrics.message = "ServoJ stream cancelled";
+      return metrics;
+    }
+  }
+
   int error = robot_.servo_move_start(communication_type, config_.servo_start);
   if (error != 0) {
     metrics.controller_error = error;
@@ -270,6 +335,9 @@ ServoJStreamMetrics ServoJStreamer::run_reserved(
   int64_t previous_send_ns = -1;
   int64_t stream_start_ros_ns = 0;
   int64_t last_feedback_ns = start_ns - feedback_period_ns;
+  int64_t scheduled_deadline_ns = start_ns;
+  int64_t chosen_interval_ns = period_ns;
+  uint64_t pacing_sequence = 0;
   ServoJCallTiming last_call_timing{};
   for (uint64_t sample = 0; ; ++sample) {
     ServoJTraceSample trace;
@@ -303,7 +371,39 @@ ServoJStreamMetrics ServoJStreamer::run_reserved(
       return metrics;
     }
 
-    const int64_t deadline_ns = start_ns + static_cast<int64_t>(sample) * period_ns;
+    if (queue_enabled) {
+      const auto failure = read_queue();
+      if (failure) {
+        metrics.message = failure;
+        finish_with_stop_and_end(metrics, communication_type);
+        return metrics;
+      }
+      if (queue_snapshot.queue_length >= config_.queue.target_queue) {metrics.queue_primed = true;}
+      if (sample == config_.queue.prefix_samples &&
+        (!metrics.queue_primed || queue_snapshot.queue_length < config_.queue.target_queue - 1))
+      {
+        metrics.message = "Stationary prefix ended before queue was ready";
+        finish_with_stop_and_end(metrics, communication_type);
+        return metrics;
+      }
+      if (!metrics.queue_primed) {
+        chosen_interval_ns = 4000000LL;
+      } else if (queue_snapshot.sequence != pacing_sequence) {
+        const int deviation = queue_snapshot.queue_length - config_.queue.target_queue;
+        chosen_interval_ns = period_ns + (std::abs(deviation) <= 1 ? 0 :
+          std::clamp<int64_t>(static_cast<int64_t>(deviation) * 20000LL, -60000LL, 60000LL));
+      }
+      pacing_sequence = queue_snapshot.sequence;
+      trace.queue_phase = metrics.queue_primed ? 2 : 1;
+      trace.queue_length = queue_snapshot.queue_length;
+      trace.queue_received_mono_ns = queue_snapshot.received_mono_ns;
+      trace.queue_sequence = queue_snapshot.sequence;
+      trace.queue_age_ns = clock_.now_nanoseconds() - queue_snapshot.received_mono_ns;
+      trace.scheduled_interval_ns = chosen_interval_ns;
+      if (sample != 0) {scheduled_deadline_ns += chosen_interval_ns;}
+    }
+    const int64_t deadline_ns = queue_enabled ? scheduled_deadline_ns :
+      start_ns + static_cast<int64_t>(sample) * period_ns;
     trace.deadline_ns = deadline_ns;
     trace.sleep_enter_ns = tracing ? clock_.now_nanoseconds() : 0;
     const int sleep_error = clock_.sleep_until(deadline_ns);
@@ -326,13 +426,24 @@ ServoJStreamMetrics ServoJStreamer::run_reserved(
     if (deadline_missed_before_call) {
       ++metrics.missed_deadlines;
     }
-    if (wake_lateness_ns > fatal_lateness_ns) {
+    if (wake_lateness_ns > fatal_lateness_ns ||
+      (queue_enabled && wake_lateness_ns >= chosen_interval_ns)) {
       record_sample();
       metrics.message = format_timing_failure(
         "ServoJ timing failure: command deadline exceeded maximum lateness",
         metrics, sample, request.period_sec, wake_lateness_ns, true, last_call_timing);
       finish_with_stop_and_end(metrics, communication_type);
       return metrics;
+    }
+    if (queue_enabled) {
+      const auto failure = read_queue();
+      if (failure || (sample == config_.queue.prefix_samples &&
+        queue_snapshot.queue_length < config_.queue.target_queue - 1)) {
+        record_sample();
+        metrics.message = failure ? failure : "Queue lost readiness before first moving sample";
+        finish_with_stop_and_end(metrics, communication_type);
+        return metrics;
+      }
     }
     if (cancel_requested_.load()) {
       metrics.cancelled = true;
@@ -392,7 +503,8 @@ ServoJStreamMetrics ServoJStreamer::run_reserved(
         static_cast<double>(sent_ns - previous_send_ns) / 1.0e9);
     }
     previous_send_ns = sent_ns;
-    if (sent_lateness_ns > fatal_lateness_ns) {
+    if (sent_lateness_ns > fatal_lateness_ns ||
+      (queue_enabled && sent_lateness_ns >= chosen_interval_ns)) {
       record_sample();
       metrics.message = format_timing_failure(
         "ServoJ timing failure: SDK command completed after maximum lateness",
@@ -417,6 +529,50 @@ ServoJStreamMetrics ServoJStreamer::run_reserved(
     metrics.message = "ServoJ stream cancelled";
     finish_with_stop_and_end(metrics, communication_type);
     return metrics;
+  }
+
+  if (queue_enabled) {
+    const int64_t drain_start = clock_.now_nanoseconds();
+    uint64_t zero_sequence = 0;
+    unsigned zero_frames = 0;
+    for (;;) {
+      if (cancel_requested_.load()) {
+        metrics.cancelled = true;
+        metrics.message = "ServoJ stream cancelled during queue drain";
+        finish_with_stop_and_end(metrics, communication_type);
+        return metrics;
+      }
+      const auto failure = read_queue();
+      if (failure) {
+        metrics.message = failure;
+        finish_with_stop_and_end(metrics, communication_type);
+        return metrics;
+      }
+      const int64_t now = clock_.now_nanoseconds();
+      metrics.queue_drain_ns = now - drain_start;
+      if (queue_snapshot.received_mono_ns > previous_send_ns && queue_snapshot.sequence != zero_sequence) {
+        zero_sequence = queue_snapshot.sequence;
+        zero_frames = queue_snapshot.queue_length == 0 ? zero_frames + 1 : 0;
+        metrics.queue_drain_frames = zero_frames;
+        if (zero_frames >= 2) {break;}
+      }
+      if (now < drain_start || now - drain_start >= 1000000000LL) {
+        metrics.message = "Queue drain exceeded 1 second";
+        finish_with_stop_and_end(metrics, communication_type);
+        return metrics;
+      }
+      if (clock_.sleep_until(now + 2000000LL) != 0) {
+        metrics.message = "Queue drain clock_nanosleep failed";
+        finish_with_stop_and_end(metrics, communication_type);
+        return metrics;
+      }
+    }
+    if (cancel_requested_.load()) {
+      metrics.cancelled = true;
+      metrics.message = "ServoJ stream cancelled during queue drain";
+      finish_with_stop_and_end(metrics, communication_type);
+      return metrics;
+    }
   }
 
   error = robot_.servo_move_end(communication_type);
@@ -460,6 +616,13 @@ void ServoJStreamer::write_trace(
     ",\"samples_sent\":" << metrics.samples_sent <<
     ",\"last_command_id\":" << metrics.last_command_id <<
     ",\"missed_deadlines\":" << metrics.missed_deadlines <<
+    ",\"queue_regulation_enabled\":" << (config_.queue.enabled ? "true" : "false") <<
+    ",\"queue_prefix_samples\":" << config_.queue.prefix_samples <<
+    ",\"queue_target\":" << config_.queue.target_queue <<
+    ",\"queue_ceiling\":" << config_.queue.maximum_queue <<
+    ",\"queue_primed\":" << (metrics.queue_primed ? "true" : "false") <<
+    ",\"queue_drain_frames\":" << metrics.queue_drain_frames <<
+    ",\"queue_drain_ns\":" << metrics.queue_drain_ns <<
     ",\"trace_capacity\":" << trace_.size() <<
     ",\"trace_records_total\":" << trace_count_ <<
     ",\"trace_records_overwritten\":" << (trace_count_ > trace_.size() ?
@@ -506,6 +669,12 @@ void ServoJStreamer::write_trace(
       ",\"feedback_handoff_begin_mono_ns\":" << sample.feedback_begin_ns <<
       ",\"feedback_handoff_end_mono_ns\":" << sample.feedback_end_ns <<
       ",\"loop_end_mono_ns\":" << sample.loop_end_ns <<
+      ",\"queue_phase\":" << sample.queue_phase <<
+      ",\"queue_length\":" << sample.queue_length <<
+      ",\"queue_received_mono_ns\":" << sample.queue_received_mono_ns <<
+      ",\"queue_sequence\":" << sample.queue_sequence <<
+      ",\"queue_age_ns\":" << sample.queue_age_ns <<
+      ",\"scheduled_interval_ns\":" << sample.scheduled_interval_ns <<
       ",\"joints_deg\":";
     json_six(out, sample.joints_deg);
     out << "}\n";
