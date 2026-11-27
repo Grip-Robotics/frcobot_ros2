@@ -1,3 +1,4 @@
+#include "fairino_hardware/feedback_envelope.hpp"
 #include "fairino_hardware/command_server.hpp"
 #include "fairino_hardware/servo_j_udp_diagnostics.hpp"
 #include <sys/types.h>
@@ -856,6 +857,7 @@ void robot_command_thread::_state_recv_callback(){
     auto msg = robot_feedback_msg();
     ROBOT_STATE_PKG ctrl_state{};
     int res;
+    bool corrupt_frame = false;
     {
         // GetRobotRealTimeState() and ServoJ share one SDK object and therefore
         // the same mutex. Blocking here can hold it across a ServoJ deadline and
@@ -869,6 +871,32 @@ void robot_command_thread::_state_recv_callback(){
             return;
         }
         res = _ptr_robot->GetRobotRealTimeState(&ctrl_state);
+    }
+    if (res == 0) {
+        const int64_t stamp = _monotonic_clock.now_nanoseconds();
+        _native_feedback.poll(_controller_ip, stamp);
+        using Match = fairino_hardware::NativeFeedbackCopy::Match;
+        auto match = _native_feedback.reconcile(ctrl_state, stamp);
+        if (match == Match::Unavailable && !fairino_hardware::valid_feedback_envelope(ctrl_state)) {
+            std::unique_lock<std::mutex> lock(_sdk_mutex, std::try_to_lock);
+            if (lock.owns_lock()) {
+                res = _ptr_robot->GetRobotRealTimeState(&ctrl_state);
+                lock.unlock();
+                if (res == 0) {match = _native_feedback.reconcile(ctrl_state, stamp);}
+            }
+        }
+        corrupt_frame = res == 0 && match == Match::Unavailable &&
+            !fairino_hardware::valid_feedback_envelope(ctrl_state);
+        if (match == Match::Identical) {
+            RCLCPP_INFO_ONCE(get_logger(), "Native speed recovery verified on the active SDK feedback connection");
+        } else if (match == Match::Repaired) {
+            RCLCPP_WARN_THROTTLE(get_logger(), *get_clock(), 1000,
+                "Recovered SDK joint speed from the matching native controller frame %u", unsigned(ctrl_state.frame_cnt));
+        }
+    }
+    if (corrupt_frame) {
+        RCLCPP_ERROR_THROTTLE(get_logger(), *get_clock(), 1000, "Invalid SDK feedback without a verified replacement");
+        return;
     }
     const auto read_ros_ns = now().nanoseconds();
     const auto read_mono_ns = _monotonic_clock.now_nanoseconds();

@@ -26,6 +26,7 @@
 #include <thread>
 #include "semaphore.h"
 #include "fairino_hardware/servo_j_streamer.hpp"
+#include "fairino_hardware/native_feedback_copy.hpp"
 #include "fairino_hardware/servo_j_diagnostics.hpp"
 
 using remote_cmd_server_srv_msg = fairino_msgs::srv::RemoteCmdInterface;
@@ -324,6 +325,7 @@ private:
     rclcpp::Service<fairino_msgs::srv::RemoteScriptContent>::SharedPtr _recv_ros_script_server;
     std::mutex _motion_mutex;
     std::mutex _sdk_mutex;
+    fairino_hardware::NativeFeedbackCopy _native_feedback;
     std::unique_ptr<FairinoServoJRobot> _servo_j_robot;
     fairino_hardware::SystemMonotonicClock _monotonic_clock;
     std::unique_ptr<fairino_hardware::ServoJStreamer> _servo_j_streamer;

@@ -22,7 +22,7 @@ find_package(fairino_msgs REQUIRED)
 
 #set variable
 set(SRC_DIR EXP_SRC_DIR)
-file(GLOB SRC_DIR ./src/command_server.cpp ./src/command_server_node.cpp ./src/CNDE_thread.cpp ./src/global_val_def.cpp)
+file(GLOB SRC_DIR ./src/native_feedback_copy.cpp ./src/command_server.cpp ./src/command_server_node.cpp ./src/CNDE_thread.cpp ./src/global_val_def.cpp)
 file(GLOB EXP_SRC_DIR ./examples/src/*.cpp)
 
 #compile
@@ -126,6 +126,9 @@ if(BUILD_TESTING)
   # a copyright and license is added to all source files
   set(ament_cmake_cpplint_FOUND TRUE)
   ament_lint_auto_find_test_dependencies()
+
+  ament_add_gmock(test_native_feedback_copy test/test_native_feedback_copy.cpp src/native_feedback_copy.cpp)
+  target_include_directories(test_native_feedback_copy PRIVATE include ${CMAKE_CURRENT_SOURCE_DIR})
 
   ament_add_gmock(test_servo_j_streamer test/test_servo_j_streamer.cpp)
   target_link_libraries(test_servo_j_streamer servo_j_streamer)
